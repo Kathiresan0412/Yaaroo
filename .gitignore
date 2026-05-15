@@ -1,0 +1,89 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Node / TypeScript builds
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Prisma
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+# Uploads and local storage
+backend/uploads/
+backend/storage/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+pubspec.lock
+build/
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/android/.gradle/
+mobile/android/app/debug
+mobile/android/app/profile
+mobile/android/app/release
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Runner.xcworkspace/
+mobile/ios/Runner/GeneratedPluginRegistrant.*
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.keystore
+*.jks
+local.properties
+
+# iOS / macOS
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+.cache/
