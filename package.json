@@ -1,0 +1,17 @@
+{
+  "name": "yaro0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend/public-site",
+    "frontend/admin-panel"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
