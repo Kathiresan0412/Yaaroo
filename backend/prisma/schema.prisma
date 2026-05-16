@@ -156,6 +156,8 @@ model User {
   isActive              Boolean   @default(true) @map("is_active")
   isBanned              Boolean   @default(false) @map("is_banned")
   banReason             String?   @map("ban_reason") @db.Text
+  passwordHash          String?   @map("password_hash") @db.VarChar(255)
+  passwordUpdatedAt     DateTime? @map("password_updated_at") @db.Timestamp(0)
   lastSeenAt            DateTime? @map("last_seen_at") @db.Timestamp(0)
   freeTrialStartedAt    DateTime? @map("free_trial_started_at") @db.Timestamp(0)
   freeTrialEndsAt       DateTime? @map("free_trial_ends_at") @db.Timestamp(0)
