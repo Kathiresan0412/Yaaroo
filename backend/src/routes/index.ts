@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../config/database";
 import { authRouter } from "./auth.routes";
+import { profilesRouter } from "./profiles.routes";
 
 export const apiRouter = Router();
 
@@ -18,3 +19,4 @@ apiRouter.get("/health/db", async (_req, res, next) => {
 });
 
 apiRouter.use("/auth", authRouter);
+apiRouter.use("/profiles", profilesRouter);
