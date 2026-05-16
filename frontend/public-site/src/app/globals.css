@@ -480,6 +480,299 @@ img {
     radial-gradient(circle at 16% 22%, rgba(255, 79, 109, 0.18), transparent 28%);
 }
 
+.page-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(255, 79, 109, 0.16), transparent 28%),
+    radial-gradient(circle at 84% 18%, rgba(49, 208, 178, 0.12), transparent 28%),
+    #050506;
+}
+
+.page-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(5, 5, 6, 0.78);
+  backdrop-filter: blur(18px);
+}
+
+.page-hero {
+  width: min(1120px, calc(100% - 36px));
+  margin: 0 auto;
+  padding: clamp(74px, 10vw, 128px) 0 clamp(34px, 5vw, 60px);
+  text-align: center;
+}
+
+.page-hero.compact {
+  width: min(900px, calc(100% - 36px));
+}
+
+.page-hero h1,
+.auth-card h1,
+.legal-page h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(3rem, 7.5vw, 6.6rem);
+  line-height: 0.95;
+}
+
+.page-hero p:not(.hero-kicker) {
+  max-width: 720px;
+  margin: 22px auto 0;
+  color: var(--muted);
+  font-size: clamp(1rem, 1.45vw, 1.22rem);
+  line-height: 1.6;
+}
+
+.feature-grid,
+.pricing-grid {
+  width: min(1120px, calc(100% - 36px));
+  margin: 0 auto;
+  padding: 16px 0 clamp(64px, 8vw, 110px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.download-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.feature-panel,
+.price-card,
+.auth-card,
+.legal-page {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+}
+
+.feature-panel,
+.price-card {
+  padding: 26px;
+}
+
+.feature-panel svg,
+.price-card svg {
+  color: var(--teal);
+}
+
+.feature-panel h2,
+.price-card h2,
+.legal-page h2 {
+  margin: 18px 0 0;
+  color: #fff;
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  line-height: 1.1;
+}
+
+.feature-panel p,
+.price-card p,
+.legal-page p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.feature-panel .primary-cta,
+.feature-panel .secondary-cta,
+.price-card .primary-cta,
+.price-card .secondary-cta {
+  width: fit-content;
+  margin-top: 18px;
+}
+
+.pricing-grid {
+  align-items: stretch;
+}
+
+.price-card {
+  display: grid;
+  align-content: start;
+}
+
+.price {
+  margin: 18px 0 0;
+  color: #fff;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  font-weight: 950;
+  line-height: 1;
+}
+
+.price span {
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 760;
+}
+
+.price-card ul {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.price-card li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.auth-page {
+  width: min(520px, calc(100% - 36px));
+  min-height: calc(100svh - 92px);
+  margin: 0 auto;
+  padding: clamp(46px, 8vw, 84px) 0;
+  display: grid;
+  align-items: center;
+}
+
+.auth-card {
+  padding: clamp(24px, 5vw, 36px);
+}
+
+.auth-card h1 {
+  font-size: clamp(2.4rem, 8vw, 4rem);
+}
+
+.social-login {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.social-button {
+  min-height: 54px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 900;
+}
+
+.social-button span {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #202126;
+  background: #fff;
+  font-weight: 950;
+}
+
+.social-button.tiktok span {
+  color: #fff;
+  background: #111217;
+}
+
+.auth-divider {
+  margin: 22px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.88rem;
+  font-weight: 780;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.auth-card .account-form label {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.auth-card .account-form input,
+.auth-card .account-form select {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.auth-row,
+.check-label,
+.form-success,
+.account-form .primary-cta,
+.modal-success .primary-cta {
+  display: flex;
+  align-items: center;
+}
+
+.auth-row {
+  justify-content: space-between;
+  gap: 14px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.auth-row a,
+.auth-switch a {
+  color: #fff;
+  font-weight: 900;
+}
+
+.check-label {
+  gap: 8px;
+}
+
+.check-label input {
+  width: 16px;
+  min-height: 16px;
+}
+
+.auth-switch {
+  margin: 22px 0 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+.form-success {
+  gap: 8px;
+  margin: 0;
+  padding: 11px 12px;
+  border-radius: 8px;
+  color: #dffcf7;
+  background: rgba(49, 208, 178, 0.16);
+  font-size: 0.92rem;
+  font-weight: 760;
+}
+
+.account-form .primary-cta,
+.modal-success .primary-cta {
+  justify-content: center;
+  gap: 9px;
+}
+
+.legal-page {
+  width: min(860px, calc(100% - 36px));
+  margin: clamp(52px, 8vw, 86px) auto clamp(64px, 8vw, 110px);
+  padding: clamp(24px, 5vw, 42px);
+}
+
+.legal-page h1 {
+  font-size: clamp(2.6rem, 7vw, 5rem);
+}
+
+.legal-page h2 {
+  margin-top: 34px;
+}
+
+.page-footer-inner {
+  grid-template-columns: minmax(220px, 0.8fr) minmax(320px, 1fr) minmax(260px, 0.8fr);
+}
+
 .footer-inner {
   width: min(1180px, 100%);
   margin: 0 auto;
@@ -802,6 +1095,12 @@ img {
     grid-template-columns: 1fr;
   }
 
+  .feature-grid,
+  .pricing-grid,
+  .download-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .footer-links {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -874,6 +1173,28 @@ img {
 
   .footer-links {
     grid-template-columns: 1fr;
+  }
+
+  .feature-grid,
+  .pricing-grid,
+  .download-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-hero h1 {
+    font-size: clamp(2.7rem, 15vw, 4.3rem);
+  }
+
+  .feature-panel .primary-cta,
+  .feature-panel .secondary-cta,
+  .price-card .primary-cta,
+  .price-card .secondary-cta {
+    width: 100%;
+  }
+
+  .auth-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .footer-bottom {

@@ -92,19 +92,19 @@ const safetyLinks = [
 const footerColumns = [
   {
     title: "Yaro0",
-    links: ["About", "Careers", "Stories", "Contact"],
+    links: ["About", "Stories", "Safety", "Terms"],
   },
   {
     title: "Discover",
-    links: ["App", "Premium", "Events", "Success stories"],
+    links: ["Download", "Pricing", "Login", "Signup"],
   },
   {
     title: "Safety",
-    links: ["Safety centre", "Community rules", "Privacy", "Report concern"],
+    links: ["Safety", "Policy", "Privacy", "Terms"],
   },
   {
     title: "Connect",
-    links: ["Help", "Tamil diaspora", "Sri Lanka", "Download"],
+    links: ["About", "Stories", "Download", "Pricing"],
   },
 ];
 
@@ -215,8 +215,8 @@ export function SwipeExperience() {
           </a>
 
           <nav className="site-nav" aria-label="Primary navigation">
-            <a href="#app">App</a>
-            <a href="#stories">Stories</a>
+            <a href="/download">App</a>
+            <a href="/stories">Stories</a>
             <div className="nav-menu">
               <button type="button" aria-haspopup="true">
                 Safety
@@ -224,14 +224,14 @@ export function SwipeExperience() {
               </button>
               <div className="safety-menu" aria-label="Safety links">
                 {safetyLinks.map((item) => (
-                  <a href="#safety" key={item}>
+                  <a href="/safety" key={item}>
                     {item}
                   </a>
                 ))}
               </div>
             </div>
-            <a href="#pricing">Pricing</a>
-            <a href="#download">Download</a>
+            <a href="/pricing">Pricing</a>
+            <a href="/download">Download</a>
           </nav>
 
           <div className="header-actions">
@@ -268,7 +268,7 @@ export function SwipeExperience() {
             >
               Create account
             </button>
-            <a className="secondary-cta" href="#safety">
+            <a className="secondary-cta" href="/safety">
               <LockKeyhole size={18} aria-hidden="true" />
               See safety tools
             </a>
@@ -322,7 +322,7 @@ export function SwipeExperience() {
               <div key={column.title}>
                 <h2>{column.title}</h2>
                 {column.links.map((link) => (
-                  <a href={`#${link.toLowerCase().replaceAll(" ", "-")}`} key={link}>
+                  <a href={`/${link.toLowerCase().replaceAll(" ", "-")}`} key={link}>
                     {link}
                   </a>
                 ))}
@@ -334,11 +334,11 @@ export function SwipeExperience() {
             <p className="footer-kicker">Start today</p>
             <h2>Find people who understand your world.</h2>
             <div className="store-buttons">
-              <a href="#app-store">
+              <a href="/download#ios">
                 <span>Download on the</span>
                 App Store
               </a>
-              <a href="#play-store">
+              <a href="/download#android">
                 <span>Get it on</span>
                 Google Play
               </a>
@@ -349,9 +349,9 @@ export function SwipeExperience() {
         <div className="footer-bottom">
           <p>© 2026 Yaro0. All rights reserved.</p>
           <div>
-            <a href="#terms">Terms</a>
-            <a href="#privacy">Privacy</a>
-            <a href="#cookies">Cookies</a>
+            <a href="/terms">Terms</a>
+            <a href="/privacy">Privacy</a>
+            <a href="/policy">Policy</a>
           </div>
         </div>
       </footer>
