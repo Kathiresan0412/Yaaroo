@@ -3,6 +3,574 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  user
+  moderator
+  admin
+  super_admin
+}
+
+enum Gender {
+  male
+  female
+}
+
+enum EducationLevel {
+  high_school
+  diploma
+  bachelors
+  masters
+  phd
+  other
+}
+
+enum Diet {
+  vegetarian
+  non_vegetarian
+  eggetarian
+  vegan
+}
+
+enum Habit {
+  no
+  occasionally
+  yes
+}
+
+enum PreferenceHabit {
+  no
+  occasionally
+  both
+}
+
+enum FamilyType {
+  nuclear
+  joint
+  extended
+}
+
+enum FamilyStatus {
+  middle_class
+  upper_middle_class
+  rich
+  affluent
+}
+
+enum PhotoStatus {
+  pending
+  approved
+  rejected
+}
+
+enum Dhosam {
+  no
+  chevvai
+  kethu
+  raghu
+  parigaram_done
+}
+
+enum InterestStatus {
+  pending
+  accepted
+  declined
+}
+
+enum MessageType {
+  text
+  voice
+  image
+  system
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+}
+
+enum PaymentGateway {
+  razorpay
+  stripe
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  failed
+  refunded
+}
+
+enum IdType {
+  nic
+  passport
+  driving_license
+}
+
+enum VerificationStatus {
+  pending
+  approved
+  rejected
+}
+
+enum ReportReason {
+  fake_profile
+  inappropriate_photo
+  harassment
+  spam
+  scam
+  other
+}
+
+enum ReportStatus {
+  pending
+  reviewed
+  action_taken
+  dismissed
+}
+
+enum EventType {
+  virtual_speed_dating
+  community_meetup
+  webinar
+  other
+}
+
+enum SettingType {
+  string
+  integer
+  boolean
+  json
+}
+
+model User {
+  id                    BigInt    @id @default(autoincrement())
+  phone                 String    @unique @db.VarChar(20)
+  phoneVerifiedAt       DateTime? @map("phone_verified_at") @db.Timestamp(0)
+  email                 String?   @unique @db.VarChar(255)
+  role                  UserRole  @default(user)
+  isActive              Boolean   @default(true) @map("is_active")
+  isBanned              Boolean   @default(false) @map("is_banned")
+  banReason             String?   @map("ban_reason") @db.Text
+  lastSeenAt            DateTime? @map("last_seen_at") @db.Timestamp(0)
+  freeTrialStartedAt    DateTime? @map("free_trial_started_at") @db.Timestamp(0)
+  freeTrialEndsAt       DateTime? @map("free_trial_ends_at") @db.Timestamp(0)
+  freeMessagesUsedToday Int       @default(0) @map("free_messages_used_today")
+  freeMessagesResetAt   DateTime? @map("free_messages_reset_at") @db.Date
+  rememberToken         String?   @map("remember_token") @db.VarChar(100)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  profile               Profile?
+  photos                ProfilePhoto[] @relation("UserPhotos")
+  reviewedPhotos        ProfilePhoto[] @relation("PhotoReviewer")
+  jathagam              Jathagam?
+  preference            Preference?
+  sentInterests         Interest[]     @relation("InterestSender")
+  receivedInterests     Interest[]     @relation("InterestReceiver")
+  matchesAsUser1        Match[]        @relation("MatchUser1")
+  matchesAsUser2        Match[]        @relation("MatchUser2")
+  conversationsAsUser1  Conversation[] @relation("ConversationUser1")
+  conversationsAsUser2  Conversation[] @relation("ConversationUser2")
+  messages              Message[]      @relation("MessageSender")
+  subscriptions         Subscription[]
+  payments              Payment[]
+  verifications         Verification[] @relation("UserVerifications")
+  reviewedVerifications Verification[] @relation("VerificationReviewer")
+  reportsMade           Report[]       @relation("ReportReporter")
+  reportsReceived       Report[]       @relation("ReportReported")
+  reviewedReports       Report[]       @relation("ReportReviewer")
+  blocksMade            Block[]        @relation("BlockBlocker")
+  blocksReceived        Block[]        @relation("BlockBlocked")
+  eventsCreated         Event[]        @relation("EventCreator")
+
+  @@index([phone])
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
+model Profile {
+  id                   BigInt          @id @default(autoincrement())
+  userId               BigInt          @unique @map("user_id")
+  nameEn               String          @map("name_en") @db.VarChar(255)
+  nameTa               String?         @map("name_ta") @db.VarChar(255)
+  gender               Gender
+  dateOfBirth          DateTime        @map("date_of_birth") @db.Date
+  country              String          @default("Sri Lanka") @db.VarChar(100)
+  stateProvince        String?         @map("state_province") @db.VarChar(100)
+  city                 String?         @db.VarChar(100)
+  originCountry        String?         @map("origin_country") @db.VarChar(100)
+  originDistrict       String?         @map("origin_district") @db.VarChar(100)
+  religion             String?         @default("Hindu") @db.VarChar(100)
+  caste                String?         @db.VarChar(100)
+  subCaste             String?         @map("sub_caste") @db.VarChar(100)
+  casteNoBar           Boolean         @default(false) @map("caste_no_bar")
+  educationLevel       EducationLevel? @map("education_level")
+  educationField       String?         @map("education_field") @db.VarChar(255)
+  profession           String?         @db.VarChar(255)
+  employer             String?         @db.VarChar(255)
+  annualIncomeLkr      Decimal?        @map("annual_income_lkr") @db.Decimal(15, 2)
+  heightCm             Int?            @map("height_cm")
+  weightKg             Int?            @map("weight_kg")
+  bodyType             String?         @map("body_type") @db.VarChar(50)
+  complexion           String?         @db.VarChar(50)
+  motherTongue         String?         @default("Tamil") @map("mother_tongue") @db.VarChar(100)
+  languagesKnown       Json?           @map("languages_known")
+  diet                 Diet?
+  smoking              Habit?
+  drinking             Habit?
+  familyType           FamilyType?     @map("family_type")
+  familyStatus         FamilyStatus?   @map("family_status")
+  fatherOccupation     String?         @map("father_occupation") @db.VarChar(255)
+  motherOccupation     String?         @map("mother_occupation") @db.VarChar(255)
+  siblingsCount        Int             @default(0) @map("siblings_count")
+  bioEn                String?         @map("bio_en") @db.Text
+  bioTa                String?         @map("bio_ta") @db.Text
+  isVerified           Boolean         @default(false) @map("is_verified")
+  isWomenSafeMode      Boolean         @default(false) @map("is_women_safe_mode")
+  profileCompletionPct Int             @default(0) @map("profile_completion_pct")
+  isActive             Boolean         @default(true) @map("is_active")
+  isHidden             Boolean         @default(false) @map("is_hidden")
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt            DateTime        @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([gender])
+  @@index([country])
+  @@index([caste])
+  @@map("profiles")
+}
+
+model ProfilePhoto {
+  id              BigInt      @id @default(autoincrement())
+  userId          BigInt      @map("user_id")
+  photoUrl        String      @map("photo_url") @db.VarChar(500)
+  thumbnailUrl    String?     @map("thumbnail_url") @db.VarChar(500)
+  isPrimary       Boolean     @default(false) @map("is_primary")
+  displayOrder    Int         @default(0) @map("display_order")
+  status          PhotoStatus @default(pending)
+  rejectionReason String?     @map("rejection_reason") @db.VarChar(255)
+  reviewedBy      BigInt?     @map("reviewed_by")
+  reviewedAt      DateTime?   @map("reviewed_at") @db.Timestamp(0)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  user     User  @relation("UserPhotos", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("PhotoReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([reviewedBy])
+  @@map("profile_photos")
+}
+
+model Jathagam {
+  id               BigInt    @id @default(autoincrement())
+  userId           BigInt    @unique @map("user_id")
+  birthStar        String?   @map("birth_star") @db.VarChar(100)
+  birthRasi        String?   @map("birth_rasi") @db.VarChar(100)
+  lagnam           String?   @db.VarChar(100)
+  birthTime        DateTime? @map("birth_time") @db.Time(0)
+  birthPlace       String?   @map("birth_place") @db.VarChar(255)
+  dhosam           Dhosam    @default(no)
+  horoscopeFileUrl String?   @map("horoscope_file_url") @db.VarChar(500)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("jathagams")
+}
+
+model Preference {
+  id                       BigInt          @id @default(autoincrement())
+  userId                   BigInt          @unique @map("user_id")
+  preferredAgeMin          Int             @default(18) @map("preferred_age_min")
+  preferredAgeMax          Int             @default(45) @map("preferred_age_max")
+  preferredCountries       Json?           @map("preferred_countries")
+  preferredStates          Json?           @map("preferred_states")
+  preferredCastes          Json?           @map("preferred_castes")
+  casteNoBar               Boolean         @default(false) @map("caste_no_bar")
+  preferredReligions       Json?           @map("preferred_religions")
+  preferredEducationLevels Json?           @map("preferred_education_levels")
+  preferredHeightMinCm     Int?            @map("preferred_height_min_cm")
+  preferredHeightMaxCm     Int?            @map("preferred_height_max_cm")
+  preferredDiet            Json?           @map("preferred_diet")
+  preferredSmoking         PreferenceHabit @default(no) @map("preferred_smoking")
+  preferredDrinking        PreferenceHabit @default(no) @map("preferred_drinking")
+  dhosamAcceptable         Boolean         @default(true) @map("dhosam_acceptable")
+  preferredStars           Json?           @map("preferred_stars")
+  createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt                DateTime        @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("preferences")
+}
+
+model Interest {
+  id          BigInt         @id @default(autoincrement())
+  senderId    BigInt         @map("sender_id")
+  receiverId  BigInt         @map("receiver_id")
+  status      InterestStatus @default(pending)
+  message     String?        @db.Text
+  sentAt      DateTime       @default(now()) @map("sent_at") @db.Timestamp(0)
+  respondedAt DateTime?      @map("responded_at") @db.Timestamp(0)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  sender   User @relation("InterestSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("InterestReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([receiverId])
+  @@index([status])
+  @@map("interests")
+}
+
+model Match {
+  id                 BigInt   @id @default(autoincrement())
+  user1Id            BigInt   @map("user1_id")
+  user2Id            BigInt   @map("user2_id")
+  compatibilityScore Decimal  @default(0) @map("compatibility_score") @db.Decimal(5, 2)
+  matchedAt          DateTime @default(now()) @map("matched_at") @db.Timestamp(0)
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  user1         User           @relation("MatchUser1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2         User           @relation("MatchUser2", fields: [user2Id], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@unique([user1Id, user2Id])
+  @@index([user1Id])
+  @@index([user2Id])
+  @@map("matches")
+}
+
+model Conversation {
+  id                 BigInt    @id @default(autoincrement())
+  matchId            BigInt    @map("match_id")
+  user1Id            BigInt    @map("user1_id")
+  user2Id            BigInt    @map("user2_id")
+  lastMessageAt      DateTime? @map("last_message_at") @db.Timestamp(0)
+  lastMessagePreview String?   @map("last_message_preview") @db.VarChar(255)
+  user1UnreadCount   Int       @default(0) @map("user1_unread_count")
+  user2UnreadCount   Int       @default(0) @map("user2_unread_count")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  match    Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user1    User      @relation("ConversationUser1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2    User      @relation("ConversationUser2", fields: [user2Id], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([user1Id])
+  @@index([user2Id])
+  @@index([matchId])
+  @@map("conversations")
+}
+
+model Message {
+  id                  BigInt      @id @default(autoincrement())
+  conversationId      BigInt      @map("conversation_id")
+  senderId            BigInt      @map("sender_id")
+  messageType         MessageType @default(text) @map("message_type")
+  content             String?     @db.Text
+  mediaUrl            String?     @map("media_url") @db.VarChar(500)
+  durationSeconds     Int?        @map("duration_seconds")
+  isRead              Boolean     @default(false) @map("is_read")
+  readAt              DateTime?   @map("read_at") @db.Timestamp(0)
+  isDeletedBySender   Boolean     @default(false) @map("is_deleted_by_sender")
+  isDeletedByReceiver Boolean     @default(false) @map("is_deleted_by_receiver")
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamp(0)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model SubscriptionPlan {
+  id           BigInt   @id @default(autoincrement())
+  name         String   @db.VarChar(100)
+  nameTa       String?  @map("name_ta") @db.VarChar(100)
+  slug         String   @unique @db.VarChar(100)
+  durationDays Int      @map("duration_days")
+  priceLkr     Decimal? @map("price_lkr") @db.Decimal(10, 2)
+  priceInr     Decimal? @map("price_inr") @db.Decimal(10, 2)
+  priceUsd     Decimal? @map("price_usd") @db.Decimal(10, 2)
+  features     Json?
+  isFeatured   Boolean  @default(false) @map("is_featured")
+  isActive     Boolean  @default(true) @map("is_active")
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  subscriptions Subscription[]
+  payments      Payment[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id          BigInt             @id @default(autoincrement())
+  userId      BigInt             @map("user_id")
+  planId      BigInt             @map("plan_id")
+  startsAt    DateTime           @map("starts_at") @db.Timestamp(0)
+  endsAt      DateTime           @map("ends_at") @db.Timestamp(0)
+  isTrial     Boolean            @default(false) @map("is_trial")
+  status      SubscriptionStatus @default(active)
+  cancelledAt DateTime?          @map("cancelled_at") @db.Timestamp(0)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([endsAt])
+  @@index([planId])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id               BigInt         @id @default(autoincrement())
+  userId           BigInt         @map("user_id")
+  planId           BigInt         @map("plan_id")
+  subscriptionId   BigInt?        @map("subscription_id")
+  gateway          PaymentGateway
+  gatewayOrderId   String?        @map("gateway_order_id") @db.VarChar(255)
+  gatewayPaymentId String?        @map("gateway_payment_id") @db.VarChar(255)
+  amount           Decimal        @db.Decimal(10, 2)
+  currency         String         @default("LKR") @db.VarChar(10)
+  status           PaymentStatus  @default(pending)
+  gatewayResponse  Json?          @map("gateway_response")
+  paidAt           DateTime?      @map("paid_at") @db.Timestamp(0)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([gatewayPaymentId])
+  @@index([planId])
+  @@index([subscriptionId])
+  @@map("payments")
+}
+
+model Verification {
+  id              BigInt             @id @default(autoincrement())
+  userId          BigInt             @map("user_id")
+  idType          IdType             @map("id_type")
+  idFrontUrl      String             @map("id_front_url") @db.VarChar(500)
+  idBackUrl       String?            @map("id_back_url") @db.VarChar(500)
+  selfieUrl       String             @map("selfie_url") @db.VarChar(500)
+  status          VerificationStatus @default(pending)
+  rejectionReason String?            @map("rejection_reason") @db.Text
+  reviewedBy      BigInt?            @map("reviewed_by")
+  reviewedAt      DateTime?          @map("reviewed_at") @db.Timestamp(0)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  user     User  @relation("UserVerifications", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("VerificationReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([reviewedBy])
+  @@map("verifications")
+}
+
+model Report {
+  id          BigInt       @id @default(autoincrement())
+  reporterId  BigInt       @map("reporter_id")
+  reportedId  BigInt       @map("reported_id")
+  reason      ReportReason
+  description String?      @db.Text
+  status      ReportStatus @default(pending)
+  actionTaken String?      @map("action_taken") @db.VarChar(255)
+  reviewedBy  BigInt?      @map("reviewed_by")
+  reviewedAt  DateTime?    @map("reviewed_at") @db.Timestamp(0)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamp(0)
+
+  reporter User  @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported User  @relation("ReportReported", fields: [reportedId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("ReportReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([reportedId])
+  @@index([status])
+  @@index([reporterId])
+  @@index([reviewedBy])
+  @@map("reports")
+}
+
+model Block {
+  id        BigInt   @id @default(autoincrement())
+  blockerId BigInt   @map("blocker_id")
+  blockedId BigInt   @map("blocked_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  blocker User @relation("BlockBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlockBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+  @@map("blocks")
+}
+
+model Event {
+  id                   BigInt    @id @default(autoincrement())
+  titleEn              String    @map("title_en") @db.VarChar(255)
+  titleTa              String?   @map("title_ta") @db.VarChar(255)
+  descriptionEn        String?   @map("description_en") @db.Text
+  descriptionTa        String?   @map("description_ta") @db.Text
+  eventType            EventType @map("event_type")
+  bannerUrl            String?   @map("banner_url") @db.VarChar(500)
+  eventDate            DateTime  @map("event_date") @db.Timestamp(0)
+  registrationDeadline DateTime? @map("registration_deadline") @db.Timestamp(0)
+  location             String?   @db.VarChar(255)
+  meetingLink          String?   @map("meeting_link") @db.VarChar(500)
+  maxAttendees         Int?      @map("max_attendees")
+  registeredCount      Int       @default(0) @map("registered_count")
+  ticketPriceLkr       Decimal   @default(0) @map("ticket_price_lkr") @db.Decimal(10, 2)
+  isFree               Boolean   @default(true) @map("is_free")
+  isActive             Boolean   @default(true) @map("is_active")
+  createdBy            BigInt    @map("created_by")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  creator User @relation("EventCreator", fields: [createdBy], references: [id])
+
+  @@index([eventDate])
+  @@index([isActive])
+  @@index([createdBy])
+  @@map("events")
+}
+
+model Setting {
+  id          BigInt      @id @default(autoincrement())
+  key         String      @unique @db.VarChar(255)
+  value       String?     @db.Text
+  type        SettingType @default(string)
+  description String?     @db.VarChar(500)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  @@index([key])
+  @@map("settings")
 }
