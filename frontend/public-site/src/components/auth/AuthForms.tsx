@@ -94,7 +94,7 @@ export function LoginForm() {
         </button>
       </form>
       <p className="auth-switch">
-        New to Yaro0? <a href="/signup">Create account</a>
+        New to Yaro0? <a href="/#create-account">Create account</a>
       </p>
     </section>
   );

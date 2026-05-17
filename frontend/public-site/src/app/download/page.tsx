@@ -37,7 +37,7 @@ export default function DownloadPage() {
           <QrCode size={28} aria-hidden="true" />
           <h2>Invite code</h2>
           <p>Use an invite code from the team to unlock early profile review.</p>
-          <a className="secondary-cta" href="/signup">
+          <a className="secondary-cta" href="/#create-account">
             Request access
           </a>
         </article>

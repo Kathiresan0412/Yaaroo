@@ -48,7 +48,7 @@ export default function PricingPage() {
                 </li>
               ))}
             </ul>
-            <a className={plan.name === "Free" ? "secondary-cta" : "primary-cta"} href="/signup">
+            <a className={plan.name === "Free" ? "secondary-cta" : "primary-cta"} href="/#create-account">
               Choose {plan.name}
             </a>
           </article>

@@ -1,4 +1,15 @@
 import "./globals.css";
+import type { Metadata } from "next";
+import { AuthProvider } from "../components/auth/AuthProvider";
+
+export const metadata: Metadata = {
+  title: "Yaaro0",
+  icons: {
+    icon: "/brand-assets/logo.png",
+    shortcut: "/brand-assets/logo.png",
+    apple: "/brand-assets/logo.png",
+  },
+};
 
 export default function RootLayout({
   children,
@@ -7,7 +18,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

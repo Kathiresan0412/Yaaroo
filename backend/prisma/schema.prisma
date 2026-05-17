@@ -17,6 +17,15 @@ enum UserRole {
 enum Gender {
   male
   female
+  non_binary
+  other
+}
+
+enum UserStatus {
+  active
+  suspended
+  banned
+  deleted
 }
 
 enum EducationLevel {
@@ -149,9 +158,20 @@ enum SettingType {
 
 model User {
   id                    BigInt    @id @default(autoincrement())
-  phone                 String    @unique @db.VarChar(20)
+  phone                 String?   @unique @db.VarChar(20)
   phoneVerifiedAt       DateTime? @map("phone_verified_at") @db.Timestamp(0)
   email                 String?   @unique @db.VarChar(255)
+  firstName             String?   @map("first_name") @db.VarChar(100)
+  lastName              String?   @map("last_name") @db.VarChar(100)
+  emailVerified         Boolean   @default(false) @map("email_verified")
+  emailVerifyToken      String?   @unique @map("email_verify_token") @db.VarChar(128)
+  emailVerifyTokenExpires DateTime? @map("email_verify_token_expires") @db.Timestamp(0)
+  resetPasswordToken    String?   @unique @map("reset_password_token") @db.VarChar(128)
+  resetTokenExpires     DateTime? @map("reset_token_expires") @db.Timestamp(0)
+  oauthProvider         String?   @map("oauth_provider") @db.VarChar(50)
+  oauthId               String?   @map("oauth_id") @db.VarChar(255)
+  status                UserStatus @default(active)
+  onboardingCompleted   Boolean   @default(false) @map("onboarding_completed")
   role                  UserRole  @default(user)
   isActive              Boolean   @default(true) @map("is_active")
   isBanned              Boolean   @default(false) @map("is_banned")
@@ -159,6 +179,7 @@ model User {
   passwordHash          String?   @map("password_hash") @db.VarChar(255)
   passwordUpdatedAt     DateTime? @map("password_updated_at") @db.Timestamp(0)
   lastSeenAt            DateTime? @map("last_seen_at") @db.Timestamp(0)
+  lastActiveAt          DateTime? @map("last_active_at") @db.Timestamp(0)
   freeTrialStartedAt    DateTime? @map("free_trial_started_at") @db.Timestamp(0)
   freeTrialEndsAt       DateTime? @map("free_trial_ends_at") @db.Timestamp(0)
   freeMessagesUsedToday Int       @default(0) @map("free_messages_used_today")
@@ -169,6 +190,7 @@ model User {
 
   profile               Profile?
   photos                ProfilePhoto[] @relation("UserPhotos")
+  refreshTokens         RefreshToken[]
   reviewedPhotos        ProfilePhoto[] @relation("PhotoReviewer")
   jathagam              Jathagam?
   preference            Preference?
@@ -191,9 +213,25 @@ model User {
   eventsCreated         Event[]        @relation("EventCreator")
 
   @@index([phone])
+  @@index([email])
+  @@index([status])
   @@index([role])
   @@index([isActive])
   @@map("users")
+}
+
+model RefreshToken {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  token     String   @unique @db.VarChar(128)
+  expiresAt DateTime @map("expires_at") @db.Timestamp(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
 }
 
 model Profile {

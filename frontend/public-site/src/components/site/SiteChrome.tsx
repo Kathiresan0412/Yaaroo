@@ -1,10 +1,12 @@
-import { ChevronDown, Globe2, Heart } from "lucide-react";
+import { ChevronDown, Globe2, Menu } from "lucide-react";
+import { BrandLogo } from "./BrandLogo";
 
 const safetyLinks = [
-  { label: "Verified profiles", href: "/safety#verified" },
-  { label: "Women-safe controls", href: "/safety#women-safe" },
-  { label: "Report & support", href: "/safety#support" },
-  { label: "Privacy promise", href: "/privacy" },
+  { label: "Community Guidelines", href: "/policy" },
+  { label: "Safety Tips", href: "/safety" },
+  { label: "Safety & Policy", href: "/safety#policy" },
+  { label: "Safety & Reporting", href: "/safety#support" },
+  { label: "Security", href: "/privacy" },
 ];
 
 const footerColumns = [
@@ -22,8 +24,8 @@ const footerColumns = [
     links: [
       { label: "App", href: "/download" },
       { label: "Pricing", href: "/pricing" },
-      { label: "Download", href: "/download" },
-      { label: "Create account", href: "/signup" },
+      { label: "Download", href: "/download" }
+      // { label: "Create account", href: "/#create-account" },
     ],
   },
   {
@@ -41,15 +43,12 @@ export function SiteHeader() {
   return (
     <header className="site-header page-header">
       <a className="brand" href="/" aria-label="Yaro0 home">
-        <span className="brand-flame">
-          <Heart size={24} fill="currentColor" />
-        </span>
-        Yaro0
+        <BrandLogo />
       </a>
 
       <nav className="site-nav" aria-label="Primary navigation">
-        <a href="/download">App</a>
-        <a href="/stories">Stories</a>
+        <a href="/pricing">Products</a>
+        <a href="/stories">Learn</a>
         <div className="nav-menu">
           <button type="button" aria-haspopup="true">
             Safety
@@ -63,7 +62,7 @@ export function SiteHeader() {
             ))}
           </div>
         </div>
-        <a href="/pricing">Pricing</a>
+        <a href="/safety#support">Support</a>
         <a href="/download">Download</a>
       </nav>
 
@@ -75,7 +74,24 @@ export function SiteHeader() {
         <a className="login-button" href="/login">
           Log in
         </a>
+        {/* <a className="signup-button" href="/#create-account">
+          Create account
+        </a> */}
       </div>
+
+      <details className="mobile-nav">
+        <summary aria-label="Open navigation">
+          <Menu size={30} aria-hidden="true" />
+        </summary>
+        <nav className="mobile-nav-panel" aria-label="Mobile navigation">
+          <a href="/pricing">Products</a>
+          <a href="/stories">Learn</a>
+          <a href="/safety">Safety</a>
+          <a href="/safety#support">Support</a>
+          <a href="/download">Download</a>
+          <a href="/login">Log in</a>
+        </nav>
+      </details>
     </header>
   );
 }
@@ -85,11 +101,8 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="footer-inner page-footer-inner">
         <section className="footer-brand" aria-label="Yaro0 footer">
-          <a className="footer-logo" href="/" aria-label="Yaro0 home">
-            <span className="brand-flame">
-              <Heart size={24} fill="currentColor" />
-            </span>
-            Yaro0
+      <a className="footer-logo" href="/" aria-label="Yaro0 home">
+            <BrandLogo />
           </a>
           <p>
             A safer place for Tamil singles to meet with clarity, culture, and
