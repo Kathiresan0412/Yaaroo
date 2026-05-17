@@ -210,7 +210,7 @@ export async function register(req: Request, res: Response) {
     },
   });
 
-  const verifyUrl = `${req.protocol}://${req.get("host")}/api/auth/verify-email/${emailVerifyToken}`;
+  const verifyUrl = `${env.publicWebUrl}/verify-email/${emailVerifyToken}`;
   sendAccountEmail("verify", email, verifyUrl);
 
   return res.status(201).json({
@@ -362,7 +362,7 @@ export async function forgotPassword(req: Request, res: Response) {
       },
     });
 
-    const resetUrl = `${req.protocol}://${req.get("host")}/reset-password/${token}`;
+    const resetUrl = `${env.publicWebUrl}/reset-password/${token}`;
     sendAccountEmail("reset", email, resetUrl);
   }
 
