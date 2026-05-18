@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 const sessionKey = "yaro0_admin_session";
 const apiBaseUrl =
   process.env.NEXT_PUBLIC_ADMIN_API_URL?.replace(/\/$/, "") ??
-  "http://localhost:8000/admin/api";
+  "/api/admin";
 
 type Section =
   | "dashboard"
