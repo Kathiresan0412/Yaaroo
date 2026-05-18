@@ -22,5 +22,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, queued: false }, { status: 202 });
   }
 
-  return NextResponse.json({ success: response.ok }, { status: response.ok ? 202 : 204 });
+  if (!response.ok) {
+    return new Response(null, { status: 204 });
+  }
+
+  return NextResponse.json({ success: true }, { status: 202 });
 }
