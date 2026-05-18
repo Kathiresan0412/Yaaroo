@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { useAuth } from "../auth/AuthProvider";
+import { readOfflineCache, trackClientEvent, writeOfflineCache } from "../../lib/offline-cache";
 
 type SwipeAction = "like" | "pass" | "superlike";
 
@@ -135,7 +136,17 @@ function DiscoveryEngineContent() {
 
       setCards(payload.cards || []);
       setLimits(payload.limits || null);
+      writeOfflineCache("discover", { cards: payload.cards || [], limits: payload.limits || null });
     } catch (error) {
+      const cached = readOfflineCache<{ cards: DiscoveryCard[]; limits: Limits | null }>("discover");
+
+      if (cached) {
+        setCards(cached.cards);
+        setLimits(cached.limits);
+        setMessage("Showing saved discovery cards while Yaaro0 reconnects.");
+        return;
+      }
+
       setMessage(error instanceof Error ? error.message : "Discovery is unavailable.");
     } finally {
       setIsLoading(false);
@@ -157,6 +168,7 @@ function DiscoveryEngineContent() {
       setMessage("");
       setCards((currentCards) => currentCards.slice(1));
       setDrag(emptyDrag);
+      trackClientEvent("swipe", { action, targetUserId: swipedCard.id });
 
       try {
         const response = await authFetch("/api/swipe", {
@@ -189,6 +201,7 @@ function DiscoveryEngineContent() {
 
         if (payload.matched) {
           setMatchedCard(swipedCard);
+          trackClientEvent("match_created", { targetUserId: swipedCard.id, matchId: payload.matchId });
         }
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Swipe failed.");
@@ -324,8 +337,13 @@ function DiscoveryEngineContent() {
 
         <div className="discover-stage">
           {isLoading ? (
-            <div className="discover-empty">
-              <Loader2 className="spin" size={34} />
+            <div className="discover-skeleton" aria-label="Loading discovery cards">
+              <div className="skeleton-card" />
+              <div className="skeleton-lines">
+                <span />
+                <span />
+                <span />
+              </div>
             </div>
           ) : cards.length === 0 ? (
             <div className="discover-empty">
@@ -360,7 +378,7 @@ function DiscoveryEngineContent() {
                     style={{ zIndex: 10 - index, ...style }}
                   >
                     {card.mainPhotoUrl ? (
-                      <img src={card.mainPhotoUrl} alt="" draggable={false} />
+                      <img src={card.mainPhotoUrl} alt="" draggable={false} loading={index === 0 ? "eager" : "lazy"} />
                     ) : (
                       <div className="discover-photo-fallback" />
                     )}
@@ -452,7 +470,7 @@ function DiscoveryEngineContent() {
               {(expandedCard.photos.length ? expandedCard.photos : [{ id: "fallback", url: "", isPrimary: true }]).map(
                 (photo) =>
                   photo.url ? (
-                    <img src={photo.url} alt="" key={photo.id} />
+                    <img src={photo.url} alt="" key={photo.id} loading="lazy" />
                   ) : (
                     <div className="discover-photo-fallback" key={photo.id} />
                   ),

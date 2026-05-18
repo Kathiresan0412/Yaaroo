@@ -116,6 +116,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      if (!response.ok && typeof window !== "undefined") {
+        const message =
+          response.status >= 500
+            ? "Yaaro0 is having trouble reaching the server."
+            : response.status === 429
+              ? "You are moving fast. Please try again in a moment."
+              : "";
+
+        if (message) {
+          window.dispatchEvent(new CustomEvent("yaaro0:toast", { detail: { message, tone: "error" } }));
+        }
+      }
+
       return response;
     },
     [accessToken, refresh],

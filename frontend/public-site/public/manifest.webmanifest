@@ -1,0 +1,25 @@
+{
+  "name": "Yaaro0",
+  "short_name": "Yaaro0",
+  "description": "Tamil dating, friendship, and matrimony connections with safety-first matching.",
+  "start_url": "/app/discover",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050506",
+  "theme_color": "#FD267A",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/brand-assets/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand-assets/logo.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

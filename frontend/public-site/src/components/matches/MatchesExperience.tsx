@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { useAuth } from "../auth/AuthProvider";
+import { readOfflineCache, trackClientEvent, writeOfflineCache } from "../../lib/offline-cache";
 
 const socketUrl = process.env.NEXT_PUBLIC_YAARO0_SOCKET_URL || "http://127.0.0.1:8000";
 
@@ -175,7 +176,29 @@ function MatchesExperienceContent() {
       setLikes(likesPayload.likes || []);
       setLikesCount(likesPayload.count || 0);
       setLikesBlurred(Boolean(likesPayload.blurred));
+      writeOfflineCache("matches", {
+        matches: matchesPayload.matches || [],
+        likes: likesPayload.likes || [],
+        likesCount: likesPayload.count || 0,
+        likesBlurred: Boolean(likesPayload.blurred),
+      });
     } catch (error) {
+      const cached = readOfflineCache<{
+        matches: MatchItem[];
+        likes: LikeItem[];
+        likesCount: number;
+        likesBlurred: boolean;
+      }>("matches");
+
+      if (cached) {
+        setMatches(cached.matches);
+        setLikes(cached.likes);
+        setLikesCount(cached.likesCount);
+        setLikesBlurred(cached.likesBlurred);
+        setMessage("Showing saved matches while Yaaro0 reconnects.");
+        return;
+      }
+
       setMessage(error instanceof Error ? error.message : "Matches are unavailable.");
     } finally {
       setIsLoading(false);
@@ -282,6 +305,7 @@ function MatchesExperienceContent() {
       setMatches((currentMatches) => currentMatches.filter((item) => item.id !== match.id));
       setConfirmUnmatch(null);
       setOpenMenuMatchId("");
+      trackClientEvent("unmatch", { matchId: match.id });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to unmatch.");
     }
@@ -303,6 +327,7 @@ function MatchesExperienceContent() {
       }
 
       setLikes((currentLikes) => currentLikes.filter((like) => like.user.id !== userId));
+      trackClientEvent("like_back", { targetUserId: userId });
       await loadMatches();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to like back.");
@@ -397,8 +422,16 @@ function MatchesExperienceContent() {
             <span>{filteredMatches.length}</span>
           </div>
           {isLoading ? (
-            <div className="matches-empty">
-              <Loader2 className="spin" size={30} />
+            <div className="matches-skeleton" aria-label="Loading matches">
+              {[0, 1, 2, 3].map((item) => (
+                <div className="match-row skeleton-row" key={item}>
+                  <span />
+                  <div>
+                    <i />
+                    <i />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filteredMatches.length === 0 ? (
             <div className="matches-empty">
@@ -416,7 +449,7 @@ function MatchesExperienceContent() {
                   aria-label={`View ${match.user.displayName}'s profile`}
                 >
                   {match.user.mainPhotoUrl ? (
-                    <img src={match.user.mainPhotoUrl} alt="" />
+                    <img src={match.user.mainPhotoUrl} alt="" loading="lazy" />
                   ) : (
                     <span>{initials(match.user.displayName)}</span>
                   )}
@@ -481,7 +514,7 @@ function MatchesExperienceContent() {
           <div className="profile-modal-body">
             <div className="profile-hero">
               {activePhoto?.url || profile.mainPhotoUrl ? (
-                <img src={activePhoto?.url || profile.mainPhotoUrl || ""} alt="" />
+                <img src={activePhoto?.url || profile.mainPhotoUrl || ""} alt="" loading="lazy" />
               ) : (
                 <div className="discover-photo-fallback" />
               )}

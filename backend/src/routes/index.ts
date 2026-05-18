@@ -13,6 +13,7 @@ import { notificationsRouter } from "./notifications.routes";
 import { spotifyRouter } from "./spotify.routes";
 import { mbtiRouter } from "./mbti.routes";
 import { doubleDateRouter } from "./double-date.routes";
+import { analyticsRouter } from "./analytics.routes";
 import { requireAuth } from "../middleware/auth.middleware";
 
 export const apiRouter = Router();
@@ -44,3 +45,4 @@ apiRouter.use(notificationsRouter);
 apiRouter.use(spotifyRouter);
 apiRouter.use(mbtiRouter);
 apiRouter.use(doubleDateRouter);
+apiRouter.use(analyticsRouter);

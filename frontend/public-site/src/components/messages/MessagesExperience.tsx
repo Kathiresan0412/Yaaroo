@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Camera, Flag, Image as ImageIcon, Mic, Send, Smile, Trash2, X } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
 import { useAuth } from "../auth/AuthProvider";
+import { readOfflineCache, trackClientEvent, writeOfflineCache } from "../../lib/offline-cache";
 
 type ChatMessage = {
   id: string;
@@ -100,13 +101,30 @@ export function MessagesExperience({ matchId }: { matchId: string }) {
 
       setMessages((current) => mergeMessages(current, payload.messages));
       setNextCursor(payload.nextCursor);
+      if (!cursor) {
+        writeOfflineCache(`messages:${matchId}`, {
+          messages: payload.messages,
+          nextCursor: payload.nextCursor,
+        });
+      }
     },
     [authFetch, matchId],
   );
 
   useEffect(() => {
     loadMessages()
-      .catch((error) => setNotice(error instanceof Error ? error.message : "Messages are unavailable."))
+      .catch((error) => {
+        const cached = readOfflineCache<{ messages: ChatMessage[]; nextCursor: string | null }>(`messages:${matchId}`);
+
+        if (cached) {
+          setMessages(cached.messages);
+          setNextCursor(cached.nextCursor);
+          setNotice("Showing saved messages while Yaaro0 reconnects.");
+          return;
+        }
+
+        setNotice(error instanceof Error ? error.message : "Messages are unavailable.");
+      })
       .finally(() => setIsLoading(false));
   }, [loadMessages]);
 
@@ -206,6 +224,7 @@ export function MessagesExperience({ matchId }: { matchId: string }) {
     }
 
     setMessages((current) => mergeMessages(current, [body.message as ChatMessage]));
+    trackClientEvent("message_sent", { matchId, type: payload.type || "text" });
   }
 
   async function sendText() {
@@ -337,7 +356,13 @@ export function MessagesExperience({ matchId }: { matchId: string }) {
             {isLoadingMore ? "Loading..." : "Older messages"}
           </button>
         ) : null}
-        {isLoading ? <p className="chat-empty">Loading messages...</p> : null}
+        {isLoading ? (
+          <div className="chat-skeleton" aria-label="Loading messages">
+            <span />
+            <span />
+            <span />
+          </div>
+        ) : null}
         {!isLoading && messages.length === 0 ? <p className="chat-empty">Say hello to start the chat.</p> : null}
         {messages.map((message) => (
           <article

@@ -1,5 +1,13 @@
 import { Heart, ShieldCheck, Users } from "lucide-react";
+import type { Metadata } from "next";
 import { PageShell } from "../../components/site/SiteChrome";
+
+export const metadata: Metadata = {
+  title: "About",
+  description:
+    "Yaaro0 helps Tamil singles meet across Sri Lanka and the diaspora with stronger privacy, cultural profile prompts, and safety tools.",
+  alternates: { canonical: "/about" },
+};
 
 export default function AboutPage() {
   return (
