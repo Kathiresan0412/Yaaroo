@@ -5,6 +5,7 @@ import {
   ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -22,6 +23,7 @@ type AuthUser = {
 type AuthContextValue = {
   user: AuthUser | null;
   accessToken: string;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<string>;
   logout: () => Promise<void>;
   authFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -41,6 +43,7 @@ async function parseJson(response: Response) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/auth/refresh", {
@@ -90,6 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken("");
   }, []);
 
+  useEffect(() => {
+    refresh().finally(() => setIsLoading(false));
+  }, [refresh]);
+
   const authFetch = useCallback(
     async (input: RequestInfo | URL, init: RequestInit = {}) => {
       const headers = new Headers(init.headers);
@@ -115,8 +122,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ user, accessToken, login, logout, authFetch }),
-    [user, accessToken, login, logout, authFetch],
+    () => ({ user, accessToken, isLoading, login, logout, authFetch }),
+    [user, accessToken, isLoading, login, logout, authFetch],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

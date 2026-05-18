@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { prisma } from "../config/database";
 import { authRouter } from "./auth.routes";
+import { completeOnboarding, profileRouter } from "./profile.routes";
 import { profilesRouter } from "./profiles.routes";
+import { requireAuth } from "../middleware/auth.middleware";
 
 export const apiRouter = Router();
 
@@ -19,4 +21,6 @@ apiRouter.get("/health/db", async (_req, res, next) => {
 });
 
 apiRouter.use("/auth", authRouter);
+apiRouter.use("/profile", profileRouter);
+apiRouter.patch("/onboarding/complete", requireAuth, completeOnboarding);
 apiRouter.use("/profiles", profilesRouter);

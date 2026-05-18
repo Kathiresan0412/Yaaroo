@@ -189,11 +189,16 @@ model User {
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamp(0)
 
   profile               Profile?
+  onboardingProfile     UserProfile?
+  hobbies               UserHobby[]
+  onboardingPhotos      UserPhoto[]
+  location              UserLocation?
   photos                ProfilePhoto[] @relation("UserPhotos")
   refreshTokens         RefreshToken[]
   reviewedPhotos        ProfilePhoto[] @relation("PhotoReviewer")
   jathagam              Jathagam?
   preference            Preference?
+  discoveryPreference   UserPreference?
   sentInterests         Interest[]     @relation("InterestSender")
   receivedInterests     Interest[]     @relation("InterestReceiver")
   matchesAsUser1        Match[]        @relation("MatchUser1")
@@ -232,6 +237,108 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+model UserProfile {
+  userId             BigInt  @id @map("user_id")
+  displayName        String? @map("display_name") @db.VarChar(120)
+  pronouns           String? @db.VarChar(80)
+  sexualOrientation  Json?   @map("sexual_orientation")
+  headline           String? @db.VarChar(60)
+  bio                String? @db.VarChar(500)
+  heightCm           Int?    @map("height_cm")
+  bodyType           String? @map("body_type") @db.VarChar(80)
+  ethnicity          Json?
+  hairColour         String? @map("hair_colour") @db.VarChar(80)
+  eyeColour          String? @map("eye_colour") @db.VarChar(80)
+  education          String? @db.VarChar(160)
+  jobTitle           String? @map("job_title") @db.VarChar(160)
+  company            String? @db.VarChar(160)
+  industry           String? @db.VarChar(160)
+  religion           String? @db.VarChar(120)
+  nationality        String? @db.VarChar(120)
+  languages          Json?
+  smoking            String? @db.VarChar(80)
+  drinking           String? @db.VarChar(80)
+  exercise           String? @db.VarChar(80)
+  diet               String? @db.VarChar(80)
+  sleepSchedule      String? @map("sleep_schedule") @db.VarChar(80)
+  livingSituation    String? @map("living_situation") @db.VarChar(120)
+  hasChildren        String? @map("has_children") @db.VarChar(80)
+  wantsChildren      String? @map("wants_children") @db.VarChar(80)
+  hasPets            Json?   @map("has_pets")
+  wantsPets          String? @map("wants_pets") @db.VarChar(80)
+  favPet             String? @map("fav_pet") @db.VarChar(120)
+  favColour          String? @map("fav_colour") @db.VarChar(120)
+  favFood            Json?   @map("fav_food")
+  favMusic           Json?   @map("fav_music")
+  favMovieGenre      Json?   @map("fav_movie_genre")
+  loveLanguage       String? @map("love_language") @db.VarChar(120)
+  relationshipGoal   String? @map("relationship_goal") @db.VarChar(120)
+  starSign           String? @map("star_sign") @db.VarChar(40)
+  mbti               String? @db.VarChar(8)
+  spotifyAnthemId    String? @map("spotify_anthem_id") @db.VarChar(160)
+  spotifyAnthemName  String? @map("spotify_anthem_name") @db.VarChar(255)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserHobby {
+  userId BigInt @map("user_id")
+  hobby  String @db.VarChar(80)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, hobby])
+  @@map("user_hobbies")
+}
+
+model UserPhoto {
+  id         BigInt      @id @default(autoincrement())
+  userId     BigInt      @map("user_id")
+  url        String      @db.Text
+  orderIndex Int         @default(0) @map("order_index")
+  isPrimary  Boolean     @default(false) @map("is_primary")
+  status     PhotoStatus @default(pending)
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamp(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_photos")
+}
+
+model UserLocation {
+  userId    BigInt   @id @map("user_id")
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+  city      String?  @db.VarChar(120)
+  country   String?  @db.VarChar(120)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_locations")
+}
+
+model UserPreference {
+  userId           BigInt  @id @map("user_id")
+  showGender       String  @default("everyone") @map("show_gender") @db.VarChar(40)
+  minAge           Int     @default(18) @map("min_age")
+  maxAge           Int     @default(45) @map("max_age")
+  maxDistanceKm    Int     @default(50) @map("max_distance_km")
+  globalMode       Boolean @default(false) @map("global_mode")
+  showVerifiedOnly Boolean @default(false) @map("show_verified_only")
+  showPhotosOnly   Boolean @default(true) @map("show_photos_only")
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
 }
 
 model Profile {

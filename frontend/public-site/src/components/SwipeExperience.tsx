@@ -217,18 +217,28 @@ export function SwipeExperience() {
 
     const form = event.currentTarget;
     const formData = new FormData(form);
+    const password = String(formData.get("password") || "");
+    const confirmPassword = String(formData.get("confirmPassword") || "");
+
+    if (password !== confirmPassword) {
+      setStatus("error");
+      setErrorMessage("Passwords do not match.");
+      return;
+    }
 
     try {
-      const response = await fetch("/api/create-account", {
+      const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: formData.get("name"),
+          firstName: formData.get("firstName"),
+          lastName: formData.get("lastName"),
           email: formData.get("email"),
-          city: formData.get("city"),
-          intent: formData.get("intent"),
+          password,
+          dateOfBirth: formData.get("dateOfBirth"),
+          gender: formData.get("gender"),
         }),
       });
 
@@ -240,6 +250,7 @@ export function SwipeExperience() {
 
       form.reset();
       setStatus("success");
+      setErrorMessage(payload.message || "");
     } catch (error) {
       setStatus("error");
       setErrorMessage(
@@ -266,7 +277,7 @@ export function SwipeExperience() {
           password: formData.get("password"),
         }),
       });
-      const payload = (await response.json()) as { message?: string };
+      const payload = (await response.json()) as { message?: string; redirectTo?: string };
 
       if (!response.ok) {
         throw new Error(payload.message || "Unable to log in.");
@@ -274,6 +285,7 @@ export function SwipeExperience() {
 
       setLoginStatus("success");
       setLoginMessage(payload.message || "Login request accepted.");
+      window.location.href = payload.redirectTo || "/onboarding";
     } catch (error) {
       setLoginStatus("error");
       setLoginMessage(error instanceof Error ? error.message : "Please try again.");
@@ -395,11 +407,11 @@ export function SwipeExperience() {
         ) : status === "success" ? (
           <div className="modal-success">
             <CheckCircle2 size={44} aria-hidden="true" />
-            <p className="modal-kicker">Request received</p>
-            <h2 id="create-account-modal-title">We will invite you soon.</h2>
+            <p className="modal-kicker">Account created</p>
+            <h2 id="create-account-modal-title">Verify your email.</h2>
             <p>
-              Thanks for joining early access. The Yaro0 team will send the next
-              step once your profile request is reviewed.
+              {errorMessage ||
+                "We sent a verification link. Open it before logging in to your account."}
             </p>
             <button
               className="primary-cta"
@@ -417,8 +429,7 @@ export function SwipeExperience() {
             <p className="modal-kicker">Verified early access</p>
             <h2 id="create-account-modal-title">Create your Yaro0 profile</h2>
             <p className="modal-copy">
-              Start with a reviewed profile request for Tamil dating,
-              friendship, or matrimony.
+              Create your password now. You will need to verify your email before login.
             </p>
             <p className="modal-agreement">
               By continuing, you agree to our <a href="/terms">Terms</a>, Privacy,
@@ -427,12 +438,22 @@ export function SwipeExperience() {
 
             <form className="account-form" onSubmit={handleCreateAccount}>
               <label>
-                Full name
+                First name
                 <input
-                  name="name"
+                  name="firstName"
                   type="text"
-                  autoComplete="name"
-                  placeholder="Your full name"
+                  autoComplete="given-name"
+                  placeholder="First name"
+                  required
+                />
+              </label>
+              <label>
+                Last name
+                <input
+                  name="lastName"
+                  type="text"
+                  autoComplete="family-name"
+                  placeholder="Last name"
                   required
                 />
               </label>
@@ -447,22 +468,40 @@ export function SwipeExperience() {
                 />
               </label>
               <label>
-                City
+                Date of birth
+                <input name="dateOfBirth" type="date" required />
+              </label>
+              <label>
+                Gender
+                <select name="gender" defaultValue="" required>
+                  <option value="" disabled>
+                    Select gender
+                  </option>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                  <option value="non_binary">Non-binary</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label>
+                Password
                 <input
-                  name="city"
-                  type="text"
-                  autoComplete="address-level2"
-                  placeholder="Colombo, Toronto, London"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Strong password"
                   required
                 />
               </label>
               <label>
-                Looking for
-                <select name="intent" defaultValue="dating" required>
-                  <option value="dating">Dating</option>
-                  <option value="friendship">Friendship</option>
-                  <option value="matrimony">Matrimony</option>
-                </select>
+                Confirm password
+                <input
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Repeat password"
+                  required
+                />
               </label>
 
               {status === "error" ? (
@@ -482,7 +521,7 @@ export function SwipeExperience() {
                     Sending
                   </>
                 ) : (
-                  "Request account"
+                  "Create account"
                 )}
               </button>
             </form>

@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { Request, Response } from "express";
+import nodemailer from "nodemailer";
 import { env } from "../config/env";
 import { prisma } from "../config/database";
 import { hashPassword, verifyPassword } from "../utils/password";
@@ -139,9 +140,47 @@ async function createSession(user: {
   return { accessToken, refreshToken };
 }
 
-function sendAccountEmail(kind: "verify" | "reset", email: string, url: string) {
+async function sendAccountEmail(kind: "verify" | "reset", email: string, url: string) {
   const label = kind === "verify" ? "Verify email" : "Reset password";
-  console.log(`[mail:${kind}] ${label} for ${email}: ${url}`);
+  const subject = kind === "verify" ? "Verify your Yaro0 email" : "Reset your Yaro0 password";
+  const action = kind === "verify" ? "verify your email" : "reset your password";
+
+  if (!env.smtpHost || !env.smtpUser || !env.smtpPassword || !env.mailFrom) {
+    console.log(`[mail:${kind}] SMTP is not configured. ${label} for ${email}: ${url}`);
+    return { sent: false, reason: "smtp-not-configured" as const };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: env.smtpHost,
+    port: env.smtpPort,
+    secure: env.smtpSecure,
+    auth: {
+      user: env.smtpUser,
+      pass: env.smtpPassword,
+    },
+  });
+
+  await transporter.sendMail({
+    from: env.mailFrom,
+    to: email,
+    subject,
+    text: `Use this link to ${action}: ${url}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+        <h1 style="font-size:22px;margin:0 0 12px">${subject}</h1>
+        <p>Use the button below to ${action}.</p>
+        <p>
+          <a href="${url}" style="display:inline-block;background:#ea6f61;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700">
+            ${label}
+          </a>
+        </p>
+        <p>If the button does not work, open this link:</p>
+        <p><a href="${url}">${url}</a></p>
+      </div>
+    `,
+  });
+
+  return { sent: true, reason: null };
 }
 
 export async function register(req: Request, res: Response) {
@@ -211,13 +250,16 @@ export async function register(req: Request, res: Response) {
   });
 
   const verifyUrl = `${env.publicWebUrl}/verify-email/${emailVerifyToken}`;
-  sendAccountEmail("verify", email, verifyUrl);
+  const emailResult = await sendAccountEmail("verify", email, verifyUrl);
 
   return res.status(201).json({
     success: true,
-    message: "Account created. Check your email to verify your account.",
+    message: emailResult.sent
+      ? "Account created. Check your email to verify your account."
+      : "Account created, but email sending is not configured. Use the verification link shown in the API response while developing.",
     user: publicUser(user),
     verificationToken: env.nodeEnv === "production" ? undefined : emailVerifyToken,
+    verificationUrl: env.nodeEnv === "production" ? undefined : verifyUrl,
   });
 }
 
@@ -363,7 +405,7 @@ export async function forgotPassword(req: Request, res: Response) {
     });
 
     const resetUrl = `${env.publicWebUrl}/reset-password/${token}`;
-    sendAccountEmail("reset", email, resetUrl);
+    await sendAccountEmail("reset", email, resetUrl);
   }
 
   return res.json({ success: true, message: "If that email exists, a password reset link has been sent." });

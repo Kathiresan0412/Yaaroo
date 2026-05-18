@@ -1,13 +1,77 @@
 import { NextResponse } from "next/server";
 
-export function GET(request: Request) {
+const backendUrl = process.env.YAARO0_API_URL || "http://127.0.0.1:8000";
+
+function redirectWithCookies(url: URL, response: Response) {
+  const redirect = NextResponse.redirect(url);
+  const setCookie = response.headers.get("set-cookie");
+
+  if (setCookie) {
+    redirect.headers.set("set-cookie", setCookie);
+  }
+
+  return redirect;
+}
+
+export async function GET(request: Request) {
   const url = new URL(request.url);
   const origin = url.origin;
   const code = url.searchParams.get("code");
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri =
+    process.env.GOOGLE_REDIRECT_URI || `${origin}/api/auth/google/callback`;
 
-  if (!code) {
+  if (!code || !clientId || !clientSecret) {
     return NextResponse.redirect(new URL("/login?error=google-callback", origin));
   }
 
-  return NextResponse.redirect(new URL("/login?connected=google", origin));
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    }),
+  });
+  const tokenPayload = (await tokenResponse.json()) as { access_token?: string };
+
+  if (!tokenResponse.ok || !tokenPayload.access_token) {
+    return NextResponse.redirect(new URL("/login?error=google-token", origin));
+  }
+
+  const profileResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+    headers: { Authorization: `Bearer ${tokenPayload.access_token}` },
+  });
+  const profile = (await profileResponse.json()) as {
+    id?: string;
+    email?: string;
+    given_name?: string;
+    family_name?: string;
+  };
+
+  if (!profileResponse.ok || !profile.id || !profile.email) {
+    return NextResponse.redirect(new URL("/login?error=google-profile", origin));
+  }
+
+  const authResponse = await fetch(`${backendUrl}/api/auth/oauth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      oauthId: profile.id,
+      email: profile.email,
+      firstName: profile.given_name,
+      lastName: profile.family_name,
+    }),
+  });
+  const authPayload = (await authResponse.json()) as { redirectTo?: string };
+
+  if (!authResponse.ok) {
+    return NextResponse.redirect(new URL("/login?error=google-login", origin));
+  }
+
+  return redirectWithCookies(new URL(authPayload.redirectTo || "/onboarding", origin), authResponse);
 }
