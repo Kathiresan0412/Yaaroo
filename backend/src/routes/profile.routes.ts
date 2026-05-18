@@ -1,7 +1,10 @@
 import { Router, type NextFunction, type Response } from "express";
+import type { UserProfile } from "@prisma/client";
 import { prisma } from "../config/database";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/auth.middleware";
 import { isSupportedImageUploadSource, uploadProfilePhoto } from "../services/media.service";
+import { assertSafeText } from "../services/content-safety.service";
+import { requireTier } from "../services/premium.service";
 
 export const profileRouter = Router();
 
@@ -38,6 +41,8 @@ const scalarProfileFields = [
   "mbti",
   "spotifyAnthemId",
   "spotifyAnthemName",
+  "spotifyPreviewUrl",
+  "spotifyAlbumArtUrl",
 ] as const;
 
 const arrayProfileFields = [
@@ -132,6 +137,132 @@ function serializePhoto(photo: {
   };
 }
 
+function serializeProfile(profile: UserProfile | null) {
+  if (!profile) {
+    return null;
+  }
+
+  const { userId: _userId, createdAt, updatedAt, ...fields } = profile;
+
+  return {
+    ...fields,
+    createdAt: createdAt.toISOString(),
+    updatedAt: updatedAt.toISOString(),
+  };
+}
+
+const BADGE_KEYWORDS: Array<{ badge: string; keywords: string[] }> = [
+  { badge: "Gamer", keywords: ["game", "gaming", "esports", "playstation", "xbox"] },
+  { badge: "Traveller", keywords: ["travel", "trip", "backpacking", "passport"] },
+  { badge: "Foodie", keywords: ["food", "cooking", "baking", "restaurant"] },
+  { badge: "Music Lover", keywords: ["music", "singing", "guitar", "piano", "concert"] },
+  { badge: "Bookworm", keywords: ["book", "reading", "novel", "poetry"] },
+  { badge: "Fitness", keywords: ["gym", "fitness", "running", "yoga", "workout"] },
+  { badge: "Creative", keywords: ["art", "design", "painting", "photography", "writing"] },
+  { badge: "Movie Buff", keywords: ["movie", "cinema", "film", "netflix"] },
+  { badge: "Nature", keywords: ["hiking", "nature", "camping", "beach", "garden"] },
+];
+
+function interestBadges(hobbies: string[]) {
+  const badges = new Set<string>();
+
+  for (const hobby of hobbies) {
+    const normalized = hobby.toLowerCase();
+    const matched = BADGE_KEYWORDS.find((item) => item.keywords.some((keyword) => normalized.includes(keyword)));
+    badges.add(matched?.badge ?? hobby);
+  }
+
+  return Array.from(badges).slice(0, 12);
+}
+
+function jsonArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
+function profileCompleteness(input: {
+  profile: UserProfile | null;
+  hobbies: string[];
+  photoCount: number;
+  hasLocation: boolean;
+}) {
+  const profile = input.profile;
+  const sections = [
+    {
+      key: "photos",
+      weight: 20,
+      complete: input.photoCount >= 2,
+      missing: input.photoCount >= 2 ? [] : ["photos"],
+    },
+    {
+      key: "about",
+      weight: 20,
+      complete: Boolean(profile?.displayName && profile.headline && profile.bio),
+      missing: [
+        profile?.displayName ? null : "display_name",
+        profile?.headline ? null : "headline",
+        profile?.bio ? null : "bio",
+      ].filter((item): item is string => Boolean(item)),
+    },
+    {
+      key: "basics",
+      weight: 15,
+      complete: Boolean(profile?.heightCm && profile.bodyType && profile.education),
+      missing: [
+        profile?.heightCm ? null : "height_cm",
+        profile?.bodyType ? null : "body_type",
+        profile?.education ? null : "education",
+      ].filter((item): item is string => Boolean(item)),
+    },
+    {
+      key: "work",
+      weight: 10,
+      complete: Boolean(profile?.jobTitle || profile?.company || profile?.industry),
+      missing: profile?.jobTitle || profile?.company || profile?.industry ? [] : ["job_title"],
+    },
+    {
+      key: "lifestyle",
+      weight: 10,
+      complete: Boolean(profile?.smoking && profile.drinking && profile.exercise),
+      missing: [
+        profile?.smoking ? null : "smoking",
+        profile?.drinking ? null : "drinking",
+        profile?.exercise ? null : "exercise",
+      ].filter((item): item is string => Boolean(item)),
+    },
+    {
+      key: "interests",
+      weight: 15,
+      complete: input.hobbies.length >= 3,
+      missing: input.hobbies.length >= 3 ? [] : ["hobbies"],
+    },
+    {
+      key: "enhancements",
+      weight: 10,
+      complete: Boolean(profile?.mbti && profile.spotifyAnthemId && input.hasLocation),
+      missing: [
+        profile?.mbti ? null : "mbti",
+        profile?.spotifyAnthemId ? null : "spotify_anthem",
+        input.hasLocation ? null : "location",
+      ].filter((item): item is string => Boolean(item)),
+    },
+  ];
+
+  const score = sections.reduce((sum, section) => sum + (section.complete ? section.weight : 0), 0);
+
+  return {
+    score,
+    missing: sections.flatMap((section) => section.missing),
+    sections: sections.map((section) => ({
+      key: section.key,
+      weight: section.weight,
+      complete: section.complete,
+      missing: section.missing,
+    })),
+  };
+}
+
 async function getProfilePayload(currentUserId: bigint) {
   const [user, profile, hobbies, photos, location, preferences] = await Promise.all([
     prisma.user.findUnique({
@@ -178,7 +309,7 @@ async function getProfilePayload(currentUserId: bigint) {
         dateOfBirth: user.profile.dateOfBirth.toISOString().slice(0, 10),
       },
     },
-    profile,
+    profile: serializeProfile(profile),
     hobbies: hobbies.map((item) => item.hobby),
     photos: photos.map(serializePhoto),
     location:
@@ -188,6 +319,12 @@ async function getProfilePayload(currentUserId: bigint) {
         longitude: location.longitude ? Number(location.longitude) : null,
         city: location.city,
         country: location.country,
+        passportActive: location.passportActive,
+        passportLatitude: location.passportLatitude ? Number(location.passportLatitude) : null,
+        passportLongitude: location.passportLongitude ? Number(location.passportLongitude) : null,
+        passportCity: location.passportCity,
+        passportCountry: location.passportCountry,
+        passportUpdatedAt: location.passportUpdatedAt?.toISOString() ?? null,
         updatedAt: location.updatedAt.toISOString(),
       } as const),
     preferences: {
@@ -198,13 +335,148 @@ async function getProfilePayload(currentUserId: bigint) {
       globalMode: preferences.globalMode,
       showVerifiedOnly: preferences.showVerifiedOnly,
       showPhotosOnly: preferences.showPhotosOnly,
+      incognitoMode: preferences.incognitoMode,
     },
+    badges: interestBadges(hobbies.map((item) => item.hobby)),
+    completeness: profileCompleteness({
+      profile,
+      hobbies: hobbies.map((item) => item.hobby),
+      photoCount: photos.length,
+      hasLocation: Boolean(location),
+    }),
   };
 }
 
 profileRouter.get("/me", async (req: AuthenticatedRequest, res, next) => {
   try {
     res.json({ success: true, ...(await getProfilePayload(userId(req))) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+profileRouter.get("/completeness", async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const currentUserId = userId(req);
+    const [profile, hobbies, photoCount, location] = await Promise.all([
+      prisma.userProfile.findUnique({ where: { userId: currentUserId } }),
+      prisma.userHobby.findMany({ where: { userId: currentUserId }, orderBy: { hobby: "asc" } }),
+      prisma.userPhoto.count({ where: { userId: currentUserId } }),
+      prisma.userLocation.findUnique({ where: { userId: currentUserId } }),
+    ]);
+
+    res.json({
+      success: true,
+      ...profileCompleteness({
+        profile,
+        hobbies: hobbies.map((item) => item.hobby),
+        photoCount,
+        hasLocation: Boolean(location),
+      }),
+      badges: interestBadges(hobbies.map((item) => item.hobby)),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+profileRouter.get("/analytics", async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const currentUserId = userId(req);
+    const entitlement = await requireTier(currentUserId, "platinum");
+
+    if (!entitlement.allowed) {
+      return res.status(403).json({
+        success: false,
+        message: "Profile analytics are available on Platinum.",
+        tier: entitlement.tier,
+      });
+    }
+
+    const now = new Date();
+    const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const [profileViews7d, likesReceived7d, swipesReceived7d, matches7d, viewsByDay] = await Promise.all([
+      prisma.profileView.count({ where: { viewedId: currentUserId, viewedAt: { gte: since } } }),
+      prisma.swipe.count({
+        where: { swipedId: currentUserId, action: { in: ["like", "superlike"] }, createdAt: { gte: since } },
+      }),
+      prisma.swipe.count({ where: { swipedId: currentUserId, createdAt: { gte: since } } }),
+      prisma.match.count({
+        where: {
+          matchedAt: { gte: since },
+          OR: [{ user1Id: currentUserId }, { user2Id: currentUserId }],
+        },
+      }),
+      prisma.profileView.groupBy({
+        by: ["viewedAt"],
+        where: { viewedId: currentUserId, viewedAt: { gte: since } },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const dailyViews = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (6 - index)));
+      const key = date.toISOString().slice(0, 10);
+      const count = viewsByDay
+        .filter((item) => item.viewedAt.toISOString().slice(0, 10) === key)
+        .reduce((sum, item) => sum + item._count._all, 0);
+      return { date: key, views: count };
+    });
+
+    res.json({
+      success: true,
+      profileViews7d,
+      profile_views_7d: profileViews7d,
+      likesReceived7d,
+      likes_received_7d: likesReceived7d,
+      matchRatePercent: swipesReceived7d > 0 ? Math.round((matches7d / swipesReceived7d) * 100) : 0,
+      match_rate_percent: swipesReceived7d > 0 ? Math.round((matches7d / swipesReceived7d) * 100) : 0,
+      dailyViews,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+profileRouter.put("/anthem", async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const currentUserId = userId(req);
+    const anthemId = cleanString(req.body.spotifyAnthemId ?? req.body.id, 160);
+    const anthemName = cleanString(req.body.spotifyAnthemName ?? req.body.name, 255);
+    const artist = cleanString(req.body.artist, 160);
+    const previewUrl = cleanString(req.body.spotifyPreviewUrl ?? req.body.previewUrl, 500);
+    const albumArtUrl = cleanString(req.body.spotifyAlbumArtUrl ?? req.body.albumArtUrl, 500);
+
+    if (!anthemId || !anthemName) {
+      return res.status(400).json({ success: false, message: "Spotify anthem id and name are required." });
+    }
+
+    const profile = await prisma.userProfile.upsert({
+      where: { userId: currentUserId },
+      update: {
+        spotifyAnthemId: anthemId,
+        spotifyAnthemName: artist ? `${anthemName} - ${artist}` : anthemName,
+        spotifyPreviewUrl: previewUrl,
+        spotifyAlbumArtUrl: albumArtUrl,
+      },
+      create: {
+        userId: currentUserId,
+        spotifyAnthemId: anthemId,
+        spotifyAnthemName: artist ? `${anthemName} - ${artist}` : anthemName,
+        spotifyPreviewUrl: previewUrl,
+        spotifyAlbumArtUrl: albumArtUrl,
+      },
+    });
+
+    res.json({
+      success: true,
+      anthem: {
+        id: profile.spotifyAnthemId,
+        name: profile.spotifyAnthemName,
+        previewUrl: profile.spotifyPreviewUrl,
+        albumArtUrl: profile.spotifyAlbumArtUrl,
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -224,6 +496,9 @@ profileRouter.put("/me", async (req: AuthenticatedRequest, res, next) => {
     for (const field of scalarProfileFields) {
       if (field in req.body) {
         const max = field === "headline" ? 60 : field === "bio" ? 500 : 255;
+        if (field === "headline" || field === "bio") {
+          assertSafeText(req.body[field], field === "headline" ? "Headline" : "Bio");
+        }
         data[field] = field === "heightCm" ? cleanInteger(req.body[field], 90, 240) : cleanString(req.body[field], max);
       }
     }
@@ -259,6 +534,19 @@ profileRouter.put("/me", async (req: AuthenticatedRequest, res, next) => {
     });
 
     res.json({ success: true, ...(await getProfilePayload(currentUserId)) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+profileRouter.get("/photos", async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const photos = await prisma.userPhoto.findMany({
+      where: { userId: userId(req) },
+      orderBy: [{ orderIndex: "asc" }, { id: "asc" }],
+    });
+
+    res.json({ success: true, photos: photos.map(serializePhoto) });
   } catch (error) {
     next(error);
   }

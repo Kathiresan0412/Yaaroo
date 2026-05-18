@@ -1,5 +1,6 @@
 import express from "express";
 import { apiRouter } from "./routes";
+import { adminRouter } from "./routes/admin.routes";
 import { errorMiddleware } from "./middleware/error.middleware";
 
 export const app = express();
@@ -27,5 +28,6 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", apiRouter);
 app.use("/api/v1", apiRouter);
+app.use("/admin/api", adminRouter);
 
 app.use(errorMiddleware);

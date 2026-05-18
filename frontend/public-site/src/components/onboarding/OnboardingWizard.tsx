@@ -75,6 +75,28 @@ type WizardState = {
   country: string;
 };
 
+type ApiPayload = {
+  message?: string;
+  redirectTo?: string;
+  photos?: Photo[];
+  profile?: Partial<WizardState>;
+  hobbies?: string[];
+  preferences?: Partial<WizardState>;
+  location?: {
+    latitude?: number | null;
+    longitude?: number | null;
+    city?: string | null;
+    country?: string | null;
+  } | null;
+  user?: {
+    firstName?: string | null;
+    lastName?: string | null;
+    registeredProfile?: {
+      name?: string | null;
+    } | null;
+  };
+};
+
 const steps = [
   "Photos",
   "About You",
@@ -135,6 +157,24 @@ const defaults: WizardState = {
   city: "",
   country: "",
 };
+
+async function readApiPayload(response: Response): Promise<ApiPayload> {
+  const text = await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text) as ApiPayload;
+  } catch {
+    return {
+      message: response.ok
+        ? "The server returned an unreadable response."
+        : "Unable to complete the request right now.",
+    };
+  }
+}
 
 const choices = {
   orientation: ["Straight", "Gay", "Lesbian", "Bisexual", "Asexual", "Queer", "Questioning"],
@@ -278,30 +318,36 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
 
   async function loadProfile() {
     setIsLoading(true);
-    const response = await authFetch("/api/profile/me");
-    const payload = await response.json();
+    setMessage("");
 
-    if (response.ok) {
-      setPhotos(payload.photos || []);
-      setState({
-        ...defaults,
-        ...(payload.profile || {}),
-        hobbies: payload.hobbies || [],
-        ...(payload.preferences || {}),
-        latitude: payload.location?.latitude ?? null,
-        longitude: payload.location?.longitude ?? null,
-        city: payload.location?.city || "",
-        country: payload.location?.country || "",
-        displayName:
-          payload.profile?.displayName ||
-          payload.user?.registeredProfile?.name ||
-          [payload.user?.firstName, payload.user?.lastName].filter(Boolean).join(" "),
-      });
-    } else {
-      setMessage(payload.message || "Unable to load your profile.");
+    try {
+      const response = await authFetch("/api/profile/me");
+      const payload = await readApiPayload(response);
+
+      if (response.ok) {
+        setPhotos(payload.photos || []);
+        setState({
+          ...defaults,
+          ...(payload.profile || {}),
+          hobbies: payload.hobbies || [],
+          ...(payload.preferences || {}),
+          latitude: payload.location?.latitude ?? null,
+          longitude: payload.location?.longitude ?? null,
+          city: payload.location?.city || "",
+          country: payload.location?.country || "",
+          displayName:
+            payload.profile?.displayName ||
+            payload.user?.registeredProfile?.name ||
+            [payload.user?.firstName, payload.user?.lastName].filter(Boolean).join(" "),
+        });
+      } else {
+        setMessage(payload.message || "Unable to load your profile.");
+      }
+    } catch {
+      setMessage("Unable to load your profile.");
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   }
 
   useEffect(() => {
@@ -326,7 +372,7 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ imageDataUrl }),
         });
-        const payload = await response.json();
+        const payload = await readApiPayload(response);
 
         if (!response.ok) {
           throw new Error(payload.message || "Unable to upload photo.");
@@ -345,7 +391,7 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
   async function deletePhoto(id: string) {
     setIsSaving(true);
     const response = await authFetch(`/api/profile/photos/${id}`, { method: "DELETE" });
-    const payload = await response.json();
+    const payload = await readApiPayload(response);
 
     if (response.ok) {
       setPhotos(payload.photos || []);
@@ -464,7 +510,7 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
     const failed = responses.find((response) => !response.ok);
 
     if (failed) {
-      const payload = await failed.json();
+      const payload = await readApiPayload(failed);
       setMessage(payload.message || "Unable to save this step.");
       setIsSaving(false);
       return false;
@@ -496,7 +542,7 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
       headers: { "Content-Type": "application/json" },
       body: "{}",
     });
-    const payload = await response.json();
+    const payload = await readApiPayload(response);
 
     if (response.ok) {
       router.push(payload.redirectTo || "/app/discover");

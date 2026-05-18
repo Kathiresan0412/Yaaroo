@@ -8,23 +8,38 @@ export async function proxyAuthRequest(
   init: RequestInit = {},
 ) {
   const body = init.body ?? (request.method === "GET" ? undefined : await request.text());
-  const response = await fetch(`${backendUrl}${path}`, {
-    ...init,
-    method: init.method || request.method,
-    headers: {
-      "Content-Type": "application/json",
-      Cookie: request.headers.get("cookie") || "",
-      ...(init.headers || {}),
-    },
-    body,
-    cache: "no-store",
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${backendUrl}${path}`, {
+      ...init,
+      method: init.method || request.method,
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: request.headers.get("cookie") || "",
+        ...(init.headers || {}),
+      },
+      body,
+      cache: "no-store",
+    });
+  } catch (error) {
+    console.error(`Auth API proxy failed for ${path}`, error);
+
+    return NextResponse.json(
+      { success: false, message: "Unable to reach the authentication service." },
+      { status: 502 },
+    );
+  }
 
   const text = await response.text();
-  const nextResponse = new NextResponse(text, {
+  const fallbackBody = JSON.stringify({
+    success: response.ok,
+    message: response.ok ? "" : "Authentication service returned an empty response.",
+  });
+  const nextResponse = new NextResponse(text || fallbackBody, {
     status: response.status,
     headers: {
-      "Content-Type": response.headers.get("content-type") || "application/json",
+      "Content-Type": text ? response.headers.get("content-type") || "application/json" : "application/json",
     },
   });
   const setCookie = response.headers.get("set-cookie");

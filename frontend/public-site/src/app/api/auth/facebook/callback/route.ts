@@ -32,7 +32,15 @@ export async function GET(request: Request) {
   tokenUrl.searchParams.set("redirect_uri", redirectUri);
   tokenUrl.searchParams.set("code", code);
 
-  const tokenResponse = await fetch(tokenUrl);
+  let tokenResponse: Response;
+
+  try {
+    tokenResponse = await fetch(tokenUrl);
+  } catch (error) {
+    console.error("Facebook token request failed", error);
+    return NextResponse.redirect(new URL("/login?error=facebook-token", origin));
+  }
+
   const tokenPayload = (await tokenResponse.json()) as { access_token?: string };
 
   if (!tokenResponse.ok || !tokenPayload.access_token) {
@@ -43,7 +51,15 @@ export async function GET(request: Request) {
   profileUrl.searchParams.set("fields", "id,email,first_name,last_name");
   profileUrl.searchParams.set("access_token", tokenPayload.access_token);
 
-  const profileResponse = await fetch(profileUrl);
+  let profileResponse: Response;
+
+  try {
+    profileResponse = await fetch(profileUrl);
+  } catch (error) {
+    console.error("Facebook profile request failed", error);
+    return NextResponse.redirect(new URL("/login?error=facebook-profile", origin));
+  }
+
   const profile = (await profileResponse.json()) as {
     id?: string;
     email?: string;
@@ -55,16 +71,24 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login?error=facebook-profile", origin));
   }
 
-  const authResponse = await fetch(`${backendUrl}/api/auth/oauth/facebook`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      oauthId: profile.id,
-      email: profile.email,
-      firstName: profile.first_name,
-      lastName: profile.last_name,
-    }),
-  });
+  let authResponse: Response;
+
+  try {
+    authResponse = await fetch(`${backendUrl}/api/auth/oauth/facebook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        oauthId: profile.id,
+        email: profile.email,
+        firstName: profile.first_name,
+        lastName: profile.last_name,
+      }),
+    });
+  } catch (error) {
+    console.error("Facebook backend login failed", error);
+    return NextResponse.redirect(new URL("/login?error=facebook-login", origin));
+  }
+
   const authPayload = (await authResponse.json()) as { redirectTo?: string };
 
   if (!authResponse.ok) {

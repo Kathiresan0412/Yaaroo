@@ -26,26 +26,42 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login?error=google-callback", origin));
   }
 
-  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      code,
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri,
-      grant_type: "authorization_code",
-    }),
-  });
+  let tokenResponse: Response;
+
+  try {
+    tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
+    });
+  } catch (error) {
+    console.error("Google token request failed", error);
+    return NextResponse.redirect(new URL("/login?error=google-token", origin));
+  }
+
   const tokenPayload = (await tokenResponse.json()) as { access_token?: string };
 
   if (!tokenResponse.ok || !tokenPayload.access_token) {
     return NextResponse.redirect(new URL("/login?error=google-token", origin));
   }
 
-  const profileResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-    headers: { Authorization: `Bearer ${tokenPayload.access_token}` },
-  });
+  let profileResponse: Response;
+
+  try {
+    profileResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${tokenPayload.access_token}` },
+    });
+  } catch (error) {
+    console.error("Google profile request failed", error);
+    return NextResponse.redirect(new URL("/login?error=google-profile", origin));
+  }
+
   const profile = (await profileResponse.json()) as {
     id?: string;
     email?: string;
@@ -57,16 +73,24 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login?error=google-profile", origin));
   }
 
-  const authResponse = await fetch(`${backendUrl}/api/auth/oauth/google`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      oauthId: profile.id,
-      email: profile.email,
-      firstName: profile.given_name,
-      lastName: profile.family_name,
-    }),
-  });
+  let authResponse: Response;
+
+  try {
+    authResponse = await fetch(`${backendUrl}/api/auth/oauth/google`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        oauthId: profile.id,
+        email: profile.email,
+        firstName: profile.given_name,
+        lastName: profile.family_name,
+      }),
+    });
+  } catch (error) {
+    console.error("Google backend login failed", error);
+    return NextResponse.redirect(new URL("/login?error=google-login", origin));
+  }
+
   const authPayload = (await authResponse.json()) as { redirectTo?: string };
 
   if (!authResponse.ok) {

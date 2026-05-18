@@ -373,7 +373,13 @@ export async function refresh(req: Request, res: Response) {
     return res.status(401).json({ success: false, message: "Refresh token is invalid or expired." });
   }
 
-  await prisma.refreshToken.delete({ where: { id: storedToken.id } });
+  const deleted = await prisma.refreshToken.deleteMany({ where: { id: storedToken.id } });
+
+  if (deleted.count === 0) {
+    clearAuthCookies(res);
+    return res.status(401).json({ success: false, message: "Refresh token is invalid or expired." });
+  }
+
   const session = await createSession(storedToken.user);
   setAuthCookies(res, session.accessToken, session.refreshToken);
 

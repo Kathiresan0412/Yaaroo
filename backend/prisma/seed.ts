@@ -45,12 +45,36 @@ async function main() {
     },
   });
 
+  const portalAdmin = await prisma.admin.upsert({
+    where: { email },
+    update: {
+      passwordHash,
+      role: "super_admin",
+      isActive: true,
+    },
+    create: {
+      email,
+      passwordHash,
+      role: "super_admin",
+      isActive: true,
+    },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+    },
+  });
+
   console.log(
     JSON.stringify({
       seeded: true,
       admin: {
         ...admin,
-        id: admin.id.toString(),
+          id: admin.id.toString(),
+      },
+      portalAdmin: {
+        ...portalAdmin,
+        id: portalAdmin.id.toString(),
       },
     }),
   );
