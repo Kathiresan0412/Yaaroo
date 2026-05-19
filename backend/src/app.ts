@@ -26,6 +26,24 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "8mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+app.get("/", (_req, res) => {
+  res.json({
+    success: true,
+    service: "yaro0-api",
+    status: "ok",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get("/status", (_req, res) => {
+  res.json({
+    success: true,
+    service: "yaro0-api",
+    status: "ok",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.use("/api", apiRouter);
 app.use("/api/v1", apiRouter);
 app.use("/admin/api", adminRouter);
