@@ -2,7 +2,23 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/",
+      "destination": "/api/status"
+    },
+    {
+      "source": "/status",
+      "destination": "/api/status"
+    },
+    {
+      "source": "/api/status",
+      "destination": "/api/status"
+    },
+    {
+      "source": "/api/v1/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/(.*)",
       "destination": "/api"
     }
   ]

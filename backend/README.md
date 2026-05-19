@@ -42,6 +42,17 @@ npm run prisma:migrate
 npm run prisma:generate
 ```
 
+## Railway Deployment
+
+This service expects `DATABASE_URL` to be present before deployment. In Railway:
+
+1. Add a PostgreSQL service to the same project.
+2. Open this app service's Variables tab.
+3. Add a reference variable named `DATABASE_URL` that points to the Postgres service's `DATABASE_URL`.
+4. Redeploy the app service.
+
+`railway.json` runs `npm run prisma:deploy` as a pre-deploy command, then starts the app with `npm run start`. If `DATABASE_URL` is missing, the pre-deploy migration step will fail before the new deployment is promoted.
+
 You can confirm the API can reach PostgreSQL at:
 
 ```text
