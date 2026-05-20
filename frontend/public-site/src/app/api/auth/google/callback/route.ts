@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
+import { appendSetCookieHeaders } from "../../backend";
 
 const backendUrl = process.env.YAARO0_API_URL || "http://127.0.0.1:8000";
 
 function redirectWithCookies(url: URL, response: Response) {
   const redirect = NextResponse.redirect(url);
-  const setCookie = response.headers.get("set-cookie");
-
-  if (setCookie) {
-    redirect.headers.set("set-cookie", setCookie);
-  }
+  appendSetCookieHeaders(redirect.headers, response.headers);
 
   return redirect;
 }

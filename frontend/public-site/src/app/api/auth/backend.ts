@@ -2,6 +2,21 @@ import { NextResponse } from "next/server";
 
 const backendUrl = process.env.YAARO0_API_URL || "http://127.0.0.1:8000";
 
+function splitSetCookieHeader(header: string) {
+  return header.split(/,(?=\s*[^;,]+=)/).map((cookie) => cookie.trim());
+}
+
+export function appendSetCookieHeaders(target: Headers, source: Headers) {
+  const headersWithCookies = source as Headers & { getSetCookie?: () => string[] };
+  const cookies = headersWithCookies.getSetCookie?.() ?? splitSetCookieHeader(source.get("set-cookie") || "");
+
+  for (const cookie of cookies) {
+    if (cookie) {
+      target.append("set-cookie", cookie);
+    }
+  }
+}
+
 export async function proxyAuthRequest(
   path: string,
   request: Request,
@@ -42,11 +57,7 @@ export async function proxyAuthRequest(
       "Content-Type": text ? response.headers.get("content-type") || "application/json" : "application/json",
     },
   });
-  const setCookie = response.headers.get("set-cookie");
-
-  if (setCookie) {
-    nextResponse.headers.set("set-cookie", setCookie);
-  }
+  appendSetCookieHeaders(nextResponse.headers, response.headers);
 
   return nextResponse;
 }

@@ -49,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await fetch("/api/auth/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: "{}",
     });
 
@@ -69,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ email, password }),
     });
     const payload = await parseJson(response);
@@ -87,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetch("/api/auth/logout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: "{}",
     });
     setUser(null);
@@ -105,14 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers.set("Authorization", `Bearer ${accessToken}`);
       }
 
-      let response = await fetch(input, { ...init, headers });
+      let response = await fetch(input, { ...init, headers, credentials: init.credentials ?? "include" });
 
       if (response.status === 401) {
         const freshToken = await refresh();
 
         if (freshToken) {
           headers.set("Authorization", `Bearer ${freshToken}`);
-          response = await fetch(input, { ...init, headers });
+          response = await fetch(input, { ...init, headers, credentials: init.credentials ?? "include" });
         }
       }
 

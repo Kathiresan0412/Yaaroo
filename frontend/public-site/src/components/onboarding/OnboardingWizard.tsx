@@ -75,13 +75,17 @@ type WizardState = {
   country: string;
 };
 
+type NullableWizardState = {
+  [Key in keyof WizardState]?: WizardState[Key] | null;
+};
+
 type ApiPayload = {
   message?: string;
   redirectTo?: string;
   photos?: Photo[];
-  profile?: Partial<WizardState>;
+  profile?: NullableWizardState | null;
   hobbies?: string[];
-  preferences?: Partial<WizardState>;
+  preferences?: NullableWizardState | null;
   location?: {
     latitude?: number | null;
     longitude?: number | null;
@@ -157,6 +161,99 @@ const defaults: WizardState = {
   city: "",
   country: "",
 };
+
+const stringFields = [
+  "displayName",
+  "pronouns",
+  "bodyType",
+  "hairColour",
+  "eyeColour",
+  "education",
+  "jobTitle",
+  "company",
+  "industry",
+  "religion",
+  "nationality",
+  "smoking",
+  "drinking",
+  "exercise",
+  "diet",
+  "sleepSchedule",
+  "livingSituation",
+  "hasChildren",
+  "wantsChildren",
+  "wantsPets",
+  "favPet",
+  "favColour",
+  "loveLanguage",
+  "relationshipGoal",
+  "showGender",
+  "city",
+  "country",
+] as const satisfies readonly (keyof WizardState)[];
+
+const textFields = ["headline", "bio"] as const satisfies readonly (keyof WizardState)[];
+
+const stringArrayFields = [
+  "sexualOrientation",
+  "ethnicity",
+  "languages",
+  "hasPets",
+  "favFood",
+  "favMusic",
+  "favMovieGenre",
+  "hobbies",
+] as const satisfies readonly (keyof WizardState)[];
+
+const numberFields = ["heightCm", "minAge", "maxAge", "maxDistanceKm"] as const satisfies readonly (keyof WizardState)[];
+const booleanFields = ["globalMode", "showVerifiedOnly", "showPhotosOnly"] as const satisfies readonly (keyof WizardState)[];
+
+function mergeWizardState(...sources: Array<NullableWizardState | null | undefined>): WizardState {
+  const next: WizardState = { ...defaults };
+
+  for (const source of sources) {
+    if (!source) {
+      continue;
+    }
+
+    for (const field of stringFields) {
+      const value = source[field];
+      if (typeof value === "string") {
+        next[field] = value;
+      }
+    }
+
+    for (const field of textFields) {
+      if (field in source) {
+        const value = source[field];
+        next[field] = typeof value === "string" ? value : "";
+      }
+    }
+
+    for (const field of stringArrayFields) {
+      const value = source[field];
+      if (Array.isArray(value)) {
+        next[field] = value.filter((item): item is string => typeof item === "string");
+      }
+    }
+
+    for (const field of numberFields) {
+      const value = source[field];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        next[field] = value;
+      }
+    }
+
+    for (const field of booleanFields) {
+      const value = source[field];
+      if (typeof value === "boolean") {
+        next[field] = value;
+      }
+    }
+  }
+
+  return next;
+}
 
 async function readApiPayload(response: Response): Promise<ApiPayload> {
   const text = await response.text();
@@ -325,18 +422,23 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
       const payload = await readApiPayload(response);
 
       if (response.ok) {
+        const nextState = mergeWizardState(
+          payload.profile,
+          { hobbies: payload.hobbies },
+          payload.preferences,
+          {
+            city: payload.location?.city,
+            country: payload.location?.country,
+          },
+        );
+
         setPhotos(payload.photos || []);
         setState({
-          ...defaults,
-          ...(payload.profile || {}),
-          hobbies: payload.hobbies || [],
-          ...(payload.preferences || {}),
+          ...nextState,
           latitude: payload.location?.latitude ?? null,
           longitude: payload.location?.longitude ?? null,
-          city: payload.location?.city || "",
-          country: payload.location?.country || "",
           displayName:
-            payload.profile?.displayName ||
+            nextState.displayName ||
             payload.user?.registeredProfile?.name ||
             [payload.user?.firstName, payload.user?.lastName].filter(Boolean).join(" "),
         });
