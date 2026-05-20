@@ -15,6 +15,7 @@ import {
   UserCheck,
   X,
 } from "lucide-react";
+import { PasswordField, TikTokIcon } from "./auth/AuthControls";
 import { BrandLogo } from "./site/BrandLogo";
 
 const profileCards = [
@@ -339,7 +340,7 @@ export function SwipeExperience() {
                 Continue with Google
               </a>
               <a className="social-button tiktok" href="/api/auth/tiktok">
-                <span aria-hidden="true">T</span>
+                <TikTokIcon />
                 Continue with TikTok
               </a>
             </div>
@@ -359,9 +360,8 @@ export function SwipeExperience() {
               </label>
               <label>
                 Password
-                <input
+                <PasswordField
                   name="password"
-                  type="password"
                   autoComplete="current-password"
                   placeholder="Your password"
                   required
@@ -490,9 +490,8 @@ export function SwipeExperience() {
               </label>
               <label>
                 Password
-                <input
+                <PasswordField
                   name="password"
-                  type="password"
                   autoComplete="new-password"
                   placeholder="Strong password"
                   required
@@ -500,9 +499,8 @@ export function SwipeExperience() {
               </label>
               <label>
                 Confirm password
-                <input
+                <PasswordField
                   name="confirmPassword"
-                  type="password"
                   autoComplete="new-password"
                   placeholder="Repeat password"
                   required

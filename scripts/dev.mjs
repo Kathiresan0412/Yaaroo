@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 
 const apps = [
   { name: "api", cwd: "backend", color: "\x1b[36m" },
@@ -7,16 +8,30 @@ const apps = [
 ];
 
 const reset = "\x1b[0m";
-const children = apps.map((app) => {
-  const child = spawn("npm", ["run", "dev"], {
-    cwd: new URL(`../${app.cwd}/`, import.meta.url),
+const npmExecPath = process.env.npm_execpath;
+const npmCommand = npmExecPath ? process.execPath : process.platform === "win32" ? "npm.cmd" : "npm";
+const npmArgs = npmExecPath ? [npmExecPath, "run", "dev"] : ["run", "dev"];
+const children = apps.flatMap((app) => {
+  const cwd = new URL(`../${app.cwd}/`, import.meta.url);
+  const prefix = `${app.color}[${app.name}]${reset}`;
+
+  if (!existsSync(new URL("package.json", cwd))) {
+    process.stderr.write(`${prefix} skipped: ${app.cwd}/package.json not found\n`);
+    return [];
+  }
+
+  const child = spawn(npmCommand, npmArgs, {
+    cwd,
     env: process.env,
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  const prefix = `${app.color}[${app.name}]${reset}`;
   child.stdout.on("data", (chunk) => process.stdout.write(`${prefix} ${chunk}`));
   child.stderr.on("data", (chunk) => process.stderr.write(`${prefix} ${chunk}`));
+  child.on("error", (error) => {
+    process.stderr.write(`${prefix} failed to start: ${error.message}\n`);
+    shutdown(1);
+  });
   child.on("exit", (code, signal) => {
     if (signal) {
       process.stderr.write(`${prefix} exited with signal ${signal}\n`);
@@ -29,7 +44,7 @@ const children = apps.map((app) => {
     }
   });
 
-  return child;
+  return [child];
 });
 
 function shutdown(code = 0) {

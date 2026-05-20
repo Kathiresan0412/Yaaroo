@@ -1,4 +1,4 @@
-const CACHE_NAME = "yaaro0-shell-v12";
+const CACHE_NAME = "yaaro0-shell-v13";
 const APP_SHELL = [
   "/",
   "/app/discover",
@@ -31,15 +31,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   if (url.pathname.startsWith("/api/")) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          return response;
-        })
-        .catch(() => caches.match(request).then((cached) => cached || Response.error())),
-    );
+    event.respondWith(fetch(request));
     return;
   }
 

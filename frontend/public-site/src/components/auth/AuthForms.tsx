@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
+import { PasswordField, TikTokIcon } from "./AuthControls";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
@@ -15,7 +16,7 @@ function SocialLoginButtons() {
         Continue with Google
       </a>
       <a className="social-button tiktok" href="/api/auth/tiktok">
-        <span aria-hidden="true">T</span>
+        <TikTokIcon />
         Continue with TikTok
       </a>
       <a className="social-button facebook" href="/api/auth/facebook">
@@ -43,6 +44,7 @@ export function LoginForm() {
       const redirectTo = await login(
         String(formData.get("email") || ""),
         String(formData.get("password") || ""),
+        formData.get("remember") === "on",
       );
       setStatus("success");
       setMessage("Logged in successfully.");
@@ -66,11 +68,11 @@ export function LoginForm() {
         </label>
         <label>
           Password
-          <input name="password" type="password" autoComplete="current-password" required />
+          <PasswordField name="password" autoComplete="current-password" required />
         </label>
         <div className="auth-row">
           <label className="check-label">
-            <input type="checkbox" name="remember" />
+            <input type="checkbox" name="remember" defaultChecked />
             Remember me
           </label>
           <a href="/forgot-password">Forgot password?</a>
@@ -184,11 +186,11 @@ export function SignupForm() {
         </label>
         <label>
           Password
-          <input name="password" type="password" autoComplete="new-password" required />
+          <PasswordField name="password" autoComplete="new-password" required />
         </label>
         <label>
           Confirm password
-          <input name="confirmPassword" type="password" autoComplete="new-password" required />
+          <PasswordField name="confirmPassword" autoComplete="new-password" required />
         </label>
         {message ? (
           <p className={status === "error" ? "form-error" : "form-success"} role="status">
@@ -340,11 +342,11 @@ export function ResetPasswordForm({ token }: { token?: string }) {
         )}
         <label>
           New password
-          <input name="password" type="password" autoComplete="new-password" required />
+          <PasswordField name="password" autoComplete="new-password" required />
         </label>
         <label>
           Confirm password
-          <input name="confirmPassword" type="password" autoComplete="new-password" required />
+          <PasswordField name="confirmPassword" autoComplete="new-password" required />
         </label>
         {message ? (
           <p className={status === "error" ? "form-error" : "form-success"} role="status">

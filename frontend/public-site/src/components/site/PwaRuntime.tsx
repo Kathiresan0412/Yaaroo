@@ -72,10 +72,15 @@ export function PwaRuntime({ children }: { children: ReactNode }) {
       }
 
       const message = detail.message;
-      setToasts((current) => [
-        ...current,
-        { id: Date.now() + Math.random(), message, tone: detail.tone || "error" },
-      ]);
+      setToasts((current) => {
+        const tone = detail.tone || "error";
+
+        if (current.some((toast) => toast.message === message && (toast.tone || "error") === tone)) {
+          return current;
+        }
+
+        return [...current, { id: Date.now() + Math.random(), message, tone }];
+      });
     };
 
     window.addEventListener("online", onOnline);
