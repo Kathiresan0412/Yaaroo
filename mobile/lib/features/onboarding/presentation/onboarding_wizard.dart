@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import '../../../main.dart' show YaaroScope, YaaroColors, AppTextField;
 
 class OnboardingWizard extends StatefulWidget {
-  const OnboardingWizard({required this.onComplete, required this.onLogout, super.key});
+  const OnboardingWizard({
+    required this.onComplete,
+    required this.onLogout,
+    this.mode = 'onboarding',
+    super.key,
+  });
 
   final VoidCallback onComplete;
   final VoidCallback onLogout;
+  final String mode;
 
   @override
   State<OnboardingWizard> createState() => _OnboardingWizardState();
@@ -185,10 +191,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         _loading = false;
       });
     } catch (_) {
-      // Fallback to sample data or defaults if profile loading fails
       setState(() {
         _loading = false;
-        _message = 'Failed to load profile. Using local draft.';
+        _message = 'Failed to load profile. Please try again.';
       });
     }
   }
@@ -207,37 +212,16 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return "$ft'$inches\"";
   }
 
-  Future<void> _mockAddPhoto() async {
-    // Add premium mockup photos if device does not support file choosing
-    final sampleUrls = [
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
-      'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=500&q=80',
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=500&q=80',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=500&q=80',
-    ];
-    final nextUrl = sampleUrls[_photos.length % sampleUrls.length];
-    setState(() => _saving = true);
-    try {
-      final api = YaaroScope.of(context);
-      await api.uploadPhoto(nextUrl);
-      setState(() {
-        _photos.add(nextUrl);
-        _message = 'Photo uploaded successfully.';
-      });
-    } catch (e) {
-      setState(() => _message = 'Failed to upload photo.');
-    } finally {
-      setState(() => _saving = false);
-    }
+  Future<void> _showPhotoUploadUnavailable() async {
+    setState(() {
+      _message = 'Photo upload from device is not available in this build yet.';
+    });
   }
 
   Future<void> _deletePhoto(int index) async {
     if (_photos.length <= index) return;
     setState(() => _saving = true);
     try {
-      // Backend uses ID to delete. Since mock URLs might not have IDs, we do offline filtering first
-      // In production API, we would fetch the photo ID.
-      // Let's call the DELETE endpoint using mock id or try catching
       setState(() {
         _photos.removeAt(index);
         _message = 'Photo removed.';
@@ -247,6 +231,47 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     } finally {
       setState(() => _saving = false);
     }
+  }
+
+  Map<String, dynamic> _buildProfileBody() {
+    return {
+      'displayName': _displayName.text.trim(),
+      'pronouns': _pronouns.text.trim(),
+      'sexualOrientation': _sexualOrientation,
+      'headline': _headline.text.trim(),
+      'bio': _bio.text.trim(),
+      'heightCm': _heightCm.toInt(),
+      'bodyType': _bodyType,
+      'ethnicity': _ethnicity,
+      'hairColour': _hairColour,
+      'eyeColour': _eyeColour,
+      'education': _education,
+      'jobTitle': _jobTitle.text.trim(),
+      'company': _company.text.trim(),
+      'industry': _industry,
+      'religion': _religion,
+      'nationality': _nationality.text.trim(),
+      'languages': _languages,
+      'smoking': _smoking,
+      'drinking': _drinking,
+      'exercise': _exercise,
+      'diet': _diet,
+      'sleepSchedule': _sleepSchedule,
+      'livingSituation': _livingSituation,
+      'hasChildren': _hasChildren,
+      'wantsChildren': _wantsChildren,
+      'hasPets': _hasPets,
+      'wantsPets': _wantsPets,
+      'favPet': _favPet,
+      'favColour': _favColour,
+      'favFood': _favFood,
+      'favMusic': _favMusic,
+      'favMovieGenre': _favMovieGenre,
+      'hobbies': _hobbies,
+      'interests': {'hobbies': _hobbies},
+      'loveLanguage': _loveLanguage,
+      'relationshipGoal': _relationshipGoal,
+    };
   }
 
   Future<void> _saveStep() async {
@@ -271,69 +296,24 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
               _bio.text.trim().isEmpty) {
             throw 'Display Name, Orientation, Headline and Bio are required.';
           }
-          await api.updateProfileMe({
-            'displayName': _displayName.text.trim(),
-            'pronouns': _pronouns.text.trim(),
-            'sexualOrientation': _sexualOrientation,
-            'headline': _headline.text.trim(),
-            'bio': _bio.text.trim(),
-          });
           break;
 
         case 2: // Physical
-          await api.updateProfileMe({
-            'heightCm': _heightCm.toInt(),
-            'bodyType': _bodyType,
-            'ethnicity': _ethnicity,
-            'hairColour': _hairColour,
-            'eyeColour': _eyeColour,
-          });
           break;
 
         case 3: // Background
           if (_jobTitle.text.trim().isEmpty || _nationality.text.trim().isEmpty || _languages.isEmpty) {
             throw 'Job Title, Nationality and Languages are required.';
           }
-          await api.updateProfileMe({
-            'education': _education,
-            'jobTitle': _jobTitle.text.trim(),
-            'company': _company.text.trim(),
-            'industry': _industry,
-            'religion': _religion,
-            'nationality': _nationality.text.trim(),
-            'languages': _languages,
-          });
           break;
 
         case 4: // Lifestyle
-          await api.updateProfileMe({
-            'smoking': _smoking,
-            'drinking': _drinking,
-            'exercise': _exercise,
-            'diet': _diet,
-            'sleepSchedule': _sleepSchedule,
-            'livingSituation': _livingSituation,
-            'hasChildren': _hasChildren,
-            'wantsChildren': _wantsChildren,
-            'hasPets': _hasPets,
-            'wantsPets': _wantsPets,
-          });
           break;
 
         case 5: // Favourites & Hobbies
           if (_favFood.isEmpty || _favMusic.isEmpty || _hobbies.isEmpty) {
             throw 'Please select at least one Favourite Food, Music and Hobby.';
           }
-          await api.updateProfileMe({
-            'favPet': _favPet,
-            'favColour': _favColour,
-            'favFood': _favFood,
-            'favMusic': _favMusic,
-            'favMovieGenre': _favMovieGenre,
-            'interests': {'hobbies': _hobbies}, // matches backend nested format
-            'loveLanguage': _loveLanguage,
-            'relationshipGoal': _relationshipGoal,
-          });
           break;
 
         case 6: // Preferences
@@ -349,21 +329,32 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           if (_city.text.trim().isEmpty || _country.text.trim().isEmpty) {
             throw 'City and Country are required to complete onboarding.';
           }
-          // Update location and mark onboarding complete!
           await api.updateLocation(7.8731, 80.7718, _city.text.trim(), _country.text.trim());
-          await api.onboardingComplete();
+          if (widget.mode == 'onboarding') {
+            await api.onboardingComplete();
+          }
           widget.onComplete();
           return;
       }
 
-      // Progress step
-      setState(() {
-        _currentStep++;
-      });
+      // If we are on steps 1 through 5, send the ENTIRE profileBody (all attributes matching web exactly)!
+      if (_currentStep >= 1 && _currentStep <= 5) {
+        final profileBody = _buildProfileBody();
+        await api.updateProfileMe(profileBody);
+      }
+
+      // Progress step or show success message in edit mode
+      if (widget.mode == 'edit') {
+        setState(() {
+          _message = 'Section updated successfully.';
+        });
+      } else {
+        setState(() {
+          _currentStep++;
+        });
+      }
     } catch (e) {
       setState(() => _message = e.toString());
-    } finally {
-      setState(() => _saving = false);
     }
   }
 
@@ -381,15 +372,22 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       appBar: AppBar(
         backgroundColor: YaaroColors.surface,
         elevation: 0,
+        leading: widget.mode == 'edit'
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: widget.onComplete,
+              )
+            : null,
         title: Text(
-          'Onboarding: Step ${_currentStep + 1}/${_steps.length}',
+          widget.mode == 'edit' ? 'Edit Profile' : 'Onboarding: Step ${_currentStep + 1}/${_steps.length}',
           style: const TextStyle(fontWeight: FontWeight.w900),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: widget.onLogout,
-          ),
+          if (widget.mode == 'onboarding')
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: widget.onLogout,
+            ),
         ],
       ),
       body: SafeArea(
@@ -400,6 +398,43 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
               color: YaaroColors.rose,
               backgroundColor: Colors.white10,
               minHeight: 4,
+            ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              child: Row(
+                children: List.generate(_steps.length, (index) {
+                  final bool isCurrent = index == _currentStep;
+                  final bool isEnabled = widget.mode == 'edit' || index <= _currentStep;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ChoiceChip(
+                      label: Text(_steps[index]),
+                      selected: isCurrent,
+                      onSelected: isEnabled
+                          ? (selected) {
+                              if (selected) {
+                                setState(() {
+                                  _currentStep = index;
+                                  _message = null;
+                                });
+                              }
+                            }
+                          : null,
+                      backgroundColor: YaaroColors.surfaceAlt,
+                      selectedColor: YaaroColors.rose,
+                      labelStyle: TextStyle(
+                        color: isCurrent
+                            ? Colors.white
+                            : (isEnabled ? Colors.white70 : Colors.white24),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  );
+                }),
+              ),
             ),
             if (_message != null)
               Container(
@@ -521,7 +556,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
               );
             } else {
               return InkWell(
-                onTap: _saving ? null : _mockAddPhoto,
+                onTap: _saving ? null : _showPhotoUploadUnavailable,
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   decoration: BoxDecoration(

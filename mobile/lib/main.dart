@@ -1,7 +1,11 @@
+import 'dart:ui';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import 'core/api_client.dart';
+import 'core/secure_storage.dart';
 import 'features/auth/presentation/auth_sheet.dart';
 import 'features/onboarding/presentation/onboarding_wizard.dart';
 import 'features/chat/presentation/chat_screen.dart';
@@ -294,6 +298,7 @@ class VibeQuestion {
 class MatchItem {
   const MatchItem({
     required this.id,
+    this.userId = '',
     required this.name,
     required this.age,
     required this.photoUrl,
@@ -301,9 +306,13 @@ class MatchItem {
     required this.unreadCount,
     required this.compatibilityScore,
     required this.isVerified,
+    this.isNew = false,
+    this.matchedAt = '',
+    this.sentAt,
   });
 
   final String id;
+  final String userId;
   final String name;
   final int? age;
   final String? photoUrl;
@@ -311,6 +320,9 @@ class MatchItem {
   final int unreadCount;
   final int compatibilityScore;
   final bool isVerified;
+  final bool isNew;
+  final String matchedAt;
+  final String? sentAt;
 
   factory MatchItem.fromJson(Map<String, dynamic> json) {
     final user = json['user'] is Map<String, dynamic>
@@ -322,6 +334,7 @@ class MatchItem {
 
     return MatchItem(
       id: json['id']?.toString() ?? '',
+      userId: user['id']?.toString() ?? '',
       name: user['displayName']?.toString() ?? 'Match',
       age: int.tryParse(user['age']?.toString() ?? ''),
       photoUrl: user['mainPhotoUrl']?.toString(),
@@ -330,6 +343,9 @@ class MatchItem {
       compatibilityScore:
           int.tryParse(json['compatibilityScore']?.toString() ?? '') ?? 82,
       isVerified: user['isVerified'] == true,
+      isNew: json['isNew'] == true,
+      matchedAt: json['matchedAt']?.toString() ?? '',
+      sentAt: lastMessage['sentAt']?.toString(),
     );
   }
 }
@@ -337,6 +353,7 @@ class MatchItem {
 class LikeItem {
   const LikeItem({
     required this.id,
+    this.userId = '',
     required this.name,
     required this.age,
     required this.photoUrl,
@@ -345,6 +362,7 @@ class LikeItem {
   });
 
   final String id;
+  final String userId;
   final String name;
   final int? age;
   final String? photoUrl;
@@ -358,6 +376,7 @@ class LikeItem {
 
     return LikeItem(
       id: json['id']?.toString() ?? '',
+      userId: user['id']?.toString() ?? '',
       name: user['displayName']?.toString() ?? 'Someone new',
       age: int.tryParse(user['age']?.toString() ?? ''),
       photoUrl: user['mainPhotoUrl']?.toString(),
@@ -366,108 +385,6 @@ class LikeItem {
     );
   }
 }
-
-final demoProfiles = [
-  const DiscoveryProfile(
-    id: 'demo-aaravi',
-    displayName: 'Aaravi',
-    age: 26,
-    city: 'Colombo',
-    country: 'Sri Lanka',
-    headline: 'Values-led, curious, weekend cafe hunter.',
-    photoUrl:
-        'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=82',
-    compatibilityScore: 92,
-    distanceKm: 4,
-    isVerified: true,
-    sharedInterests: ['Tamil music', 'Food walks', 'Family values'],
-    bio: 'Looking for honest conversation, shared rituals, and a little spark.',
-    relationshipGoal: 'Long-term',
-    loveLanguage: 'Quality time',
-  ),
-  const DiscoveryProfile(
-    id: 'demo-naveen',
-    displayName: 'Naveen',
-    age: 29,
-    city: 'Toronto',
-    country: 'Canada',
-    headline: 'Engineer, dosa loyalist, long-term minded.',
-    photoUrl:
-        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=82',
-    compatibilityScore: 88,
-    distanceKm: null,
-    isVerified: true,
-    sharedInterests: ['Travel', 'Fitness', 'Tamil cinema'],
-    bio: 'Here for a connection that can move from chat to real life.',
-    relationshipGoal: 'Long-term',
-    loveLanguage: 'Acts of service',
-  ),
-  const DiscoveryProfile(
-    id: 'demo-maya',
-    displayName: 'Maya',
-    age: 25,
-    city: 'London',
-    country: 'United Kingdom',
-    headline: 'Creative, grounded, and serious about kindness.',
-    photoUrl:
-        'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=82',
-    compatibilityScore: 85,
-    distanceKm: 12,
-    isVerified: false,
-    sharedInterests: ['Art', 'Brunch', 'Books'],
-    bio: 'Ask me about the last film that made me rethink everything.',
-    relationshipGoal: 'Friends',
-    loveLanguage: 'Words of affirmation',
-  ),
-];
-
-final demoCategories = [
-  const ExploreCategory(
-      key: 'music', label: 'Tamil music', count: 28, emoji: '♪'),
-  const ExploreCategory(
-      key: 'food', label: 'Food lovers', count: 42, emoji: '◐'),
-  const ExploreCategory(
-      key: 'faith', label: 'Shared values', count: 19, emoji: '✦'),
-  const ExploreCategory(
-      key: 'travel', label: 'Travel plans', count: 31, emoji: '⌁'),
-];
-
-final demoMatches = [
-  const MatchItem(
-    id: 'match-aaravi',
-    name: 'Aaravi',
-    age: 26,
-    photoUrl:
-        'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=500&q=82',
-    preview: 'That coffee place looks perfect.',
-    unreadCount: 2,
-    compatibilityScore: 92,
-    isVerified: true,
-  ),
-  const MatchItem(
-    id: 'match-kavin',
-    name: 'Kavin',
-    age: 31,
-    photoUrl:
-        'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=500&q=82',
-    preview: 'Voice note received.',
-    unreadCount: 0,
-    compatibilityScore: 81,
-    isVerified: true,
-  ),
-];
-
-final demoLikes = [
-  const LikeItem(
-    id: 'like-maya',
-    name: 'Maya',
-    age: 25,
-    photoUrl:
-        'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=500&q=82',
-    action: 'superlike',
-    isVerified: false,
-  ),
-];
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -502,7 +419,6 @@ class _AppShellState extends State<AppShell> {
       return LandingScreen(
         onLogin: () => _openAuth(),
         onCreateAccount: () => _openAuth(createAccount: true),
-        onPreviewApp: () => setState(() => _showLanding = false),
       );
     }
 
@@ -577,13 +493,11 @@ class LandingScreen extends StatelessWidget {
   const LandingScreen({
     required this.onLogin,
     required this.onCreateAccount,
-    required this.onPreviewApp,
     super.key,
   });
 
   final VoidCallback onLogin;
   final VoidCallback onCreateAccount;
-  final VoidCallback onPreviewApp;
 
   @override
   Widget build(BuildContext context) {
@@ -612,9 +526,9 @@ class LandingScreen extends StatelessWidget {
                 child: Transform.rotate(
                   angle: 0.14,
                   child: const _LandingPreviewCard(
-                    name: 'Aaravi',
-                    imageUrl:
-                        'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=500&q=82',
+                    title: 'Verified',
+                    subtitle: 'Profile review',
+                    icon: Icons.verified_user,
                   ),
                 ),
               ),
@@ -624,9 +538,9 @@ class LandingScreen extends StatelessWidget {
                 child: Transform.rotate(
                   angle: -0.12,
                   child: const _LandingPreviewCard(
-                    name: 'Naveen',
-                    imageUrl:
-                        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=500&q=82',
+                    title: 'Private',
+                    subtitle: 'Safer matching',
+                    icon: Icons.lock,
                   ),
                 ),
               ),
@@ -759,10 +673,6 @@ class LandingScreen extends StatelessWidget {
                           ),
                           child: const Text('New to Yaaro0? Create account'),
                         ),
-                        TextButton(
-                          onPressed: onPreviewApp,
-                          child: const Text('Preview the mobile app'),
-                        ),
                       ],
                     ),
                   ),
@@ -778,12 +688,14 @@ class LandingScreen extends StatelessWidget {
 
 class _LandingPreviewCard extends StatelessWidget {
   const _LandingPreviewCard({
-    required this.name,
-    required this.imageUrl,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
   });
 
-  final String name;
-  final String imageUrl;
+  final String title;
+  final String subtitle;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -792,12 +704,11 @@ class _LandingPreviewCard extends StatelessWidget {
       child: Container(
         width: 148,
         height: 198,
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: YaaroColors.surfaceAlt,
           border: Border.all(color: YaaroColors.line),
           borderRadius: BorderRadius.circular(8),
-          image:
-              DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.35),
@@ -806,9 +717,19 @@ class _LandingPreviewCard extends StatelessWidget {
             ),
           ],
         ),
-        alignment: Alignment.bottomLeft,
-        padding: const EdgeInsets.all(10),
-        child: Text(name, style: const TextStyle(fontWeight: FontWeight.w900)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: YaaroColors.teal, size: 30),
+            const Spacer(),
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text(subtitle,
+                style: const TextStyle(color: YaaroColors.muted, fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
@@ -824,7 +745,7 @@ class DiscoverScreen extends StatefulWidget {
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
-  List<DiscoveryProfile> _profiles = demoProfiles;
+  List<DiscoveryProfile> _profiles = const [];
   bool _loading = true;
   bool _swiping = false;
   String _message = '';
@@ -842,15 +763,15 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     setState(() => _loading = true);
     try {
       final cards = await YaaroScope.of(context).discover();
-      if (cards.isNotEmpty) {
-        setState(() {
-          _profiles = cards;
-          _message = '';
-        });
-      }
+      setState(() {
+        _profiles = cards;
+        _message = '';
+      });
     } catch (_) {
-      setState(
-          () => _message = 'Showing demo profiles until the API is available.');
+      setState(() {
+        _profiles = const [];
+        _message = 'Profiles are unavailable right now. Please try again.';
+      });
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -995,9 +916,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             'Sent ${action == SwipeAction.superlike ? 'a superlike' : 'a like'} to ${profile.displayName}.');
       }
     } catch (_) {
-      if (profile.id.startsWith('demo-')) {
-        return;
-      }
       setState(() {
         _profiles = [profile, ..._profiles];
         _message = 'Could not send that swipe. Try again.';
@@ -1031,8 +949,8 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  List<ExploreCategory> _categories = demoCategories;
-  List<DiscoveryProfile> _profiles = demoProfiles;
+  List<ExploreCategory> _categories = const [];
+  List<DiscoveryProfile> _profiles = const [];
   List<DiscoveryProfile> _vibeProfiles = const [];
   VibeQuestion? _vibeQuestion;
   String _activeGoal = '';
@@ -1062,7 +980,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
         _message = '';
       });
     } catch (_) {
-      setState(() => _message = 'Explore is using local preview data.');
+      setState(() {
+        _categories = const [];
+        _profiles = const [];
+        _vibeQuestion = null;
+        _message = 'Explore is unavailable right now. Please try again.';
+      });
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -1110,7 +1033,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 children: [
                   Text(
                     _vibeQuestion?.prompt ??
-                        'Your perfect Sunday starts with...',
+                        'Today\'s vibe question is unavailable.',
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w900),
                   ),
@@ -1118,14 +1041,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: (_vibeQuestion?.answers.isNotEmpty == true
-                            ? _vibeQuestion!.answers
-                            : [
-                                'Family lunch',
-                                'A long drive',
-                                'Temple and tea',
-                                'Movie night'
-                              ])
+                    children: (_vibeQuestion?.answers ?? const <String>[])
                         .map((answer) => ChoiceChip(
                               label: Text(answer),
                               selected: answer == _vibeQuestion?.answer,
@@ -1155,7 +1071,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 title: 'Interests', trailing: '${_categories.length} groups'),
             const SizedBox(height: 10),
             SizedBox(
-              height: 92,
+              height: 104,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: _categories.length,
@@ -1168,7 +1084,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     onTap: () => _loadByInterest(category),
                     child: Container(
                       width: 148,
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(12),
                       decoration: panelDecoration().copyWith(
                         border: Border.all(
                           color: isActive ? YaaroColors.rose : YaaroColors.line,
@@ -1176,12 +1092,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(category.emoji,
                               style: const TextStyle(fontSize: 18)),
+                          const SizedBox(height: 6),
                           Text(category.label,
                               maxLines: 2, overflow: TextOverflow.ellipsis),
+                          const Spacer(),
                           Text(
                             '${category.count} people',
                             style: const TextStyle(
@@ -1335,17 +1252,45 @@ class _ExploreScreenState extends State<ExploreScreen> {
           : 'Passed on ${profile.displayName}.';
     });
 
-    if (!profile.id.startsWith('demo-')) {
-      try {
-        final result = await YaaroScope.of(context).swipe(profile.id, action);
-        if (result.matched) {
-          setState(
-              () => _message = "It's a match with ${profile.displayName}.");
-        }
-      } catch (_) {
-        setState(() => _message = 'Action failed. Try again.');
+    try {
+      final result = await YaaroScope.of(context).swipe(profile.id, action);
+      if (result.matched) {
+        setState(
+            () => _message = "It's a match with ${profile.displayName}.");
       }
+    } catch (_) {
+      setState(() => _message = 'Action failed. Try again.');
     }
+  }
+}
+
+String formatTimestamp(String? value) {
+  if (value == null || value.isEmpty) {
+    return '';
+  }
+
+  try {
+    final date = DateTime.parse(value).toLocal();
+    final diff = DateTime.now().difference(date);
+    final minutes = diff.inMinutes;
+
+    if (minutes < 1) {
+      return 'now';
+    }
+
+    if (minutes < 60) {
+      return '${minutes}m';
+    }
+
+    final hours = diff.inHours;
+    if (hours < 24) {
+      return '${hours}h';
+    }
+
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[date.month - 1]} ${date.day}';
+  } catch (_) {
+    return '';
   }
 }
 
@@ -1359,32 +1304,123 @@ class MatchesScreen extends StatefulWidget {
 }
 
 class _MatchesScreenState extends State<MatchesScreen> {
-  List<MatchItem> _matches = demoMatches;
-  List<LikeItem> _likes = demoLikes;
+  List<MatchItem> _matches = [];
+  List<LikeItem> _likes = [];
+  int _likesCount = 0;
+  bool _likesBlurred = true;
+  String _query = '';
   String _message = '';
   bool _loading = true;
+  io.Socket? _socket;
 
   @override
   void initState() {
     super.initState();
     _load();
+    Future.delayed(Duration.zero, _setupSocket);
+  }
+
+  @override
+  void dispose() {
+    if (_socket != null) {
+      try {
+        _socket!.disconnect();
+      } catch (_) {}
+    }
+    super.dispose();
   }
 
   Future<void> _load() async {
+    if (mounted) {
+      setState(() => _loading = true);
+    }
     try {
       final api = YaaroScope.of(context);
       final results = await Future.wait<dynamic>([
         api.matches(),
-        api.likesReceived(),
+        api.likesReceivedFull(),
       ]);
-      setState(() {
-        _matches = results[0] as List<MatchItem>;
-        _likes = results[1] as List<LikeItem>;
-        _message = '';
+
+      final matches = results[0] as List<MatchItem>;
+      final likesPayload = results[1] as Map<String, dynamic>;
+      final rawLikes = likesPayload['likes'];
+      List<LikeItem> likes = [];
+      if (rawLikes is List) {
+        likes = rawLikes
+            .whereType<Map<String, dynamic>>()
+            .map(LikeItem.fromJson)
+            .toList();
+      }
+
+      if (mounted) {
+        setState(() {
+          _matches = matches;
+          _likes = likes;
+          _likesCount = int.tryParse(likesPayload['count']?.toString() ?? '') ?? likes.length;
+          _likesBlurred = likesPayload['blurred'] == true;
+          _message = '';
+        });
+      }
+
+      final cacheData = jsonEncode({
+        'matches': matches.map((m) => {
+          'id': m.id,
+          'user': {
+            'id': m.userId,
+            'displayName': m.name,
+            'age': m.age,
+            'mainPhotoUrl': m.photoUrl,
+            'isVerified': m.isVerified,
+          },
+          'lastMessage': {
+            'preview': m.preview,
+            'sentAt': m.sentAt,
+          },
+          'unreadCount': m.unreadCount,
+          'compatibilityScore': m.compatibilityScore,
+          'isNew': m.isNew,
+          'matchedAt': m.matchedAt,
+        }).toList(),
+        'likes': likes.map((l) => {
+          'id': l.id,
+          'user': {
+            'id': l.userId,
+            'displayName': l.name,
+            'age': l.age,
+            'mainPhotoUrl': l.photoUrl,
+            'isVerified': l.isVerified,
+          },
+          'action': l.action,
+        }).toList(),
+        'likesCount': _likesCount,
+        'likesBlurred': _likesBlurred,
       });
-    } catch (_) {
-      setState(
-          () => _message = 'Showing saved match previews until you connect.');
+      await SecureStorage.instance.write('matches_cache', cacheData);
+
+    } catch (e) {
+      try {
+        final rawCache = await SecureStorage.instance.read('matches_cache');
+        if (rawCache != null) {
+          final cached = jsonDecode(rawCache);
+          if (cached is Map<String, dynamic>) {
+            final rawMatches = cached['matches'] as List? ?? [];
+            final rawLikes = cached['likes'] as List? ?? [];
+            if (mounted) {
+              setState(() {
+                _matches = rawMatches.whereType<Map<String, dynamic>>().map(MatchItem.fromJson).toList();
+                _likes = rawLikes.whereType<Map<String, dynamic>>().map(LikeItem.fromJson).toList();
+                _likesCount = cached['likesCount'] as int? ?? 0;
+                _likesBlurred = cached['likesBlurred'] == true;
+                _message = 'Showing saved matches while Yaaro0 reconnects.';
+              });
+            }
+            return;
+          }
+        }
+      } catch (_) {}
+      if (mounted) {
+        setState(() => _message = 'Matches are unavailable.');
+      }
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -1392,48 +1428,1036 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AppGradient(
-      child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
-          children: [
-            HeaderBar(
-                title: 'Matches',
-                actionLabel: 'Login',
-                onAction: widget.onOpenAuth),
-            const SizedBox(height: 18),
-            Text(
-              'Start with the people who chose you back',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
+  void _setupSocket() {
+    final api = YaaroScope.of(context);
+    final token = api.accessToken;
+    if (token == null) return;
+
+    const String socketUrl = String.fromEnvironment(
+      'YAARO0_SOCKET_URL',
+      defaultValue: 'https://yaaro-backend.vercel.app',
+    );
+
+    _socket = io.io(
+      socketUrl,
+      io.OptionBuilder()
+          .setTransports(['websocket', 'polling'])
+          .setAuth({'token': token})
+          .disableAutoConnect()
+          .build(),
+    );
+
+    _socket!.on('new_message', (data) {
+      if (data is Map<String, dynamic>) {
+        final matchId = data['matchId']?.toString();
+        final senderId = data['senderId']?.toString();
+        final type = data['type']?.toString();
+        final content = data['content']?.toString();
+        final createdAt = data['createdAt']?.toString();
+
+        if (senderId == api.user?.id) return;
+
+        if (mounted) {
+          setState(() {
+            _matches = _matches.map((match) {
+              if (match.id == matchId) {
+                String preview = 'Message';
+                if (type == 'photo' || type == 'image') {
+                  preview = 'Photo';
+                } else if (type == 'gif') {
+                  preview = 'GIF';
+                } else if (type == 'voice') {
+                  preview = 'Voice message';
+                } else if (content != null) {
+                  preview = content;
+                }
+
+                return MatchItem(
+                  id: match.id,
+                  userId: match.userId,
+                  name: match.name,
+                  age: match.age,
+                  photoUrl: match.photoUrl,
+                  preview: preview,
+                  unreadCount: match.unreadCount + 1,
+                  compatibilityScore: match.compatibilityScore,
+                  isVerified: match.isVerified,
+                  isNew: match.isNew,
+                  matchedAt: match.matchedAt,
+                  sentAt: createdAt,
+                );
+              }
+              return match;
+            }).toList();
+          });
+        }
+      }
+    });
+
+    _socket!.connect();
+  }
+
+  List<MatchItem> get _filteredMatches {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) {
+      return _matches;
+    }
+    return _matches.where((m) => m.name.toLowerCase().contains(query)).toList();
+  }
+
+  List<MatchItem> get _newMatches {
+    return _filteredMatches.where((m) => m.isNew).toList();
+  }
+
+  List<MapEntry<String, String>> _sectionRows(Map<String, dynamic>? section) {
+    if (section == null) return [];
+    return section.entries.map((entry) {
+      final value = entry.value;
+      String strVal = '';
+      if (value is List) {
+        strVal = value.join(', ');
+      } else if (value != null) {
+        strVal = value.toString();
+      }
+      final label = entry.key
+          .replaceAllMapped(RegExp(r'([A-Z])'), (m) => ' ${m.group(0)}')
+          .replaceFirstMapped(RegExp(r'^.'), (m) => m.group(0)!.toUpperCase());
+      return MapEntry(label, strVal);
+    }).where((entry) => entry.value.isNotEmpty).toList();
+  }
+
+  Future<void> _unmatch(MatchItem match) async {
+    if (mounted) {
+      setState(() => _message = '');
+    }
+    try {
+      final api = YaaroScope.of(context);
+      await api.deleteMatch(match.id);
+      if (mounted) {
+        setState(() {
+          _matches = _matches.where((m) => m.id != match.id).toList();
+        });
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unmatched with ${match.name}.'),
+          backgroundColor: YaaroColors.rose,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _message = 'Unable to unmatch.');
+      }
+    }
+  }
+
+  Future<void> _likeBack(String userId, String name) async {
+    if (mounted) {
+      setState(() => _message = '');
+    }
+    try {
+      final api = YaaroScope.of(context);
+      final result = await api.swipe(userId, SwipeAction.like);
+      
+      if (mounted) {
+        setState(() {
+          _likes = _likes.where((l) => l.userId != userId).toList();
+          if (_likesCount > 0) {
+            _likesCount--;
+          }
+        });
+      }
+
+      if (result.matched) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("It's a Match with $name!"),
+            backgroundColor: YaaroColors.teal,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Sent a like back to $name."),
+            backgroundColor: YaaroColors.rose,
+          ),
+        );
+      }
+      
+      _load();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _message = 'Unable to like back.');
+      }
+    }
+  }
+
+  Future<void> _showUnmatchConfirmation(MatchItem match) async {
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: YaaroColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(
+            children: [
+              const Icon(Icons.shield, color: YaaroColors.rose, size: 28),
+              const SizedBox(width: 10),
+              Text(
+                'Unmatch ${match.name}?',
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ],
+          ),
+          content: const Text(
+            'This removes the match from your list and deletes all conversations. This action cannot be undone.',
+            style: TextStyle(color: YaaroColors.muted, height: 1.35),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              onPressed: () => Navigator.pop(context),
             ),
-            const SizedBox(height: 14),
-            if (_loading) const LinearProgressIndicator(minHeight: 2),
-            if (_message.isNotEmpty) StatusPill(text: _message),
-            const SizedBox(height: 18),
-            SectionTitle(title: 'Likes you', trailing: '${_likes.length} new'),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 112,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _likes.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, index) => LikeTile(like: _likes[index]),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: YaaroColors.rose),
+              child: const Text('Unmatch', style: TextStyle(fontWeight: FontWeight.w800)),
+              onPressed: () async {
+                Navigator.pop(context);
+                await _unmatch(match);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openProfile(String userId, String matchId) async {
+    if (mounted) {
+      setState(() => _message = '');
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return FutureBuilder<Map<String, dynamic>>(
+              future: YaaroScope.of(context).getUserProfile(userId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Container(
+                    height: MediaQuery.of(context).size.height * 0.75,
+                    decoration: const BoxDecoration(
+                      color: YaaroColors.surface,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
+                      ),
+                    ),
+                    child: const Center(
+                      child: CircularProgressIndicator(color: YaaroColors.rose),
+                    ),
+                  );
+                }
+
+                if (snapshot.hasError || !snapshot.hasData || snapshot.data!['profile'] == null) {
+                  return Container(
+                    height: MediaQuery.of(context).size.height * 0.4,
+                    decoration: const BoxDecoration(
+                      color: YaaroColors.surface,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
+                      ),
+                    ),
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Text(
+                          snapshot.error?.toString() ?? 'Unable to open profile.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: YaaroColors.rose, fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                final profile = snapshot.data!['profile'] as Map<String, dynamic>;
+                final photos = profile['photos'] as List? ?? [];
+                final displayName = profile['displayName']?.toString() ?? 'Yaaro0 Member';
+                final age = profile['age']?.toString();
+                final city = profile['city']?.toString();
+                final country = profile['country']?.toString();
+                final distanceKm = profile['distanceKm']?.toString();
+                final bio = profile['bio']?.toString() ?? profile['headline']?.toString() ?? 'This profile is keeping things concise.';
+                final compatibilityScore = profile['compatibilityScore']?.toString() ?? '80';
+                final isVerified = profile['isVerified'] == true;
+                final sharedInterests = (profile['sharedInterests'] as List? ?? []).map((i) => i.toString()).toList();
+
+                int photoIndex = 0;
+
+                return Container(
+                  height: MediaQuery.of(context).size.height * 0.85,
+                  decoration: const BoxDecoration(
+                    color: YaaroColors.surface,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                    child: Scaffold(
+                      backgroundColor: Colors.transparent,
+                      body: Stack(
+                        children: [
+                          ListView(
+                            children: [
+                              Stack(
+                                children: [
+                                  SizedBox(
+                                    height: 380,
+                                    child: photos.isEmpty
+                                        ? Container(
+                                            color: YaaroColors.surfaceAlt,
+                                            child: const Center(
+                                              child: Icon(Icons.person, size: 84, color: Colors.white24),
+                                            ),
+                                          )
+                                        : PageView.builder(
+                                            itemCount: photos.length,
+                                            onPageChanged: (idx) {
+                                              setModalState(() {
+                                                photoIndex = idx;
+                                              });
+                                            },
+                                            itemBuilder: (context, idx) {
+                                              final photo = photos[idx];
+                                              final url = photo['url']?.toString() ?? '';
+                                              return Image.network(url, fit: BoxFit.cover);
+                                            },
+                                          ),
+                                  ),
+                                  Positioned.fill(
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [
+                                            Colors.black.withOpacity(0.05),
+                                            Colors.black.withOpacity(0.05),
+                                            Colors.black.withOpacity(0.65),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (photos.length > 1)
+                                    Positioned(
+                                      bottom: 16,
+                                      left: 0,
+                                      right: 0,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: List.generate(
+                                          photos.length,
+                                          (idx) => Container(
+                                            width: 8,
+                                            height: 8,
+                                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: idx == photoIndex
+                                                  ? YaaroColors.rose
+                                                  : Colors.white.withOpacity(0.4),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(20.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                age != null ? '$displayName, $age' : displayName,
+                                                style: const TextStyle(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.w900,
+                                                  height: 1.1,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                [city, country].whereType<String>().where((s) => s.isNotEmpty).join(', ').isNotEmpty
+                                                    ? [city, country].whereType<String>().where((s) => s.isNotEmpty).join(', ')
+                                                    : (distanceKm == null ? 'Nearby' : '$distanceKm km away'),
+                                                style: const TextStyle(color: YaaroColors.muted, fontSize: 14),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Container(
+                                          width: 52,
+                                          height: 52,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: YaaroColors.teal, width: 2.5),
+                                            color: YaaroColors.teal.withOpacity(0.08),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              '$compatibilityScore%',
+                                              style: const TextStyle(
+                                                color: YaaroColors.teal,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    if (isVerified)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                        decoration: BoxDecoration(
+                                          color: YaaroColors.teal.withOpacity(0.12),
+                                          border: Border.all(color: YaaroColors.teal.withOpacity(0.24)),
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.verified, size: 14, color: YaaroColors.teal),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'Verified',
+                                              style: TextStyle(
+                                                color: YaaroColors.teal,
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      bio,
+                                      style: const TextStyle(fontSize: 15, height: 1.4, color: Color(0xE6FFFFFF)),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    const Text('Shared Interests', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: sharedInterests.isEmpty
+                                          ? [
+                                              const TagChip(label: 'Discover more in chat'),
+                                            ]
+                                          : sharedInterests.map((interest) => TagChip(label: interest)).toList(),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    ..._buildProfileSections(profile),
+                                    const SizedBox(height: 100),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              color: YaaroColors.surface.withOpacity(0.96),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        side: const BorderSide(color: YaaroColors.line),
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size.fromHeight(48),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      onPressed: () => _handleReport(userId, displayName),
+                                      icon: const Icon(Icons.flag, size: 18),
+                                      label: const Text('Report', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        side: const BorderSide(color: YaaroColors.line),
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size.fromHeight(48),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      onPressed: () => _handleBlock(userId, displayName),
+                                      icon: const Icon(Icons.block, size: 18),
+                                      label: const Text('Block', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: FilledButton.icon(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: YaaroColors.rose,
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size.fromHeight(48),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      onPressed: matchId.isNotEmpty
+                                          ? () {
+                                              Navigator.pop(context);
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => ChatScreen(
+                                                    matchId: matchId,
+                                                    matchName: displayName,
+                                                    matchPhotoUrl: photos.isNotEmpty ? photos.first['url']?.toString() : null,
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                          : null,
+                                      icon: const Icon(Icons.chat_bubble, size: 18),
+                                      label: const Text('Message', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 10,
+                            right: 10,
+                            child: IconButton(
+                              icon: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+                                child: const Icon(Icons.close, color: Colors.white, size: 20),
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildProfileSections(Map<String, dynamic> profile) {
+    final List<Widget> widgets = [];
+    final sections = [
+      MapEntry('About', {
+        'headline': profile['headline'],
+        'pronouns': profile['pronouns'],
+      }),
+      MapEntry('Basics', profile['basics'] as Map<String, dynamic>?),
+      MapEntry('Lifestyle', profile['lifestyle'] as Map<String, dynamic>?),
+      MapEntry('Interests', profile['interests'] as Map<String, dynamic>?),
+    ];
+
+    for (final sec in sections) {
+      final rows = _sectionRows(sec.value);
+      if (rows.isNotEmpty) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(sec.key, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 10),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: rows.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 2.8,
+                  ),
+                  itemBuilder: (context, idx) {
+                    final row = rows[idx];
+                    return Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: panelDecoration(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(row.key, style: const TextStyle(color: YaaroColors.muted, fontSize: 11)),
+                          const SizedBox(height: 2),
+                          Text(
+                            row.value,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+    return widgets;
+  }
+
+  Future<void> _handleBlock(String userId, String displayName) async {
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: YaaroColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Text('Block Member?', style: TextStyle(fontWeight: FontWeight.w900)),
+          content: Text('Are you sure you want to block $displayName? They will no longer be able to message you or view your profile.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              onPressed: () => Navigator.pop(context),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: YaaroColors.rose),
+              child: const Text('Block'),
+              onPressed: () async {
+                Navigator.pop(context);
+                Navigator.pop(this.context);
+                try {
+                  final api = YaaroScope.of(this.context);
+                  await api.blockUser(userId);
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(
+                      content: Text('Blocked $displayName.'),
+                      backgroundColor: YaaroColors.rose,
+                    ),
+                  );
+                  _load();
+                } catch (_) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Failed to block member.'),
+                      backgroundColor: YaaroColors.rose,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _handleReport(String userId, String displayName) async {
+    final textController = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: YaaroColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text('Report $displayName', style: const TextStyle(fontWeight: FontWeight.w900)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Please provide details for your safety report:'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: textController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Describe the issue...',
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.06),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              onPressed: () => Navigator.pop(context),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: YaaroColors.rose),
+              child: const Text('Submit Report'),
+              onPressed: () async {
+                final details = textController.text.trim();
+                if (details.isEmpty) return;
+                Navigator.pop(context);
+                Navigator.pop(this.context);
+                try {
+                  final api = YaaroScope.of(this.context);
+                  await api.reportUser(userId, 'harassment', details);
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Safety report submitted. Thank you.'),
+                      backgroundColor: YaaroColors.teal,
+                    ),
+                  );
+                } catch (_) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Failed to submit report.'),
+                      backgroundColor: YaaroColors.rose,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBlurredLikesSection() {
+    return Container(
+      height: 126,
+      decoration: panelDecoration(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(3, (index) => Container(
+                width: 72,
+                height: 96,
+                margin: const EdgeInsets.symmetric(vertical: 15),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                ),
+                child: const Center(
+                  child: Icon(Icons.person, color: Colors.white10, size: 36),
+                ),
+              )),
+            ),
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  color: Colors.black.withOpacity(0.45),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '$_likesCount people liked you',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: YaaroColors.rose,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Upgrade to see who liked you!'),
+                              backgroundColor: YaaroColors.rose,
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          'Upgrade to See',
+                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            SectionTitle(
-                title: 'Messages', trailing: '${_matches.length} active'),
-            const SizedBox(height: 10),
-            ..._matches.map(
-              (match) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: MatchTile(match: match),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLikesList() {
+    if (_likes.isEmpty) {
+      return Container(
+        height: 100,
+        decoration: panelDecoration(),
+        child: const Center(
+          child: Text(
+            'No likes yet. Keep swiping!',
+            style: TextStyle(color: YaaroColors.muted),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 148,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _likes.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final like = _likes[index];
+          return Container(
+            width: 112,
+            padding: const EdgeInsets.all(8),
+            decoration: panelDecoration(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                GestureDetector(
+                  onTap: () => _openProfile(like.userId, ''),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      height: 72,
+                      child: like.photoUrl != null
+                          ? Image.network(like.photoUrl!, fit: BoxFit.cover)
+                          : Container(
+                              color: YaaroColors.surfaceAlt,
+                              child: const Icon(Icons.person, color: Colors.white38),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  like.age != null ? '${like.name}, ${like.age}' : like.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+                const Spacer(),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: YaaroColors.rose,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size.fromHeight(28),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () => _likeBack(like.userId, like.name),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.favorite, size: 12, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'Like Back',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildNewMatchesSection() {
+    final newMatches = _newMatches;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionTitle(title: 'New Matches', trailing: '${newMatches.length}'),
+        const SizedBox(height: 10),
+        if (newMatches.isEmpty)
+          Container(
+            height: 92,
+            width: double.infinity,
+            decoration: panelDecoration(),
+            child: const Center(
+              child: Text(
+                'No new matches yet.',
+                style: TextStyle(color: YaaroColors.muted),
+              ),
+            ),
+          )
+        else
+          SizedBox(
+            height: 96,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: newMatches.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              itemBuilder: (context, index) {
+                final match = newMatches[index];
+                return GestureDetector(
+                  onTap: () => _openProfile(match.userId, match.id),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: YaaroColors.surfaceAlt,
+                        backgroundImage: match.photoUrl != null
+                            ? NetworkImage(match.photoUrl!)
+                            : null,
+                        child: match.photoUrl == null
+                            ? Text(
+                                match.name.substring(0, match.name.length > 2 ? 2 : match.name.length).toUpperCase(),
+                                style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white70),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        match.name,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filteredMatches;
+
+    return AppGradient(
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: HeaderBar(
+                title: 'Matches',
+                actionLabel: 'Login',
+                onAction: widget.onOpenAuth,
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
+                children: [
+                  const Text(
+                    'Start with the people who chose you back',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  // Search Bar Input
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: panelDecoration(),
+                    child: TextField(
+                      onChanged: (val) {
+                        setState(() {
+                          _query = val;
+                        });
+                      },
+                      style: const TextStyle(fontSize: 14),
+                      decoration: const InputDecoration(
+                        icon: Icon(Icons.search, color: YaaroColors.muted, size: 20),
+                        hintText: 'Search matches',
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (_loading) const LinearProgressIndicator(minHeight: 2),
+                  if (_message.isNotEmpty) StatusPill(text: _message),
+                  const SizedBox(height: 18),
+                  
+                  // Likes You Section
+                  SectionTitle(title: 'Likes You', trailing: '$_likesCount'),
+                  const SizedBox(height: 10),
+                  _likesBlurred ? _buildBlurredLikesSection() : _buildLikesList(),
+                  const SizedBox(height: 24),
+
+                  // New Matches sub-row
+                  _buildNewMatchesSection(),
+                  const SizedBox(height: 24),
+
+                  // Messages list
+                  SectionTitle(title: 'Messages', trailing: '${filtered.length} active'),
+                  const SizedBox(height: 10),
+                  if (!_loading && filtered.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: panelDecoration(),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.chat_bubble_outline, size: 36, color: YaaroColors.muted),
+                          SizedBox(height: 8),
+                          Text('No matches yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          SizedBox(height: 4),
+                          Text('Start swiping to find your match.', style: TextStyle(color: YaaroColors.muted, fontSize: 13)),
+                        ],
+                      ),
+                    )
+                  else
+                    ...filtered.map(
+                      (match) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: MatchTile(
+                          match: match,
+                          onAvatarTap: () => _openProfile(match.userId, match.id),
+                          onUnmatchTap: () => _showUnmatchConfirmation(match),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
@@ -1506,13 +2530,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const TextStyle(color: YaaroColors.muted, height: 1.35),
                   ),
                   const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: user == null ? widget.onOpenAuth : null,
-                    style: FilledButton.styleFrom(
-                        backgroundColor: YaaroColors.rose),
-                    child: Text(
-                        user == null ? 'Login or create account' : 'Signed in'),
-                  ),
+                  if (user == null)
+                    FilledButton(
+                      onPressed: widget.onOpenAuth,
+                      style: FilledButton.styleFrom(
+                          backgroundColor: YaaroColors.rose),
+                      child: const Text('Login or create account'),
+                    )
+                  else
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => OnboardingWizard(
+                              mode: 'edit',
+                              onComplete: () {
+                                Navigator.pop(context);
+                                setState(() {});
+                              },
+                              onLogout: () {
+                                Navigator.pop(context);
+                                api.logout();
+                                widget.onOpenAuth();
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.edit, size: 18),
+                      style: FilledButton.styleFrom(
+                          backgroundColor: YaaroColors.rose),
+                      label: const Text('Edit Profile'),
+                    ),
                 ],
               ),
             ),
@@ -1704,50 +2754,70 @@ class CompactProfileTile extends StatelessWidget {
 }
 
 class LikeTile extends StatelessWidget {
-  const LikeTile({required this.like, super.key});
+  const LikeTile({
+    required this.like,
+    required this.onTap,
+    required this.onLikeBack,
+    super.key,
+  });
 
   final LikeItem like;
+  final VoidCallback onTap;
+  final VoidCallback onLikeBack;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 112,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(8),
       decoration: panelDecoration(),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: YaaroColors.surfaceAlt,
-                backgroundImage:
-                    like.photoUrl == null ? null : NetworkImage(like.photoUrl!),
-                child: like.photoUrl == null
-                    ? Text(like.name.characters.first)
-                    : null,
+          GestureDetector(
+            onTap: onTap,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                height: 72,
+                child: like.photoUrl != null
+                    ? Image.network(like.photoUrl!, fit: BoxFit.cover)
+                    : Container(
+                        color: YaaroColors.surfaceAlt,
+                        child: const Icon(Icons.person, color: Colors.white38),
+                      ),
               ),
-              if (like.action == 'superlike')
-                const Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Icon(Icons.star, color: YaaroColors.teal, size: 18),
-                ),
-            ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            like.age != null ? '${like.name}, ${like.age}' : like.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+            textAlign: TextAlign.center,
           ),
           const Spacer(),
-          Text(
-            like.age == null ? like.name : '${like.name}, ${like.age}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w900),
-          ),
-          Text(
-            like.action == 'superlike' ? 'Super liked you' : 'Liked you',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: YaaroColors.muted, fontSize: 12),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: YaaroColors.rose,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.zero,
+              minimumSize: const Size.fromHeight(28),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: onLikeBack,
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.favorite, size: 12, color: Colors.white),
+                SizedBox(width: 4),
+                Text(
+                  'Like Back',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1756,95 +2826,138 @@ class LikeTile extends StatelessWidget {
 }
 
 class MatchTile extends StatelessWidget {
-  const MatchTile({required this.match, super.key});
+  const MatchTile({
+    required this.match,
+    required this.onAvatarTap,
+    required this.onUnmatchTap,
+    super.key,
+  });
 
   final MatchItem match;
+  final VoidCallback onAvatarTap;
+  final VoidCallback onUnmatchTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatScreen(
-              matchId: match.id,
-              matchName: match.name,
-              matchPhotoUrl: match.photoUrl,
-            ),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: panelDecoration(),
-        child: Row(
-          children: [
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: YaaroColors.surfaceAlt,
-                  backgroundImage: match.photoUrl == null
-                      ? null
-                      : NetworkImage(match.photoUrl!),
-                  child: match.photoUrl == null
-                      ? Text(match.name.characters.first)
-                      : null,
-                ),
-                if (match.unreadCount > 0)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      width: 18,
-                      height: 18,
-                      decoration: const BoxDecoration(
-                          color: YaaroColors.rose, shape: BoxShape.circle),
-                      child: Center(
-                        child: Text(
-                          '${match.unreadCount}',
-                          style: const TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.w900),
-                        ),
-                      ),
+    return Container(
+      decoration: panelDecoration(),
+      child: Row(
+        children: [
+          // Left: Interactive Avatar Tap
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: GestureDetector(
+              onTap: onAvatarTap,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: YaaroColors.surfaceAlt,
+                      backgroundImage: match.photoUrl == null
+                          ? null
+                          : NetworkImage(match.photoUrl!),
+                      child: match.photoUrl == null
+                          ? Text(match.name.characters.first)
+                          : null,
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          match.age == null
-                              ? match.name
-                              : '${match.name}, ${match.age}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w900, fontSize: 16),
+                    if (match.unreadCount > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          decoration: const BoxDecoration(
+                              color: YaaroColors.rose, shape: BoxShape.circle),
+                          child: Center(
+                            child: Text(
+                              '${match.unreadCount}',
+                              style: const TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
+                            ),
+                          ),
                         ),
                       ),
-                      if (match.isVerified) ...[
-                        const SizedBox(width: 4),
-                        const Icon(Icons.verified,
-                            size: 16, color: YaaroColors.teal),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(match.preview,
-                      style: const TextStyle(color: YaaroColors.muted)),
-                ],
+                  ],
+                ),
               ),
             ),
-            Text('${match.compatibilityScore}%'),
-          ],
-        ),
+          ),
+          // Middle: Interactive Row Body Tap -> Chat
+          Expanded(
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChatScreen(
+                      matchId: match.id,
+                      matchName: match.name,
+                      matchPhotoUrl: match.photoUrl,
+                    ),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            match.age == null
+                                ? match.name
+                                : '${match.name}, ${match.age}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 16),
+                          ),
+                        ),
+                        if (match.isVerified) ...[
+                          const SizedBox(width: 4),
+                          const Icon(Icons.verified,
+                              size: 16, color: YaaroColors.teal),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      match.preview,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: YaaroColors.muted, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Right: Compatibility score & options menu
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (match.compatibilityScore > 0)
+                  Text(
+                    '${match.compatibilityScore}%',
+                    style: const TextStyle(
+                      color: YaaroColors.teal,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.more_vert, color: YaaroColors.muted, size: 20),
+                  onPressed: onUnmatchTap,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

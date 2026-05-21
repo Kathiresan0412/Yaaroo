@@ -312,6 +312,21 @@ class ApiClient {
     return [];
   }
 
+  Future<Map<String, dynamic>> likesReceivedFull() async {
+    final response = await _request('GET', '/api/likes/received');
+    return await _decode(response);
+  }
+
+  Future<Map<String, dynamic>> getUserProfile(String userId) async {
+    final response = await _request('GET', '/api/users/$userId/profile');
+    return await _decode(response);
+  }
+
+  Future<void> deleteMatch(String matchId) async {
+    final response = await _request('DELETE', '/api/matches/$matchId');
+    await _decode(response);
+  }
+
   // --- Onboarding & Profile ---
 
   Future<Map<String, dynamic>> getProfileMe() async {

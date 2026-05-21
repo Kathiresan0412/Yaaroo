@@ -326,64 +326,9 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendPhoto() async {
-    // Premium image picker dialog providing direct photo capture simulation or curated image urls
-    final chosenUrl = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        return SimpleDialog(
-          title: const Text('Send premium photo', style: TextStyle(fontWeight: FontWeight.w900, color: YaaroColors.rose)),
-          backgroundColor: YaaroColors.surface,
-          children: [
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=500&q=80'),
-              child: const Row(
-                children: [
-                  Icon(Icons.camera_alt, color: YaaroColors.teal),
-                  SizedBox(width: 12),
-                  Text('Capture Studio Photo', style: TextStyle(color: Colors.white)),
-                ],
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=500&q=80'),
-              child: const Row(
-                children: [
-                  Icon(Icons.photo_library, color: YaaroColors.rose),
-                  SizedBox(width: 12),
-                  Text('Pick Premium Portrait', style: TextStyle(color: Colors.white)),
-                ],
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=500&q=80'),
-              child: const Row(
-                children: [
-                  Icon(Icons.stars, color: YaaroColors.saffron),
-                  SizedBox(width: 12),
-                  Text('Send Candid Avatar', style: TextStyle(color: Colors.white)),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (chosenUrl == null) return;
-
-    setState(() => _isLoading = true);
-    try {
-      // Direct REST photo post parity
-      final res = await _apiClient.sendMessage(widget.matchId, '', 'photo', mediaUrl: chosenUrl);
-      if (res['success'] == true && res['message'] is Map<String, dynamic>) {
-        final newMsg = ChatMessage.fromJson(res['message'], _currentUserId ?? '');
-        _mergeAndSortMessages([newMsg]);
-      }
-    } catch (e) {
-      setState(() => _notice = 'Photo upload failure: ${e.toString()}');
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    setState(() {
+      _notice = 'Photo sharing from device is not available in this build yet.';
+    });
   }
 
   Future<void> _sendGif(String url) async {
@@ -405,51 +350,13 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // Voice recording simulation triggers
   void _toggleRecording() {
-    if (_isRecording) {
-      _stopAndUploadVoiceNote();
-    } else {
-      _startVoiceRecording();
-    }
-  }
-
-  void _startVoiceRecording() {
-    setState(() {
-      _isRecording = true;
-      _recordSeconds = 0;
-      _notice = null;
-    });
-    _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _recordSeconds++;
-      });
-    });
-  }
-
-  Future<void> _stopAndUploadVoiceNote() async {
     _recordTimer?.cancel();
     setState(() {
       _isRecording = false;
-      _isLoading = true;
+      _recordSeconds = 0;
+      _notice = 'Voice messages are not available in this build yet.';
     });
-
-    try {
-      // Generate a mock binary webm header for backend upload compatibility
-      final dummyWebmBytes = utf8.encode('WEBM_AUDIO_MOCK_STREAM_DATA_010203040506');
-      
-      // Upload using the real multipart API
-      final res = await _apiClient.sendVoiceMessage(widget.matchId, dummyWebmBytes);
-      
-      if (res['success'] == true && res['message'] is Map<String, dynamic>) {
-        final newMsg = ChatMessage.fromJson(res['message'], _currentUserId ?? '');
-        _mergeAndSortMessages([newMsg]);
-      }
-    } catch (e) {
-      setState(() => _notice = 'Voice message upload failure: ${e.toString()}');
-    } finally {
-      setState(() => _isLoading = false);
-    }
   }
 
   Future<void> _react(String messageId, String emoji) async {
