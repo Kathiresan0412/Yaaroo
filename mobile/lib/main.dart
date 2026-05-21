@@ -1,8 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
+
+import 'core/api_client.dart';
+import 'features/auth/presentation/auth_sheet.dart';
+import 'features/onboarding/presentation/onboarding_wizard.dart';
+import 'features/chat/presentation/chat_screen.dart';
 
 const _dartDefineApiBaseUrl = String.fromEnvironment(
   'YAARO0_API_URL',
@@ -19,23 +21,25 @@ String get apiBaseUrl {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env', isOptional: true);
-  runApp(const YaaroMobileApp());
+  final api = ApiClient(apiBaseUrl);
+  await api.init();
+  runApp(YaaroMobileApp(api: api));
 }
 
 class YaaroMobileApp extends StatefulWidget {
-  const YaaroMobileApp({super.key});
+  const YaaroMobileApp({required this.api, super.key});
+
+  final ApiClient api;
 
   @override
   State<YaaroMobileApp> createState() => _YaaroMobileAppState();
 }
 
 class _YaaroMobileAppState extends State<YaaroMobileApp> {
-  final ApiClient _api = ApiClient(apiBaseUrl);
-
   @override
   Widget build(BuildContext context) {
     return YaaroScope(
-      api: _api,
+      api: widget.api,
       child: MaterialApp(
         title: 'Yaaro0',
         debugShowCheckedModeBanner: false,
@@ -88,230 +92,7 @@ class YaaroScope extends InheritedWidget {
   bool updateShouldNotify(YaaroScope oldWidget) => api != oldWidget.api;
 }
 
-class ApiClient {
-  ApiClient(String baseUrl) : baseUri = Uri.parse(baseUrl);
-
-  final Uri baseUri;
-  String? accessToken;
-  User? user;
-
-  Uri _uri(String path) {
-    if (path.startsWith('http')) {
-      return Uri.parse(path);
-    }
-
-    return baseUri.replace(path: path);
-  }
-
-  Map<String, String> _headers([Map<String, String>? headers]) {
-    return {
-      'Content-Type': 'application/json',
-      if (accessToken != null) 'Authorization': 'Bearer $accessToken',
-      ...?headers,
-    };
-  }
-
-  Future<Map<String, dynamic>> _decode(http.Response response) async {
-    final body = response.body.isEmpty ? '{}' : response.body;
-    final parsed = jsonDecode(body);
-
-    if (parsed is! Map<String, dynamic>) {
-      throw ApiException('Yaaro0 returned an unexpected response.');
-    }
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(parsed['message']?.toString() ?? 'Request failed.');
-    }
-
-    return parsed;
-  }
-
-  Future<void> login(String email, String password) async {
-    final response = await http.post(
-      _uri('/api/auth/login'),
-      headers: _headers(),
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-        'remember': true,
-      }),
-    );
-    final payload = await _decode(response);
-    accessToken = payload['accessToken']?.toString();
-    final rawUser = payload['user'];
-    if (rawUser is Map<String, dynamic>) {
-      user = User.fromJson(rawUser);
-    }
-  }
-
-  Future<void> signup({
-    required String firstName,
-    required String lastName,
-    required String email,
-    required String password,
-  }) async {
-    final response = await http.post(
-      _uri('/api/auth/register'),
-      headers: _headers(),
-      body: jsonEncode({
-        'firstName': firstName,
-        'lastName': lastName,
-        'email': email,
-        'password': password,
-      }),
-    );
-    final payload = await _decode(response);
-    accessToken = payload['accessToken']?.toString();
-    final rawUser = payload['user'];
-    if (rawUser is Map<String, dynamic>) {
-      user = User.fromJson(rawUser);
-    }
-  }
-
-  void logout() {
-    accessToken = null;
-    user = null;
-  }
-
-  Future<List<DiscoveryProfile>> discover() async {
-    final response = await http.get(_uri('/api/discover'), headers: _headers());
-    final payload = await _decode(response);
-    return _profilesFromPayload(payload);
-  }
-
-  Future<SwipeResult> swipe(String targetUserId, SwipeAction action) async {
-    final payload = await _decode(
-      await http.post(
-        _uri('/api/swipe'),
-        headers: _headers(),
-        body: jsonEncode({
-          'target_user_id': targetUserId,
-          'action': action.name,
-        }),
-      ),
-    );
-    return SwipeResult.fromJson(payload);
-  }
-
-  Future<void> undoSwipe() async {
-    await _decode(
-      await http.post(
-        _uri('/api/swipe/undo'),
-        headers: _headers(),
-        body: '{}',
-      ),
-    );
-  }
-
-  Future<List<ExploreCategory>> categories() async {
-    final response = await http.get(
-      _uri('/api/explore/categories'),
-      headers: _headers(),
-    );
-    final payload = await _decode(response);
-    final categories = payload['categories'];
-    if (categories is List) {
-      return categories
-          .whereType<Map<String, dynamic>>()
-          .map(ExploreCategory.fromJson)
-          .toList();
-    }
-    return [];
-  }
-
-  Future<List<DiscoveryProfile>> exploreNearby() async {
-    final response = await http.get(
-      _uri('/api/explore/nearby'),
-      headers: _headers(),
-    );
-    final payload = await _decode(response);
-    return _profilesFromPayload(payload);
-  }
-
-  Future<List<DiscoveryProfile>> exploreByGoal(String goal) async {
-    final response = await http.get(
-      _uri('/api/explore/by-goal/${Uri.encodeComponent(goal)}'),
-      headers: _headers(),
-    );
-    return _profilesFromPayload(await _decode(response));
-  }
-
-  Future<List<DiscoveryProfile>> exploreByInterest(String key) async {
-    final response = await http.get(
-      _uri('/api/explore/by-interest/${Uri.encodeComponent(key)}'),
-      headers: _headers(),
-    );
-    return _profilesFromPayload(await _decode(response));
-  }
-
-  Future<VibeQuestion?> vibeToday() async {
-    final response = await http.get(
-      _uri('/api/explore/vibes/today'),
-      headers: _headers(),
-    );
-    final payload = await _decode(response);
-    final question = payload['question'];
-    return question is Map<String, dynamic>
-        ? VibeQuestion.fromJson(question, payload['answer']?.toString())
-        : null;
-  }
-
-  Future<List<DiscoveryProfile>> respondToVibe(String answer) async {
-    final response = await http.post(
-      _uri('/api/explore/vibes/respond'),
-      headers: _headers(),
-      body: jsonEncode({'answer': answer}),
-    );
-    return _profilesFromPayload(await _decode(response));
-  }
-
-  Future<List<MatchItem>> matches() async {
-    final response = await http.get(_uri('/api/matches'), headers: _headers());
-    final payload = await _decode(response);
-    final matches = payload['matches'];
-    if (matches is List) {
-      return matches
-          .whereType<Map<String, dynamic>>()
-          .map(MatchItem.fromJson)
-          .toList();
-    }
-    return [];
-  }
-
-  Future<List<LikeItem>> likesReceived() async {
-    final response =
-        await http.get(_uri('/api/likes/received'), headers: _headers());
-    final payload = await _decode(response);
-    final likes = payload['likes'];
-    if (likes is List) {
-      return likes
-          .whereType<Map<String, dynamic>>()
-          .map(LikeItem.fromJson)
-          .toList();
-    }
-    return [];
-  }
-
-  List<DiscoveryProfile> _profilesFromPayload(Map<String, dynamic> payload) {
-    final rawCards = payload['cards'] ?? payload['profiles'] ?? payload['data'];
-    if (rawCards is List) {
-      return rawCards
-          .whereType<Map<String, dynamic>>()
-          .map(DiscoveryProfile.fromJson)
-          .toList();
-    }
-    return [];
-  }
-}
-
-class ApiException implements Exception {
-  ApiException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
-}
+// ApiClient and ApiException are imported from core/api_client.dart
 
 enum SwipeAction { like, pass, superlike }
 
@@ -341,12 +122,16 @@ class User {
     required this.email,
     required this.firstName,
     required this.lastName,
+    required this.emailVerified,
+    required this.onboardingCompleted,
   });
 
   final String id;
   final String? email;
   final String? firstName;
   final String? lastName;
+  final bool emailVerified;
+  final bool onboardingCompleted;
 
   String get displayName {
     final parts =
@@ -360,7 +145,20 @@ class User {
       email: json['email']?.toString(),
       firstName: json['firstName']?.toString(),
       lastName: json['lastName']?.toString(),
+      emailVerified: json['emailVerified'] == true,
+      onboardingCompleted: json['onboardingCompleted'] == true,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'email': email,
+      'firstName': firstName,
+      'lastName': lastName,
+      'emailVerified': emailVerified,
+      'onboardingCompleted': onboardingCompleted,
+    };
   }
 }
 
@@ -683,12 +481,44 @@ class _AppShellState extends State<AppShell> {
   bool _showLanding = true;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final api = YaaroScope.of(context);
+      if (api.user != null) {
+        setState(() {
+          _showLanding = false;
+        });
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (_showLanding) {
+    final api = YaaroScope.of(context);
+    final user = api.user;
+
+    if (_showLanding && user == null) {
       return LandingScreen(
         onLogin: () => _openAuth(),
         onCreateAccount: () => _openAuth(createAccount: true),
         onPreviewApp: () => setState(() => _showLanding = false),
+      );
+    }
+
+    if (user != null && !user.onboardingCompleted) {
+      return OnboardingWizard(
+        onComplete: () {
+          setState(() {
+            // Re-render and navigate into the main app tabs once onboarding is completed
+          });
+        },
+        onLogout: () async {
+          await api.logout();
+          setState(() {
+            _showLanding = true;
+          });
+        },
       );
     }
 
@@ -981,179 +811,6 @@ class _LandingPreviewCard extends StatelessWidget {
         child: Text(name, style: const TextStyle(fontWeight: FontWeight.w900)),
       ),
     );
-  }
-}
-
-class AuthSheet extends StatefulWidget {
-  const AuthSheet({this.initialSignup = false, super.key});
-
-  final bool initialSignup;
-
-  @override
-  State<AuthSheet> createState() => _AuthSheetState();
-}
-
-class _AuthSheetState extends State<AuthSheet> {
-  final _firstName = TextEditingController();
-  final _lastName = TextEditingController();
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  late bool _isSignup;
-  bool _loading = false;
-  String? _message;
-
-  @override
-  void initState() {
-    super.initState();
-    _isSignup = widget.initialSignup;
-  }
-
-  @override
-  void dispose() {
-    _firstName.dispose();
-    _lastName.dispose();
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        decoration: const BoxDecoration(
-          color: YaaroColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                _isSignup ? 'Create your Yaaro0 account' : 'Welcome back',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Use the same account as the public-site app.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: YaaroColors.muted,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              if (_isSignup) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppTextField(
-                          controller: _firstName, label: 'First name'),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: AppTextField(
-                          controller: _lastName, label: 'Last name'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-              ],
-              AppTextField(
-                controller: _email,
-                label: 'Email',
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 10),
-              AppTextField(
-                controller: _password,
-                label: 'Password',
-                obscureText: true,
-              ),
-              if (_message != null) ...[
-                const SizedBox(height: 12),
-                Text(_message!,
-                    style: const TextStyle(color: YaaroColors.saffron)),
-              ],
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _loading ? null : _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: YaaroColors.rose,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(52),
-                ),
-                child: _loading
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(_isSignup ? 'Create account' : 'Log in'),
-              ),
-              TextButton(
-                onPressed: _loading
-                    ? null
-                    : () => setState(() {
-                          _message = null;
-                          _isSignup = !_isSignup;
-                        }),
-                child: Text(_isSignup
-                    ? 'Already have an account? Log in'
-                    : 'New here? Create account'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _submit() async {
-    setState(() {
-      _loading = true;
-      _message = null;
-    });
-
-    final api = YaaroScope.of(context);
-    try {
-      if (_isSignup) {
-        await api.signup(
-          firstName: _firstName.text.trim(),
-          lastName: _lastName.text.trim(),
-          email: _email.text.trim(),
-          password: _password.text,
-        );
-      } else {
-        await api.login(_email.text.trim(), _password.text);
-      }
-
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    } catch (error) {
-      setState(() => _message = error.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
   }
 }
 
@@ -2105,74 +1762,89 @@ class MatchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: panelDecoration(),
-      child: Row(
-        children: [
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 30,
-                backgroundColor: YaaroColors.surfaceAlt,
-                backgroundImage: match.photoUrl == null
-                    ? null
-                    : NetworkImage(match.photoUrl!),
-                child: match.photoUrl == null
-                    ? Text(match.name.characters.first)
-                    : null,
-              ),
-              if (match.unreadCount > 0)
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: const BoxDecoration(
-                        color: YaaroColors.rose, shape: BoxShape.circle),
-                    child: Center(
-                      child: Text(
-                        '${match.unreadCount}',
-                        style: const TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w900),
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              matchId: match.id,
+              matchName: match.name,
+              matchPhotoUrl: match.photoUrl,
+            ),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: panelDecoration(),
+        child: Row(
+          children: [
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: YaaroColors.surfaceAlt,
+                  backgroundImage: match.photoUrl == null
+                      ? null
+                      : NetworkImage(match.photoUrl!),
+                  child: match.photoUrl == null
+                      ? Text(match.name.characters.first)
+                      : null,
+                ),
+                if (match.unreadCount > 0)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: const BoxDecoration(
+                          color: YaaroColors.rose, shape: BoxShape.circle),
+                      child: Center(
+                        child: Text(
+                          '${match.unreadCount}',
+                          style: const TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w900),
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        match.age == null
-                            ? match.name
-                            : '${match.name}, ${match.age}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w900, fontSize: 16),
-                      ),
-                    ),
-                    if (match.isVerified) ...[
-                      const SizedBox(width: 4),
-                      const Icon(Icons.verified,
-                          size: 16, color: YaaroColors.teal),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(match.preview,
-                    style: const TextStyle(color: YaaroColors.muted)),
               ],
             ),
-          ),
-          Text('${match.compatibilityScore}%'),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          match.age == null
+                              ? match.name
+                              : '${match.name}, ${match.age}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w900, fontSize: 16),
+                        ),
+                      ),
+                      if (match.isVerified) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.verified,
+                            size: 16, color: YaaroColors.teal),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(match.preview,
+                      style: const TextStyle(color: YaaroColors.muted)),
+                ],
+              ),
+            ),
+            Text('${match.compatibilityScore}%'),
+          ],
+        ),
       ),
     );
   }
