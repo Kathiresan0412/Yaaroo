@@ -2035,6 +2035,7 @@ img {
 }
 
 .wizard-sidebar li button,
+.wizard-logout,
 .wizard-actions button,
 .photo-tools button,
 .photo-upload,
@@ -2071,6 +2072,23 @@ img {
 .wizard-sidebar li button:disabled {
   cursor: not-allowed;
   opacity: 0.46;
+}
+
+.wizard-logout {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 18px;
+  padding: 10px 12px;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 850;
+}
+
+.wizard-logout:disabled {
+  cursor: wait;
+  opacity: 0.68;
 }
 
 .wizard-main {

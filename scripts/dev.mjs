@@ -2,7 +2,6 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 
 const apps = [
-  { name: "api", cwd: "backend", color: "\x1b[36m" },
   { name: "web", cwd: "frontend/public-site", color: "\x1b[35m" },
   { name: "admin", cwd: "frontend/admin-panel", color: "\x1b[33m" },
 ];

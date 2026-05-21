@@ -9,6 +9,7 @@ import {
   Crop,
   GripVertical,
   Loader2,
+  LogOut,
   MapPin,
   Plus,
   Save,
@@ -559,12 +560,13 @@ function SelectField({
 
 export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" | "edit" }) {
   const router = useRouter();
-  const { authFetch } = useAuth();
+  const { authFetch, logout } = useAuth();
   const [step, setStep] = useState(0);
   const [state, setState] = useState<WizardState>(defaults);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
   const [furthestStep, setFurthestStep] = useState(mode === "edit" ? steps.length - 1 : 0);
   const [message, setMessage] = useState("");
@@ -584,6 +586,19 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
     () => (state.country && !choices.countries.includes(state.country) ? [state.country, ...choices.countries] : choices.countries),
     [state.country],
   );
+
+  async function handleLogout() {
+    setIsLoggingOut(true);
+    setMessage("");
+
+    try {
+      await logout();
+      router.replace("/login");
+    } catch {
+      setMessage("Unable to log out. Please try again.");
+      setIsLoggingOut(false);
+    }
+  }
   const locationSummary = state.city || state.country ? [state.city, state.country].filter(Boolean).join(", ") : "Location not selected yet";
 
   function update<K extends keyof WizardState>(key: K, value: WizardState[K]) {
@@ -1456,6 +1471,12 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
                 );
               })}
             </ol>
+            {mode === "edit" ? (
+              <button className="wizard-logout" type="button" disabled={isLoggingOut} onClick={handleLogout}>
+                {isLoggingOut ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <LogOut size={18} aria-hidden="true" />}
+                Log out
+              </button>
+            ) : null}
           </aside>
 
           <section className="wizard-main">
