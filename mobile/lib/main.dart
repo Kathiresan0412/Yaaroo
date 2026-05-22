@@ -648,14 +648,10 @@ class LandingScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.asset(
-                          'assets/brand/logo.png',
-                          width: 42,
-                          height: 42,
-                          fit: BoxFit.cover,
-                        ),
+                      Image.asset(
+                        'assets/brand/logo.png',
+                        height: 36,
+                        fit: BoxFit.contain,
                       ),
                       const Spacer(),
                       TextButton(
@@ -3070,14 +3066,10 @@ class HeaderBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.asset(
-            'assets/brand/logo.png',
-            width: 36,
-            height: 36,
-            fit: BoxFit.cover,
-          ),
+        Image.asset(
+          'assets/brand/logo.png',
+          height: 28,
+          fit: BoxFit.contain,
         ),
         if (title != 'Yaaro0') ...[
           const SizedBox(width: 10),
