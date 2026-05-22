@@ -355,6 +355,34 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       }
     } catch (e) {
       setState(() => _message = e.toString());
+    } finally {
+      setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _skipOnboarding() async {
+    setState(() {
+      _saving = true;
+      _message = null;
+    });
+
+    final api = YaaroScope.of(context);
+    try {
+      await api.onboardingComplete();
+      await api.refreshSession();
+      if (!mounted) return;
+      widget.onComplete();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _message = 'Failed to skip onboarding: ${e.toString()}';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+      }
     }
   }
 
@@ -383,11 +411,23 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           style: const TextStyle(fontWeight: FontWeight.w900),
         ),
         actions: [
-          if (widget.mode == 'onboarding')
+          if (widget.mode == 'onboarding') ...[
+            TextButton(
+              onPressed: _saving ? null : _skipOnboarding,
+              child: const Text(
+                'Skip',
+                style: TextStyle(
+                  color: YaaroColors.rose,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
             IconButton(
               icon: const Icon(Icons.logout),
               onPressed: widget.onLogout,
             ),
+          ],
         ],
       ),
       body: SafeArea(

@@ -433,6 +433,7 @@ class _AppShellState extends State<AppShell> {
           await api.logout();
           setState(() {
             _showLanding = true;
+            _tab = 0;
           });
         },
       );
@@ -442,7 +443,16 @@ class _AppShellState extends State<AppShell> {
       DiscoverScreen(onOpenAuth: _openAuth),
       ExploreScreen(onOpenAuth: _openAuth),
       MatchesScreen(onOpenAuth: _openAuth),
-      ProfileScreen(onOpenAuth: _openAuth),
+      ProfileScreen(
+        onOpenAuth: _openAuth,
+        onLogout: () async {
+          await api.logout();
+          setState(() {
+            _showLanding = true;
+            _tab = 0;
+          });
+        },
+      ),
     ];
 
     return Scaffold(
@@ -770,7 +780,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     } catch (_) {
       setState(() {
         _profiles = const [];
-        _message = 'Profiles are unavailable right now. Please try again.';
+        _message = '';
       });
     } finally {
       if (mounted) {
@@ -788,9 +798,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           child: Column(
             children: [
               HeaderBar(
-                  title: 'Yaaro0',
-                  actionLabel: 'Login',
-                  onAction: widget.onOpenAuth),
+                title: 'Yaaro0',
+                actionLabel: YaaroScope.of(context).user == null ? 'Login' : '',
+                onAction: widget.onOpenAuth,
+              ),
               const SizedBox(height: 18),
               StatusPill(
                 text: _message.isEmpty
@@ -800,19 +811,21 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               const SizedBox(height: 18),
               Expanded(
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _top == null
-                        ? EmptyState(
-                            title: 'Fresh profiles are on the way',
-                            message:
-                                'Check back soon or explore people by interest.',
-                            actionLabel: 'Refresh',
-                            onAction: _load,
-                          )
-                        : _buildCardStack(),
+                     ? const Center(child: CircularProgressIndicator())
+                     : _top == null
+                         ? EmptyState(
+                             title: 'Fresh profiles are on the way',
+                             message:
+                                 'Check back soon or explore people by interest.',
+                             actionLabel: 'Refresh',
+                             onAction: _load,
+                           )
+                         : _buildCardStack(),
               ),
-              const SizedBox(height: 14),
-              _buildActions(),
+              if (_top != null) ...[
+                const SizedBox(height: 14),
+                _buildActions(),
+              ],
             ],
           ),
         ),
@@ -847,9 +860,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                 ? SwipeAction.like
                                 : _drag.dx < -110
                                     ? SwipeAction.pass
-                                    : _drag.dy < -120
-                                        ? SwipeAction.superlike
-                                        : null;
+                                    : null;
                             if (action == null) {
                               setState(() => _drag = Offset.zero);
                             } else {
@@ -875,11 +886,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             icon: Icons.close,
             color: Colors.white,
             onPressed: _swiping ? null : () => _swipe(SwipeAction.pass)),
-        const SizedBox(width: 18),
-        RoundAction(
-            icon: Icons.star,
-            color: YaaroColors.teal,
-            onPressed: _swiping ? null : () => _swipe(SwipeAction.superlike)),
         const SizedBox(width: 18),
         RoundAction(
             icon: Icons.favorite,
@@ -984,7 +990,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         _categories = const [];
         _profiles = const [];
         _vibeQuestion = null;
-        _message = 'Explore is unavailable right now. Please try again.';
+        _message = '';
       });
     } finally {
       if (mounted) {
@@ -1001,9 +1007,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
           children: [
             HeaderBar(
-                title: 'Explore',
-                actionLabel: 'Login',
-                onAction: widget.onOpenAuth),
+              title: 'Explore',
+              actionLabel: YaaroScope.of(context).user == null ? 'Login' : '',
+              onAction: widget.onOpenAuth,
+            ),
             const SizedBox(height: 18),
             Text(
               'Find people by what you both love',
@@ -1066,51 +1073,53 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ),
               ),
             ],
-            const SizedBox(height: 22),
-            SectionTitle(
-                title: 'Interests', trailing: '${_categories.length} groups'),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 104,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _categories.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
-                  final category = _categories[index];
-                  final isActive = category.key == _activeInterest;
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () => _loadByInterest(category),
-                    child: Container(
-                      width: 148,
-                      padding: const EdgeInsets.all(12),
-                      decoration: panelDecoration().copyWith(
-                        border: Border.all(
-                          color: isActive ? YaaroColors.rose : YaaroColors.line,
+            if (_categories.isNotEmpty) ...[
+              const SizedBox(height: 22),
+              SectionTitle(
+                  title: 'Interests', trailing: '${_categories.length} groups'),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 104,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _categories.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (context, index) {
+                    final category = _categories[index];
+                    final isActive = category.key == _activeInterest;
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _loadByInterest(category),
+                      child: Container(
+                        width: 148,
+                        padding: const EdgeInsets.all(12),
+                        decoration: panelDecoration().copyWith(
+                          border: Border.all(
+                            color: isActive ? YaaroColors.rose : YaaroColors.line,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(category.emoji,
+                                style: const TextStyle(fontSize: 18)),
+                            const SizedBox(height: 6),
+                            Text(category.label,
+                                maxLines: 2, overflow: TextOverflow.ellipsis),
+                            const Spacer(),
+                            Text(
+                              '${category.count} people',
+                              style: const TextStyle(
+                                  color: YaaroColors.muted, fontSize: 12),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(category.emoji,
-                              style: const TextStyle(fontSize: 18)),
-                          const SizedBox(height: 6),
-                          Text(category.label,
-                              maxLines: 2, overflow: TextOverflow.ellipsis),
-                          const Spacer(),
-                          Text(
-                            '${category.count} people',
-                            style: const TextStyle(
-                                color: YaaroColors.muted, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: 22),
             SectionTitle(title: 'Intent', trailing: _activeGoal),
             const SizedBox(height: 10),
@@ -2379,7 +2388,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: HeaderBar(
                 title: 'Matches',
-                actionLabel: 'Login',
+                actionLabel: YaaroScope.of(context).user == null ? 'Login' : '',
                 onAction: widget.onOpenAuth,
               ),
             ),
@@ -2468,9 +2477,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
 }
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({required this.onOpenAuth, super.key});
+  const ProfileScreen({
+    required this.onOpenAuth,
+    required this.onLogout,
+    super.key,
+  });
 
   final VoidCallback onOpenAuth;
+  final VoidCallback onLogout;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -2492,10 +2506,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               actionLabel: user == null ? 'Login' : 'Logout',
               onAction: user == null
                   ? widget.onOpenAuth
-                  : () {
-                      api.logout();
-                      setState(() {});
-                    },
+                  : widget.onLogout,
             ),
             const SizedBox(height: 18),
             Container(
@@ -2551,8 +2562,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               },
                               onLogout: () {
                                 Navigator.pop(context);
-                                api.logout();
-                                widget.onOpenAuth();
+                                widget.onLogout();
                               },
                             ),
                           ),
@@ -2566,19 +2576,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 18),
-            const SectionTitle(title: 'Readiness', trailing: 'Mobile'),
-            const SizedBox(height: 10),
-            const SettingsRow(
-                icon: Icons.verified_user,
-                title: 'Profile review',
-                value: 'Ready'),
-            const SettingsRow(
-                icon: Icons.security, title: 'Private by default', value: 'On'),
-            SettingsRow(
-                icon: Icons.cloud_sync,
-                title: 'API integration',
-                value: apiBaseUrl),
+            // const SizedBox(height: 18),
+            // const SectionTitle(title: 'Readiness', trailing: 'Mobile'),
+            // const SizedBox(height: 10),
+            // const SettingsRow(
+            //     icon: Icons.verified_user,
+            //     title: 'Profile review',
+            //     value: 'Ready'),
+            // const SettingsRow(
+            //     icon: Icons.security, title: 'Private by default', value: 'On'),
+            // SettingsRow(
+            //     icon: Icons.cloud_sync,
+            //     title: 'API integration',
+            //     value: apiBaseUrl),
           ],
         ),
       ),
@@ -2979,24 +2989,23 @@ class HeaderBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-                colors: [YaaroColors.rose, YaaroColors.saffron]),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Center(
-            child: Text('Y',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset(
+            'assets/brand/logo.png',
+            width: 36,
+            height: 36,
+            fit: BoxFit.cover,
           ),
         ),
-        const SizedBox(width: 10),
-        Text(title,
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+        if (title != 'Yaaro0') ...[
+          const SizedBox(width: 10),
+          Text(title,
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+        ],
         const Spacer(),
-        TextButton(onPressed: onAction, child: Text(actionLabel)),
+        if (actionLabel.isNotEmpty)
+          TextButton(onPressed: onAction, child: Text(actionLabel)),
       ],
     );
   }

@@ -1152,6 +1152,29 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
     setIsSaving(false);
   }
 
+  async function handleSkip() {
+    setIsSaving(true);
+    try {
+      const response = await authFetch("/api/onboarding/complete", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const payload = await readApiPayload(response);
+
+      if (response.ok) {
+        showSuccessMessage("Onboarding skipped successfully.");
+        window.location.href = payload.redirectTo || "/app/discover";
+      } else {
+        showValidationMessage(validationMessage(payload, "Unable to skip onboarding."));
+      }
+    } catch (error) {
+      showValidationMessage("An error occurred while skipping onboarding.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   function useBrowserLocation() {
     if (!navigator.geolocation) {
       showValidationMessage("Browser location is not available. Enter your city manually.");
@@ -1475,6 +1498,17 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
               <button className="wizard-logout" type="button" disabled={isLoggingOut} onClick={handleLogout}>
                 {isLoggingOut ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <LogOut size={18} aria-hidden="true" />}
                 Log out
+              </button>
+            ) : mode === "onboarding" ? (
+              <button
+                className="wizard-logout"
+                style={{ background: "transparent", marginTop: "18px" }}
+                type="button"
+                disabled={isSaving}
+                onClick={handleSkip}
+              >
+                {isSaving ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <ArrowRight size={18} aria-hidden="true" />}
+                Skip Onboarding
               </button>
             ) : null}
           </aside>
