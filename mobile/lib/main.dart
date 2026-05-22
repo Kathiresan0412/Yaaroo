@@ -1,8 +1,10 @@
 import 'dart:ui';
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:app_links/app_links.dart';
 
 import 'core/api_client.dart';
 import 'core/secure_storage.dart';
@@ -396,16 +398,103 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _tab = 0;
   bool _showLanding = true;
+  late AppLinks _appLinks;
+  StreamSubscription<Uri>? _linkSubscription;
 
   @override
   void initState() {
     super.initState();
+    _initDeepLinks();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final api = YaaroScope.of(context);
       if (api.user != null) {
         setState(() {
           _showLanding = false;
         });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _initDeepLinks() {
+    _appLinks = AppLinks();
+
+    // Check initial link if app was opened by a deep link
+    _appLinks.getInitialLink().then((uri) {
+      if (uri != null) {
+        _handleDeepLink(uri);
+      }
+    });
+
+    // Listen to incoming links while the app is in background/foreground
+    _linkSubscription = _appLinks.uriLinkStream.listen((uri) {
+      _handleDeepLink(uri);
+    }, onError: (err) {
+      debugPrint('Deep Link Error: $err');
+    });
+  }
+
+  void _handleDeepLink(Uri uri) {
+    debugPrint('Received deep link: $uri');
+
+    final pathSegments = uri.pathSegments;
+    final host = uri.host;
+    final scheme = uri.scheme;
+
+    String? mode;
+    String? token;
+
+    if (scheme == 'yaaro0') {
+      if (host == 'verify-email') {
+        mode = 'verify';
+        token = pathSegments.isNotEmpty ? pathSegments.first : uri.queryParameters['token'];
+      } else if (host == 'reset-password') {
+        mode = 'reset';
+        token = pathSegments.isNotEmpty ? pathSegments.first : uri.queryParameters['token'];
+      }
+    } else if (scheme == 'http' || scheme == 'https') {
+      if (pathSegments.length >= 2) {
+        if (pathSegments[0] == 'verify-email') {
+          mode = 'verify';
+          token = pathSegments[1];
+        } else if (pathSegments[0] == 'reset-password') {
+          mode = 'reset';
+          token = pathSegments[1];
+        }
+      }
+    }
+
+    if (mode != null && token != null) {
+      final authMode = mode == 'verify' ? AuthMode.verify : AuthMode.reset;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _openAuthForDeepLink(authMode, token!);
+      });
+    }
+  }
+
+  Future<void> _openAuthForDeepLink(AuthMode mode, String token) async {
+    if (mounted && Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => AuthSheet(
+        initialMode: mode,
+        token: token,
+      ),
+    );
+
+    setState(() {
+      if (YaaroScope.of(context).user != null) {
+        _showLanding = false;
       }
     });
   }
@@ -559,22 +648,14 @@ class LandingScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [YaaroColors.rose, YaaroColors.teal],
-                          ),
-                          borderRadius: BorderRadius.circular(99),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(
+                          'assets/brand/logo.png',
+                          width: 42,
+                          height: 42,
+                          fit: BoxFit.cover,
                         ),
-                        child: const Icon(Icons.favorite, color: Colors.white),
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Yaaro0',
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.w900),
                       ),
                       const Spacer(),
                       TextButton(

@@ -4,9 +4,16 @@ import '../../../core/api_client.dart';
 import '../../../main.dart' show YaaroScope, YaaroColors, AppTextField;
 
 class AuthSheet extends StatefulWidget {
-  const AuthSheet({this.initialSignup = false, super.key});
+  const AuthSheet({
+    this.initialSignup = false,
+    this.initialMode,
+    this.token,
+    super.key,
+  });
 
   final bool initialSignup;
+  final AuthMode? initialMode;
+  final String? token;
 
   @override
   State<AuthSheet> createState() => _AuthSheetState();
@@ -39,7 +46,16 @@ class _AuthSheetState extends State<AuthSheet> {
   @override
   void initState() {
     super.initState();
-    _mode = widget.initialSignup ? AuthMode.signup : AuthMode.login;
+    if (widget.initialMode != null) {
+      _mode = widget.initialMode!;
+      if (_mode == AuthMode.verify && widget.token != null) {
+        _verifyToken.text = widget.token!;
+      } else if (_mode == AuthMode.reset && widget.token != null) {
+        _resetToken.text = widget.token!;
+      }
+    } else {
+      _mode = widget.initialSignup ? AuthMode.signup : AuthMode.login;
+    }
     _password.addListener(_validatePassword);
   }
 
