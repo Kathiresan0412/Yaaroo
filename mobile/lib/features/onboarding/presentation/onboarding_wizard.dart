@@ -136,11 +136,16 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       final prefs = payload['preferences'] as Map<String, dynamic>? ?? {};
       final location = payload['location'] as Map<String, dynamic>? ?? {};
       final photosList = payload['photos'] as List? ?? [];
+      final userMap = payload['user'] as Map<String, dynamic>? ?? {};
+      final firstName = userMap['firstName']?.toString() ?? '';
+      final registeredName = userMap['registeredProfile']?['name']?.toString() ?? '';
+      final defaultDisplayName = firstName.isNotEmpty ? firstName : (registeredName.isNotEmpty ? registeredName : '');
 
       setState(() {
         _photos = photosList.map((p) => p['url']?.toString() ?? '').toList();
 
-        _displayName.text = profile['displayName']?.toString() ?? '';
+        final existingDisplayName = profile['displayName']?.toString() ?? '';
+        _displayName.text = existingDisplayName.isNotEmpty ? existingDisplayName : defaultDisplayName;
         _pronouns.text = profile['pronouns']?.toString() ?? '';
         _headline.text = profile['headline']?.toString() ?? '';
         _bio.text = profile['bio']?.toString() ?? '';
@@ -368,6 +373,87 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
     final api = YaaroScope.of(context);
     try {
+      // 1. Prefill display name from first name or default
+      final defaultDisplayName = _displayName.text.trim().isNotEmpty
+          ? _displayName.text.trim()
+          : (api.user?.firstName ?? 'User');
+      final defaultBio = _bio.text.trim().isNotEmpty ? _bio.text.trim() : 'Hey! I am using Yaaro0.';
+
+      // 2. We need location
+      final defaultCity = _city.text.trim().isNotEmpty ? _city.text.trim() : 'Colombo';
+      final defaultCountry = _country.text.trim().isNotEmpty ? _country.text.trim() : 'Sri Lanka';
+
+      // 3. Make sure we have at least 2 photos in the DB.
+      if (_photos.length < 2) {
+        final needed = 2 - _photos.length;
+        const pinkPlaceholder = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAANElEQVR42u3PMQEAAADCoPdPbQ43oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAO4GT0wAAQsmc94AAAAASUVORK5CYII=';
+        const bluePlaceholder = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAQAAAAD/E/3AAAAJElEQVR42mN8/58BCwYeDTxGCUYJRglGCUYJRglGCUYJRglG/wAArV8Q1fep2gAAAABJRU5ErkJggg==';
+
+        if (needed >= 1) {
+          await api.uploadPhoto(pinkPlaceholder);
+        }
+        if (needed >= 2) {
+          await api.uploadPhoto(bluePlaceholder);
+        }
+
+        final photosPayload = await api.getProfilePhotos();
+        _photos = photosPayload.map((p) => p['url']?.toString() ?? '').toList();
+      }
+
+      // 4. Save profile fields
+      final profileBody = {
+        'displayName': defaultDisplayName,
+        'pronouns': _pronouns.text.trim(),
+        'sexualOrientation': _sexualOrientation.isNotEmpty ? _sexualOrientation : ['Straight'],
+        'headline': _headline.text.trim().isNotEmpty ? _headline.text.trim() : 'Hello Yaaro0!',
+        'bio': defaultBio,
+        'heightCm': _heightCm.toInt(),
+        'bodyType': _bodyType,
+        'ethnicity': _ethnicity.isNotEmpty ? _ethnicity : ['Mixed'],
+        'hairColour': _hairColour,
+        'eyeColour': _eyeColour,
+        'education': _education,
+        'jobTitle': _jobTitle.text.trim().isNotEmpty ? _jobTitle.text.trim() : 'Member',
+        'company': _company.text.trim(),
+        'industry': _industry,
+        'religion': _religion,
+        'nationality': _nationality.text.trim().isNotEmpty ? _nationality.text.trim() : 'Global citizen',
+        'languages': _languages.isNotEmpty ? _languages : ['English'],
+        'smoking': _smoking,
+        'drinking': _drinking,
+        'exercise': _exercise,
+        'diet': _diet,
+        'sleepSchedule': _sleepSchedule,
+        'livingSituation': _livingSituation,
+        'hasChildren': _hasChildren,
+        'wantsChildren': _wantsChildren,
+        'hasPets': _hasPets,
+        'wantsPets': _wantsPets,
+        'favPet': _favPet,
+        'favColour': _favColour,
+        'favFood': _favFood.isNotEmpty ? _favFood : ['Rice & curry'],
+        'favMusic': _favMusic.isNotEmpty ? _favMusic : ['Indie'],
+        'favMovieGenre': _favMovieGenre.isNotEmpty ? _favMovieGenre : ['Comedy'],
+        'hobbies': _hobbies.isNotEmpty ? _hobbies : ['Travel'],
+        'interests': {'hobbies': _hobbies.isNotEmpty ? _hobbies : ['Travel']},
+        'loveLanguage': _loveLanguage,
+        'relationshipGoal': _relationshipGoal,
+      };
+
+      await api.updateProfileMe(profileBody);
+
+      // 5. Save location
+      await api.updateLocation(6.9271, 79.8612, defaultCity, defaultCountry);
+
+      // 6. Save preferences
+      await api.updatePreferences({
+        'showGender': _showGender,
+        'minAge': _minAge.toInt(),
+        'maxAge': _maxAge.toInt(),
+        'maxDistanceKm': _maxDistanceKm.toInt(),
+      });
+
+      // 7. Complete onboarding
       await api.onboardingComplete();
       await api.refreshSession();
       if (!mounted) return;

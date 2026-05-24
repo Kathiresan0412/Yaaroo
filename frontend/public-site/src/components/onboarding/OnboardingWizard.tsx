@@ -19,6 +19,37 @@ import {
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { useAuth } from "../auth/AuthProvider";
 
+function generateGradientAvatar(initial: string, color1: string, color2: string): string {
+  if (typeof window === "undefined") return "";
+  const canvas = document.createElement("canvas");
+  canvas.width = 400;
+  canvas.height = 400;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+
+  // Draw gradient background
+  const gradient = ctx.createLinearGradient(0, 0, 400, 400);
+  gradient.addColorStop(0, color1);
+  gradient.addColorStop(1, color2);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 400, 400);
+
+  // Draw smooth circle background for the initial
+  ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+  ctx.beginPath();
+  ctx.arc(200, 200, 100, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Draw initial text
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 120px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(initial.toUpperCase(), 200, 200);
+
+  return canvas.toDataURL("image/jpeg", 0.9);
+}
+
 type Photo = {
   id: string;
   url: string;
@@ -577,6 +608,7 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
   const [cropX, setCropX] = useState(50);
   const [cropY, setCropY] = useState(50);
   const [isLocating, setIsLocating] = useState(false);
+  const [registeredFirstName, setRegisteredFirstName] = useState("");
 
   const heightFt = useMemo(() => {
     const totalInches = Math.round(state.heightCm / 2.54);
@@ -770,6 +802,9 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
 
         setPhotos(payload.photos || []);
         const hasSavedLocation = Boolean(payload.location?.city && payload.location?.country);
+        const firstName = payload.user?.firstName || "";
+        setRegisteredFirstName(firstName);
+
         setState({
           ...nextState,
           latitude: payload.location?.latitude ?? null,
@@ -777,7 +812,8 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
           displayName:
             nextState.displayName ||
             payload.user?.registeredProfile?.name ||
-            [payload.user?.firstName, payload.user?.lastName].filter(Boolean).join(" "),
+            firstName ||
+            "",
         });
 
         if (!hasSavedLocation) {
@@ -1038,24 +1074,20 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
       favMusic: state.favMusic,
       favMovieGenre: state.favMovieGenre,
       hobbies: state.hobbies,
+      interests: { hobbies: state.hobbies },
       loveLanguage: state.loveLanguage,
       relationshipGoal: state.relationshipGoal,
     };
 
     const requests: Promise<Response>[] = [];
 
-    if (step >= 1 && step <= 5) {
+    if (mode === "edit") {
       requests.push(
         authFetch("/api/profile/me", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(profileBody),
         }),
-      );
-    }
-
-    if (step === 6) {
-      requests.push(
         authFetch("/api/profile/preferences", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -1068,23 +1100,66 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
             showVerifiedOnly: state.showVerifiedOnly,
             showPhotosOnly: state.showPhotosOnly,
           }),
-        }),
+        })
       );
-    }
 
-    if (step === 7) {
-      requests.push(
-        authFetch("/api/profile/location", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            latitude: state.latitude,
-            longitude: state.longitude,
-            city: state.city,
-            country: state.country,
+      if (state.city && state.country) {
+        requests.push(
+          authFetch("/api/profile/location", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              latitude: state.latitude,
+              longitude: state.longitude,
+              city: state.city,
+              country: state.country,
+            }),
+          })
+        );
+      }
+    } else {
+      if (step >= 1 && step <= 5) {
+        requests.push(
+          authFetch("/api/profile/me", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(profileBody),
           }),
-        }),
-      );
+        );
+      }
+
+      if (step === 6) {
+        requests.push(
+          authFetch("/api/profile/preferences", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              showGender: state.showGender,
+              minAge: state.minAge,
+              maxAge: state.maxAge,
+              maxDistanceKm: state.maxDistanceKm,
+              globalMode: state.globalMode,
+              showVerifiedOnly: state.showVerifiedOnly,
+              showPhotosOnly: state.showPhotosOnly,
+            }),
+          }),
+        );
+      }
+
+      if (step === 7) {
+        requests.push(
+          authFetch("/api/profile/location", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              latitude: state.latitude,
+              longitude: state.longitude,
+              city: state.city,
+              country: state.country,
+            }),
+          }),
+        );
+      }
     }
 
     const responses = await Promise.all(requests);
@@ -1154,22 +1229,121 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
 
   async function handleSkip() {
     setIsSaving(true);
+    setMessage("");
+
     try {
-      const response = await authFetch("/api/onboarding/complete", {
+      // 1. Prefill display name from first name or default
+      const defaultDisplayName = state.displayName.trim() || registeredFirstName || "User";
+      const defaultBio = state.bio.trim() || "Hey! I am using Yaaro0.";
+      
+      // 2. We need location
+      const defaultCity = state.city.trim() || "Colombo";
+      const defaultCountry = state.country.trim() || "Sri Lanka";
+      const defaultLat = state.latitude ?? 6.9271;
+      const defaultLng = state.longitude ?? 79.8612;
+
+      // 3. Make sure we have at least 2 photos in the DB.
+      // If we have less than 2, we will upload beautiful placeholder avatars!
+      let currentPhotos = [...photos];
+      if (currentPhotos.length < 2) {
+        const needed = 2 - currentPhotos.length;
+        const generatedUrls: string[] = [];
+        const nameInitial = defaultDisplayName.charAt(0) || "Y";
+        
+        // Generate beautiful Canvas gradients
+        if (needed >= 1) {
+          generatedUrls.push(generateGradientAvatar(nameInitial, "#FF6036", "#FD267A")); // Pink-orange gradient
+        }
+        if (needed >= 2) {
+          generatedUrls.push(generateGradientAvatar(nameInitial, "#6366F1", "#A855F7")); // Purple gradient
+        }
+
+        // Upload them
+        for (const url of generatedUrls) {
+          const response = await authFetch("/api/profile/photos", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageDataUrl: url, photo: url }),
+          });
+          const photoPayload = await readApiPayload(response);
+          if (response.ok && photoPayload.photos) {
+            currentPhotos = photoPayload.photos;
+          }
+        }
+      }
+
+      // 4. Save profile fields
+      const profileBody = {
+        ...state,
+        displayName: defaultDisplayName,
+        bio: defaultBio,
+        interests: { hobbies: state.hobbies },
+      };
+
+      const saveProfileRes = await authFetch("/api/profile/me", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profileBody),
+      });
+
+      if (!saveProfileRes.ok) {
+        const errPayload = await readApiPayload(saveProfileRes);
+        throw new Error(validationMessage(errPayload, "Failed to save profile."));
+      }
+
+      // 5. Save location
+      const saveLocRes = await authFetch("/api/profile/location", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: defaultLat,
+          longitude: defaultLng,
+          city: defaultCity,
+          country: defaultCountry,
+        }),
+      });
+
+      if (!saveLocRes.ok) {
+        const errPayload = await readApiPayload(saveLocRes);
+        throw new Error(validationMessage(errPayload, "Failed to save location."));
+      }
+
+      // 6. Save preferences
+      const savePrefRes = await authFetch("/api/profile/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          showGender: state.showGender || "everyone",
+          minAge: state.minAge || 18,
+          maxAge: state.maxAge || 45,
+          maxDistanceKm: state.maxDistanceKm || 50,
+          globalMode: state.globalMode || false,
+          showVerifiedOnly: state.showVerifiedOnly || false,
+          showPhotosOnly: state.showPhotosOnly || true,
+        }),
+      });
+
+      if (!savePrefRes.ok) {
+        const errPayload = await readApiPayload(savePrefRes);
+        throw new Error(validationMessage(errPayload, "Failed to save preferences."));
+      }
+
+      // 7. Complete onboarding
+      const completeRes = await authFetch("/api/onboarding/complete", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: "{}",
       });
-      const payload = await readApiPayload(response);
+      const completePayload = await readApiPayload(completeRes);
 
-      if (response.ok) {
-        showSuccessMessage("Onboarding skipped successfully.");
-        window.location.href = payload.redirectTo || "/app/discover";
+      if (completeRes.ok) {
+        showSuccessMessage("Onboarding completed successfully.");
+        window.location.href = completePayload.redirectTo || "/app/discover";
       } else {
-        showValidationMessage(validationMessage(payload, "Unable to skip onboarding."));
+        showValidationMessage(validationMessage(completePayload, "Unable to complete onboarding."));
       }
     } catch (error) {
-      showValidationMessage("An error occurred while skipping onboarding.");
+      showValidationMessage(error instanceof Error ? error.message : "An error occurred while skipping onboarding.");
     } finally {
       setIsSaving(false);
     }
