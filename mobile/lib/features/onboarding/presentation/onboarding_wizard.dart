@@ -1,4 +1,12 @@
+import 'dart:convert';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import '../../../core/api_client.dart' show ApiException;
 import '../../../main.dart' show YaaroScope, YaaroColors, AppTextField;
 
 class OnboardingWizard extends StatefulWidget {
@@ -21,7 +29,11 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   int _currentStep = 0;
   bool _loading = true;
   bool _saving = false;
+  bool _locating = false;
   String? _message;
+  final _imagePicker = ImagePicker();
+  double? _latitude;
+  double? _longitude;
 
   // Multi-step profile state data models
   final _displayName = TextEditingController();
@@ -94,7 +106,33 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     'hobbies': ['Travel', 'Cooking', 'Cricket', 'Gym', 'Reading', 'Dancing', 'Gaming', 'Photography', 'Hiking', 'Volunteering'],
     'love': ['Words of affirmation', 'Quality time', 'Acts of service', 'Gifts', 'Physical touch'],
     'goals': ['Life partner', 'Long-term relationship', 'New friends', 'Still figuring it out'],
-    'genders': ['everyone', 'women', 'men', 'non_binary']
+    'genders': ['everyone', 'women', 'men', 'non_binary'],
+    'countries': [
+      'Sri Lanka',
+      'India',
+      'United States',
+      'United Kingdom',
+      'Canada',
+      'Australia',
+      'Germany',
+      'France',
+      'Italy',
+      'Spain',
+      'Netherlands',
+      'Norway',
+      'Sweden',
+      'Denmark',
+      'Switzerland',
+      'United Arab Emirates',
+      'Qatar',
+      'Saudi Arabia',
+      'Singapore',
+      'Malaysia',
+      'Thailand',
+      'Japan',
+      'South Korea',
+      'New Zealand',
+    ],
   };
 
   final List<String> _steps = [
@@ -192,9 +230,14 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
         _city.text = location['city']?.toString() ?? '';
         _country.text = location['country']?.toString() ?? '';
+        _latitude = double.tryParse(location['latitude']?.toString() ?? '');
+        _longitude = double.tryParse(location['longitude']?.toString() ?? '');
 
         _loading = false;
       });
+      if (_city.text.trim().isEmpty && _country.text.trim().isEmpty) {
+        await _suggestLocationFromIp(showMessage: false);
+      }
     } catch (_) {
       setState(() {
         _loading = false;
@@ -210,6 +253,157 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return [];
   }
 
+  double? _parseCoordinate(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  List<String> get _countryOptions {
+    final countries = _options['countries']!;
+    final current = _country.text.trim();
+    if (current.isNotEmpty && !countries.contains(current)) {
+      return [current, ...countries];
+    }
+    return countries;
+  }
+
+  Future<void> _suggestLocationFromIp({bool showMessage = true}) async {
+    if (_locating) return;
+    setState(() {
+      _locating = true;
+      if (showMessage) _message = null;
+    });
+
+    try {
+      final response = await http.get(Uri.parse('https://ipapi.co/json/'));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return;
+      }
+
+      final payload = jsonDecode(response.body);
+      if (payload is! Map<String, dynamic>) {
+        return;
+      }
+
+      if (!mounted) return;
+      final city = payload['city']?.toString().trim() ?? '';
+      final country = payload['country_name']?.toString().trim() ?? '';
+      setState(() {
+        if (_city.text.trim().isEmpty && city.isNotEmpty) {
+          _city.text = city;
+        }
+        if (_country.text.trim().isEmpty && country.isNotEmpty) {
+          _country.text = country;
+        }
+        _latitude ??= _parseCoordinate(payload['latitude']);
+        _longitude ??= _parseCoordinate(payload['longitude']);
+        if (showMessage) _message = 'Location suggestion added.';
+      });
+    } catch (_) {
+      return;
+    } finally {
+      if (mounted) {
+        setState(() => _locating = false);
+      }
+    }
+  }
+
+  Future<Map<String, String>> _cityFromCoordinates(double latitude, double longitude) async {
+    final uri = Uri.https(
+      'api.bigdatacloud.net',
+      '/data/reverse-geocode-client',
+      {
+        'latitude': latitude.toString(),
+        'longitude': longitude.toString(),
+        'localityLanguage': 'en',
+      },
+    );
+    final response = await http.get(uri);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException('Unable to find your city from device location.');
+    }
+
+    final payload = jsonDecode(response.body);
+    if (payload is! Map<String, dynamic>) {
+      throw ApiException('Unable to find your city from device location.');
+    }
+
+    final city = payload['city']?.toString().trim().isNotEmpty == true
+        ? payload['city'].toString().trim()
+        : payload['locality']?.toString().trim().isNotEmpty == true
+            ? payload['locality'].toString().trim()
+            : payload['principalSubdivision']?.toString().trim() ?? '';
+    final country = payload['countryName']?.toString().trim() ?? '';
+
+    if (city.isEmpty || country.isEmpty) {
+      throw ApiException('Unable to find your city from device location.');
+    }
+
+    return {'city': city, 'country': country};
+  }
+
+  Future<void> _useDeviceLocation() async {
+    if (_locating) return;
+    setState(() {
+      _locating = true;
+      _message = null;
+    });
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw ApiException('Turn on location services or enter your city manually.');
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied) {
+        throw ApiException('Location permission was not granted. Enter your city manually.');
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw ApiException('Location permission is blocked. Enable it in settings or enter your city manually.');
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+      final latitude = double.parse(position.latitude.toStringAsFixed(7));
+      final longitude = double.parse(position.longitude.toStringAsFixed(7));
+      final location = await _cityFromCoordinates(latitude, longitude);
+
+      if (!mounted) return;
+      setState(() {
+        _latitude = latitude;
+        _longitude = longitude;
+        _city.text = location['city']!;
+        _country.text = location['country']!;
+        _message = 'Location selected.';
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _message = e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _message = 'Unable to find your city from device location.');
+    } finally {
+      if (mounted) {
+        setState(() => _locating = false);
+      }
+    }
+  }
+
+  String _mimeTypeForImage(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
+  }
+
   String get _heightFtLabel {
     final totalInches = (_heightCm / 2.54).round();
     final ft = totalInches ~/ 12;
@@ -217,10 +411,53 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return "$ft'$inches\"";
   }
 
-  Future<void> _showPhotoUploadUnavailable() async {
-    setState(() {
-      _message = 'Photo upload from device is not available in this build yet.';
-    });
+  Future<void> _pickAndUploadPhoto() async {
+    final api = YaaroScope.of(context);
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 68,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+      if (image == null) return;
+
+      setState(() {
+        _saving = true;
+        _message = null;
+      });
+
+      final bytes = await image.readAsBytes();
+      final mimeType = _mimeTypeForImage(image.name);
+      final dataUrl = 'data:$mimeType;base64,${base64Encode(bytes)}';
+      await api.uploadPhoto(dataUrl);
+
+      final photosPayload = await api.getProfilePhotos();
+      if (!mounted) return;
+      setState(() {
+        _photos = photosPayload.map((p) => p['url']?.toString() ?? '').toList();
+        _message = 'Photo uploaded.';
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _message = e.message);
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      final isMissingPlugin = e.code == 'channel-error' ||
+          e.message?.contains('Unable to establish connection') == true;
+      setState(() {
+        _message = isMissingPlugin
+            ? 'Photo picker is not ready yet. Fully stop and rebuild the app, then try again.'
+            : 'Photo picker failed. Please allow photo access and try again.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _message = 'Photo upload failed: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
   }
 
   Future<void> _deletePhoto(int index) async {
@@ -334,7 +571,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           if (_city.text.trim().isEmpty || _country.text.trim().isEmpty) {
             throw 'City and Country are required to complete onboarding.';
           }
-          await api.updateLocation(7.8731, 80.7718, _city.text.trim(), _country.text.trim());
+          await api.updateLocation(_latitude, _longitude, _city.text.trim(), _country.text.trim());
           if (widget.mode == 'onboarding') {
             await api.onboardingComplete();
           }
@@ -350,18 +587,23 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
       // Progress step or show success message in edit mode
       if (widget.mode == 'edit') {
+        if (!mounted) return;
         setState(() {
           _message = 'Section updated successfully.';
         });
       } else {
+        if (!mounted) return;
         setState(() {
           _currentStep++;
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _message = e.toString());
     } finally {
-      setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
@@ -371,97 +613,20 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       _message = null;
     });
 
-    final api = YaaroScope.of(context);
     try {
-      // 1. Prefill display name from first name or default
-      final defaultDisplayName = _displayName.text.trim().isNotEmpty
-          ? _displayName.text.trim()
-          : (api.user?.firstName ?? 'User');
-      final defaultBio = _bio.text.trim().isNotEmpty ? _bio.text.trim() : 'Hey! I am using Yaaro0.';
-
-      // 2. We need location
-      final defaultCity = _city.text.trim().isNotEmpty ? _city.text.trim() : 'Colombo';
-      final defaultCountry = _country.text.trim().isNotEmpty ? _country.text.trim() : 'Sri Lanka';
-
-      // 3. Make sure we have at least 2 photos in the DB.
-      if (_photos.length < 2) {
-        final needed = 2 - _photos.length;
-        const pinkPlaceholder = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAANElEQVR42u3PMQEAAADCoPdPbQ43oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAO4GT0wAAQsmc94AAAAASUVORK5CYII=';
-        const bluePlaceholder = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAQAAAAD/E/3AAAAJElEQVR42mN8/58BCwYeDTxGCUYJRglGCUYJRglGCUYJRglG/wAArV8Q1fep2gAAAABJRU5ErkJggg==';
-
-        if (needed >= 1) {
-          await api.uploadPhoto(pinkPlaceholder);
-        }
-        if (needed >= 2) {
-          await api.uploadPhoto(bluePlaceholder);
-        }
-
-        final photosPayload = await api.getProfilePhotos();
-        _photos = photosPayload.map((p) => p['url']?.toString() ?? '').toList();
-      }
-
-      // 4. Save profile fields
-      final profileBody = {
-        'displayName': defaultDisplayName,
-        'pronouns': _pronouns.text.trim(),
-        'sexualOrientation': _sexualOrientation.isNotEmpty ? _sexualOrientation : ['Straight'],
-        'headline': _headline.text.trim().isNotEmpty ? _headline.text.trim() : 'Hello Yaaro0!',
-        'bio': defaultBio,
-        'heightCm': _heightCm.toInt(),
-        'bodyType': _bodyType,
-        'ethnicity': _ethnicity.isNotEmpty ? _ethnicity : ['Mixed'],
-        'hairColour': _hairColour,
-        'eyeColour': _eyeColour,
-        'education': _education,
-        'jobTitle': _jobTitle.text.trim().isNotEmpty ? _jobTitle.text.trim() : 'Member',
-        'company': _company.text.trim(),
-        'industry': _industry,
-        'religion': _religion,
-        'nationality': _nationality.text.trim().isNotEmpty ? _nationality.text.trim() : 'Global citizen',
-        'languages': _languages.isNotEmpty ? _languages : ['English'],
-        'smoking': _smoking,
-        'drinking': _drinking,
-        'exercise': _exercise,
-        'diet': _diet,
-        'sleepSchedule': _sleepSchedule,
-        'livingSituation': _livingSituation,
-        'hasChildren': _hasChildren,
-        'wantsChildren': _wantsChildren,
-        'hasPets': _hasPets,
-        'wantsPets': _wantsPets,
-        'favPet': _favPet,
-        'favColour': _favColour,
-        'favFood': _favFood.isNotEmpty ? _favFood : ['Rice & curry'],
-        'favMusic': _favMusic.isNotEmpty ? _favMusic : ['Indie'],
-        'favMovieGenre': _favMovieGenre.isNotEmpty ? _favMovieGenre : ['Comedy'],
-        'hobbies': _hobbies.isNotEmpty ? _hobbies : ['Travel'],
-        'interests': {'hobbies': _hobbies.isNotEmpty ? _hobbies : ['Travel']},
-        'loveLanguage': _loveLanguage,
-        'relationshipGoal': _relationshipGoal,
-      };
-
-      await api.updateProfileMe(profileBody);
-
-      // 5. Save location
-      await api.updateLocation(6.9271, 79.8612, defaultCity, defaultCountry);
-
-      // 6. Save preferences
-      await api.updatePreferences({
-        'showGender': _showGender,
-        'minAge': _minAge.toInt(),
-        'maxAge': _maxAge.toInt(),
-        'maxDistanceKm': _maxDistanceKm.toInt(),
-      });
-
-      // 7. Complete onboarding
-      await api.onboardingComplete();
-      await api.refreshSession();
+      await Future<void>.delayed(const Duration(milliseconds: 320));
       if (!mounted) return;
-      widget.onComplete();
+      setState(() {
+        if (_currentStep < _steps.length - 1) {
+          _currentStep++;
+        } else {
+          _message = 'Add the required photos and location before finishing.';
+        }
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _message = 'Failed to skip onboarding: ${e.toString()}';
+        _message = 'Unable to skip this step. Please try again.';
       });
     } finally {
       if (mounted) {
@@ -481,120 +646,177 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: YaaroColors.black,
-      appBar: AppBar(
-        backgroundColor: YaaroColors.surface,
-        elevation: 0,
-        leading: widget.mode == 'edit'
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: widget.onComplete,
-              )
-            : null,
-        title: Text(
-          widget.mode == 'edit' ? 'Edit Profile' : 'Onboarding: Step ${_currentStep + 1}/${_steps.length}',
-          style: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        actions: [
-          if (widget.mode == 'onboarding') ...[
-            TextButton(
-              onPressed: _saving ? null : _skipOnboarding,
-              child: const Text(
-                'Skip',
-                style: TextStyle(
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: YaaroColors.black,
+          appBar: AppBar(
+            backgroundColor: YaaroColors.surface,
+            elevation: 0,
+            leading: widget.mode == 'edit'
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: widget.onComplete,
+                  )
+                : null,
+            title: Text(
+              widget.mode == 'edit' ? 'Edit Profile' : 'Onboarding: Step ${_currentStep + 1}/${_steps.length}',
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            actions: [
+              if (widget.mode == 'onboarding') ...[
+                TextButton(
+                  onPressed: _saving ? null : _skipOnboarding,
+                  child: const Text(
+                    'Skip',
+                    style: TextStyle(
+                      color: YaaroColors.rose,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.logout),
+                  onPressed: widget.onLogout,
+                ),
+              ],
+            ],
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                LinearProgressIndicator(
+                  value: (_currentStep + 1) / _steps.length,
                   color: YaaroColors.rose,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  backgroundColor: Colors.white10,
+                  minHeight: 4,
                 ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: widget.onLogout,
-            ),
-          ],
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            LinearProgressIndicator(
-              value: (_currentStep + 1) / _steps.length,
-              color: YaaroColors.rose,
-              backgroundColor: Colors.white10,
-              minHeight: 4,
-            ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              child: Row(
-                children: List.generate(_steps.length, (index) {
-                  final bool isCurrent = index == _currentStep;
-                  final bool isEnabled = widget.mode == 'edit' || index <= _currentStep;
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  child: Row(
+                    children: List.generate(_steps.length, (index) {
+                      final bool isCurrent = index == _currentStep;
+                      final bool isEnabled = widget.mode == 'edit' || index <= _currentStep;
 
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: ChoiceChip(
-                      label: Text(_steps[index]),
-                      selected: isCurrent,
-                      onSelected: isEnabled
-                          ? (selected) {
-                              if (selected) {
-                                setState(() {
-                                  _currentStep = index;
-                                  _message = null;
-                                });
-                              }
-                            }
-                          : null,
-                      backgroundColor: YaaroColors.surfaceAlt,
-                      selectedColor: YaaroColors.rose,
-                      labelStyle: TextStyle(
-                        color: isCurrent
-                            ? Colors.white
-                            : (isEnabled ? Colors.white70 : Colors.white24),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ChoiceChip(
+                          label: Text(_steps[index]),
+                          selected: isCurrent,
+                          onSelected: isEnabled
+                              ? (selected) {
+                                  if (selected) {
+                                    setState(() {
+                                      _currentStep = index;
+                                      _message = null;
+                                    });
+                                  }
+                                }
+                              : null,
+                          backgroundColor: YaaroColors.surfaceAlt,
+                          selectedColor: YaaroColors.rose,
+                          labelStyle: TextStyle(
+                            color: isCurrent
+                                ? Colors.white
+                                : (isEnabled ? Colors.white70 : Colors.white24),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+                if (_message != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    color: YaaroColors.saffron.withOpacity(0.15),
+                    child: Text(
+                      _message!,
+                      style: const TextStyle(color: YaaroColors.saffron, fontWeight: FontWeight.bold),
                     ),
+                  ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          _steps[_currentStep].toUpperCase(),
+                          style: const TextStyle(
+                            color: YaaroColors.teal,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildStepContent(),
+                      ],
+                    ),
+                  ),
+                ),
+                _buildNavigationRow(),
+              ],
+            ),
+          ),
+        ),
+        if (_saving) _buildLoadingOverlay(),
+      ],
+    );
+  }
+
+  Widget _buildLoadingOverlay() {
+    return Positioned.fill(
+      child: AbsorbPointer(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            color: Colors.black.withOpacity(0.34),
+            child: Center(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.94, end: 1),
+                duration: const Duration(milliseconds: 420),
+                curve: Curves.easeOutBack,
+                builder: (context, scale, child) {
+                  return Transform.scale(
+                    scale: scale,
+                    child: child,
                   );
-                }),
-              ),
-            ),
-            if (_message != null)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                color: YaaroColors.saffron.withOpacity(0.15),
-                child: Text(
-                  _message!,
-                  style: const TextStyle(color: YaaroColors.saffron, fontWeight: FontWeight.bold),
-                ),
-              ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      _steps[_currentStep].toUpperCase(),
-                      style: const TextStyle(
-                        color: YaaroColors.teal,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.0,
+                },
+                child: Container(
+                  width: 82,
+                  height: 82,
+                  decoration: BoxDecoration(
+                    color: YaaroColors.surface.withOpacity(0.92),
+                    border: Border.all(color: YaaroColors.line),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: YaaroColors.rose.withOpacity(0.22),
+                        blurRadius: 28,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: CircularProgressIndicator(
+                        color: YaaroColors.rose,
+                        strokeWidth: 3,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    _buildStepContent(),
-                  ],
+                  ),
                 ),
               ),
             ),
-            _buildNavigationRow(),
-          ],
+          ),
         ),
       ),
     );
@@ -682,7 +904,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
               );
             } else {
               return InkWell(
-                onTap: _saving ? null : _showPhotoUploadUnavailable,
+                onTap: _saving ? null : _pickAndUploadPhoto,
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   decoration: BoxDecoration(
@@ -902,20 +1124,33 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         const SizedBox(height: 6),
         const Text('Select your current city and country to see matches near you.', style: TextStyle(color: YaaroColors.muted, fontSize: 13)),
         const SizedBox(height: 18),
-        AppTextField(controller: _city, label: 'City'),
+        _buildDropdown('Country', _country.text.trim().isEmpty ? 'Select country' : _country.text.trim(), _countryOptions, (val) {
+          if (val == null) return;
+          setState(() {
+            _country.text = val;
+            _latitude = null;
+            _longitude = null;
+          });
+        }),
         const SizedBox(height: 12),
-        AppTextField(controller: _country, label: 'Country'),
+        AppTextField(controller: _city, label: 'City'),
         const SizedBox(height: 18),
         OutlinedButton.icon(
-          onPressed: () {
-            setState(() {
-              _city.text = 'Colombo';
-              _country.text = 'Sri Lanka';
-              _message = 'Simulated location successfully retrieved!';
-            });
-          },
-          icon: const Icon(Icons.my_location, color: YaaroColors.teal),
-          label: const Text('Retrieve Current Location', style: TextStyle(color: Colors.white)),
+          onPressed: _locating ? null : _useDeviceLocation,
+          icon: _locating
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: YaaroColors.teal,
+                  ),
+                )
+              : const Icon(Icons.my_location, color: YaaroColors.teal),
+          label: Text(
+            _locating ? 'Detecting location...' : 'Use my current location',
+            style: const TextStyle(color: Colors.white),
+          ),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(50),
             side: const BorderSide(color: YaaroColors.line),
@@ -926,17 +1161,157 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   }
 
   Widget _buildDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      dropdownColor: YaaroColors.surface,
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.06),
-        labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+    return InkWell(
+      onTap: () async {
+        final selected = await _selectDropdownOption(
+          label: label,
+          value: value,
+          items: items,
+        );
+        if (selected != null) {
+          onChanged(selected);
+        }
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        height: 58,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.06),
+          border: Border.all(color: Colors.white24),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: YaaroColors.muted,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.keyboard_arrow_down, color: Colors.white54),
+          ],
+        ),
       ),
-      items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
-      onChanged: onChanged,
+    );
+  }
+
+  Future<String?> _selectDropdownOption({
+    required String label,
+    required String value,
+    required List<String> items,
+  }) {
+    return showGeneralDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: label,
+      barrierColor: Colors.black.withOpacity(0.35),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: const SizedBox.expand(),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: SafeArea(
+                top: false,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.all(12),
+                    constraints: const BoxConstraints(maxHeight: 420),
+                    decoration: BoxDecoration(
+                      color: YaaroColors.surface,
+                      border: Border.all(color: YaaroColors.line),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 8),
+                        Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              label,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Flexible(
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.only(bottom: 8),
+                            itemCount: items.length,
+                            separatorBuilder: (_, __) => const Divider(
+                              height: 1,
+                              color: Colors.white10,
+                            ),
+                            itemBuilder: (context, index) {
+                              final item = items[index];
+                              final selected = item == value;
+
+                              return ListTile(
+                                title: Text(
+                                  item,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                trailing: selected
+                                    ? const Icon(Icons.check, color: YaaroColors.rose)
+                                    : null,
+                                onTap: () => Navigator.pop(context, item),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

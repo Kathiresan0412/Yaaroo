@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
@@ -36,6 +38,8 @@ class _AuthSheetState extends State<AuthSheet> {
   bool _loading = false;
   String? _message;
   bool _isSuccess = false;
+  bool _showPassword = false;
+  bool _showConfirmPassword = false;
 
   // Password Validation States
   bool _hasMinLength = false;
@@ -92,17 +96,28 @@ class _AuthSheetState extends State<AuthSheet> {
       initialDate: eighteenYearsAgo,
       firstDate: DateTime(now.year - 100),
       lastDate: eighteenYearsAgo,
+      barrierColor: Colors.black.withOpacity(0.28),
       builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: YaaroColors.rose,
-              onPrimary: Colors.white,
-              surface: YaaroColors.surface,
-              onSurface: Colors.white,
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: const SizedBox.expand(),
+              ),
             ),
-          ),
-          child: child!,
+            Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: const ColorScheme.dark(
+                  primary: YaaroColors.rose,
+                  onPrimary: Colors.white,
+                  surface: YaaroColors.surface,
+                  onSurface: Colors.white,
+                ),
+              ),
+              child: child!,
+            ),
+          ],
         );
       },
     );
@@ -236,10 +251,11 @@ class _AuthSheetState extends State<AuthSheet> {
               keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 12),
-            AppTextField(
+            _buildPasswordField(
               controller: _password,
               label: 'Password',
-              obscureText: true,
+              visible: _showPassword,
+              onToggle: () => setState(() => _showPassword = !_showPassword),
             ),
           ],
         );
@@ -270,66 +286,26 @@ class _AuthSheetState extends State<AuthSheet> {
               keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 12),
-            InkWell(
-              onTap: _selectDateOfBirth,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
-                  border: Border.all(color: Colors.white24),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.cake, color: YaaroColors.rose, size: 20),
-                    const SizedBox(width: 12),
-                    Text(
-                      _dateOfBirth == null
-                          ? 'Select date of birth (18+)'
-                          : 'DOB: ${DateFormat('yyyy-MM-dd').format(_dateOfBirth!)}',
-                      style: TextStyle(
-                        color: _dateOfBirth == null ? Colors.white54 : Colors.white,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const Spacer(),
-                    const Icon(Icons.arrow_drop_down, color: Colors.white54),
-                  ],
-                ),
-              ),
-            ),
+            _buildDateOfBirthField(),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _gender,
-              dropdownColor: YaaroColors.surface,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.06),
-                labelText: 'Select gender',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'female', child: Text('Female')),
-                DropdownMenuItem(value: 'male', child: Text('Male')),
-                DropdownMenuItem(value: 'non_binary', child: Text('Non-binary')),
-                DropdownMenuItem(value: 'other', child: Text('Other')),
-              ],
-              onChanged: (val) => setState(() => _gender = val),
-            ),
+            _buildGenderField(),
             const SizedBox(height: 12),
-            AppTextField(
+            _buildPasswordField(
               controller: _password,
               label: 'Password',
-              obscureText: true,
+              visible: _showPassword,
+              onToggle: () => setState(() => _showPassword = !_showPassword),
             ),
             const SizedBox(height: 8),
             _buildPasswordValidationGuide(),
             const SizedBox(height: 8),
-            AppTextField(
+            _buildPasswordField(
               controller: _confirmPassword,
               label: 'Confirm password',
-              obscureText: true,
+              visible: _showConfirmPassword,
+              onToggle: () => setState(
+                () => _showConfirmPassword = !_showConfirmPassword,
+              ),
             ),
           ],
         );
@@ -347,18 +323,22 @@ class _AuthSheetState extends State<AuthSheet> {
               label: 'Reset Token',
             ),
             const SizedBox(height: 12),
-            AppTextField(
+            _buildPasswordField(
               controller: _password,
               label: 'New Password',
-              obscureText: true,
+              visible: _showPassword,
+              onToggle: () => setState(() => _showPassword = !_showPassword),
             ),
             const SizedBox(height: 8),
             _buildPasswordValidationGuide(),
             const SizedBox(height: 8),
-            AppTextField(
+            _buildPasswordField(
               controller: _confirmPassword,
               label: 'Confirm New Password',
-              obscureText: true,
+              visible: _showConfirmPassword,
+              onToggle: () => setState(
+                () => _showConfirmPassword = !_showConfirmPassword,
+              ),
             ),
           ],
         );
@@ -377,6 +357,182 @@ class _AuthSheetState extends State<AuthSheet> {
           ],
         );
     }
+  }
+
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String label,
+    required bool visible,
+    required VoidCallback onToggle,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: !visible,
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.06),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        suffixIcon: IconButton(
+          tooltip: visible ? 'Hide password' : 'Show password',
+          icon: Icon(
+            visible ? Icons.visibility_off : Icons.visibility,
+            color: Colors.white54,
+          ),
+          onPressed: onToggle,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateOfBirthField() {
+    final selectedDate = _dateOfBirth == null
+        ? null
+        : DateFormat('yyyy-MM-dd').format(_dateOfBirth!);
+
+    return _buildPickerField(
+      icon: Icons.cake,
+      label: 'Date of birth',
+      value: selectedDate ?? 'Select date of birth (18+)',
+      hasValue: selectedDate != null,
+      onTap: _selectDateOfBirth,
+    );
+  }
+
+  Widget _buildGenderField() {
+    return _buildPickerField(
+      icon: Icons.person_outline,
+      label: 'Gender',
+      value: _genderLabel(_gender) ?? 'Select gender',
+      hasValue: _gender != null,
+      onTap: _selectGender,
+    );
+  }
+
+  Widget _buildPickerField({
+    required IconData icon,
+    required String label,
+    required String value,
+    required bool hasValue,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 58,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.06),
+          border: Border.all(color: Colors.white24),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: YaaroColors.rose, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (hasValue) ...[
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: YaaroColors.muted,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                  ],
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: hasValue ? Colors.white : Colors.white54,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.keyboard_arrow_down, color: Colors.white54),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectGender() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.35),
+      builder: (context) {
+        const genders = ['female', 'male', 'non_binary', 'other'];
+
+        return SafeArea(
+          top: false,
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: YaaroColors.surface,
+              border: Border.all(color: YaaroColors.line),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                for (final gender in genders)
+                  ListTile(
+                    title: Text(
+                      _genderLabel(gender)!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    trailing: _gender == gender
+                        ? const Icon(Icons.check, color: YaaroColors.rose)
+                        : null,
+                    onTap: () => Navigator.pop(context, gender),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected != null && mounted) {
+      setState(() => _gender = selected);
+    }
+  }
+
+  String? _genderLabel(String? value) {
+    switch (value) {
+      case 'female':
+        return 'Female';
+      case 'male':
+        return 'Male';
+      case 'non_binary':
+        return 'Non-binary';
+      case 'other':
+        return 'Other';
+    }
+    return null;
   }
 
   Widget _buildPasswordValidationGuide() {
@@ -576,7 +732,7 @@ class _AuthSheetState extends State<AuthSheet> {
           email: _email.text.trim(),
           password: _password.text,
           dateOfBirth: dobStr,
-          gender: _gender!,
+          gender: _gender!.trim(),
         );
 
         setState(() {

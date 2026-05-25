@@ -351,7 +351,14 @@ class ApiClient {
   }
 
   Future<void> uploadPhoto(String base64DataUrl) async {
-    final response = await _request('POST', '/api/profile/photos', body: {'photo': base64DataUrl});
+    final response = await _request(
+      'POST',
+      '/api/profile/photos',
+      body: {
+        'imageDataUrl': base64DataUrl,
+        'photo': base64DataUrl,
+      },
+    );
     await _decode(response);
   }
 
@@ -365,7 +372,7 @@ class ApiClient {
     await _decode(response);
   }
 
-  Future<void> updateLocation(double lat, double lng, String city, String country) async {
+  Future<void> updateLocation(double? lat, double? lng, String city, String country) async {
     final response = await _request('PUT', '/api/profile/location', body: {
       'latitude': lat,
       'longitude': lng,

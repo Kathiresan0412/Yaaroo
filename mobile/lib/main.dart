@@ -1979,32 +1979,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
                               color: YaaroColors.surface.withOpacity(0.96),
                               child: Row(
                                 children: [
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(color: YaaroColors.line),
-                                        foregroundColor: Colors.white,
-                                        minimumSize: const Size.fromHeight(48),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      ),
-                                      onPressed: () => _handleReport(userId, displayName),
-                                      icon: const Icon(Icons.flag, size: 18),
-                                      label: const Text('Report', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    ),
+                                  _profileActionIcon(
+                                    icon: Icons.flag,
+                                    label: 'Report',
+                                    onPressed: () => _handleReport(userId, displayName),
                                   ),
                                   const SizedBox(width: 10),
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(color: YaaroColors.line),
-                                        foregroundColor: Colors.white,
-                                        minimumSize: const Size.fromHeight(48),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      ),
-                                      onPressed: () => _handleBlock(userId, displayName),
-                                      icon: const Icon(Icons.block, size: 18),
-                                      label: const Text('Block', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    ),
+                                  _profileActionIcon(
+                                    icon: Icons.block,
+                                    label: 'Block',
+                                    onPressed: () => _handleBlock(userId, displayName),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -2031,7 +2015,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                             }
                                           : null,
                                       icon: const Icon(Icons.chat_bubble, size: 18),
-                                      label: const Text('Message', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                      label: const FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          'Message',
+                                          maxLines: 1,
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -2063,6 +2054,30 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
+  Widget _profileActionIcon({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: label,
+      child: SizedBox(
+        width: 56,
+        height: 48,
+        child: OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            padding: EdgeInsets.zero,
+            side: const BorderSide(color: YaaroColors.line),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onPressed: onPressed,
+          child: Icon(icon, size: 20),
+        ),
+      ),
+    );
+  }
+
   List<Widget> _buildProfileSections(Map<String, dynamic> profile) {
     final List<Widget> widgets = [];
     final sections = [
@@ -2086,37 +2101,22 @@ class _MatchesScreenState extends State<MatchesScreen> {
               children: [
                 Text(sec.key, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 10),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: rows.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 2.8,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.035),
+                    border: Border.all(color: Colors.white10),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  itemBuilder: (context, idx) {
-                    final row = rows[idx];
-                    return Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: panelDecoration(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(row.key, style: const TextStyle(color: YaaroColors.muted, fontSize: 11)),
-                          const SizedBox(height: 2),
-                          Text(
-                            row.value,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < rows.length; i++) ...[
+                        _profileDetailRow(rows[i]),
+                        if (i != rows.length - 1)
+                          const Divider(height: 1, color: Colors.white10),
+                      ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -2125,6 +2125,35 @@ class _MatchesScreenState extends State<MatchesScreen> {
       }
     }
     return widgets;
+  }
+
+  Widget _profileDetailRow(MapEntry<String, String> row) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 4,
+            child: Text(
+              row.key,
+              style: const TextStyle(color: YaaroColors.muted, fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 5,
+            child: Text(
+              row.value,
+              textAlign: TextAlign.right,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleBlock(String userId, String displayName) async {
