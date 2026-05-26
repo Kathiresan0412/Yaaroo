@@ -149,10 +149,10 @@ class User {
     return User(
       id: json['id']?.toString() ?? '',
       email: json['email']?.toString(),
-      firstName: json['firstName']?.toString(),
-      lastName: json['lastName']?.toString(),
-      emailVerified: json['emailVerified'] == true,
-      onboardingCompleted: json['onboardingCompleted'] == true,
+      firstName: (json['firstName'] ?? json['first_name'])?.toString(),
+      lastName: (json['lastName'] ?? json['last_name'])?.toString(),
+      emailVerified: json['emailVerified'] == true || json['email_verified'] == true,
+      onboardingCompleted: json['onboardingCompleted'] == true || json['onboarding_completed'] == true,
     );
   }
 
@@ -165,6 +165,24 @@ class User {
       'emailVerified': emailVerified,
       'onboardingCompleted': onboardingCompleted,
     };
+  }
+
+  User copyWith({
+    String? id,
+    String? email,
+    String? firstName,
+    String? lastName,
+    bool? emailVerified,
+    bool? onboardingCompleted,
+  }) {
+    return User(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      emailVerified: emailVerified ?? this.emailVerified,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+    );
   }
 }
 
@@ -515,7 +533,8 @@ class _AppShellState extends State<AppShell> {
       return OnboardingWizard(
         onComplete: () {
           setState(() {
-            // Re-render and navigate into the main app tabs once onboarding is completed
+            _showLanding = false;
+            _tab = 0;
           });
         },
         onLogout: () async {

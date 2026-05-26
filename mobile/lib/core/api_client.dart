@@ -394,7 +394,16 @@ class ApiClient {
 
   Future<void> onboardingComplete() async {
     final response = await _request('PATCH', '/api/profile/onboarding/complete', body: {});
-    await _decode(response);
+    final payload = await _decode(response);
+    final rawUser = payload['user'];
+    if (rawUser is Map<String, dynamic>) {
+      user = User.fromJson(rawUser);
+    } else if (user != null) {
+      user = user!.copyWith(onboardingCompleted: true);
+    }
+    if (user != null) {
+      await _secureStorage.writeUser(user!);
+    }
   }
 
   // --- Messages ---

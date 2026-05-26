@@ -71,33 +71,33 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
   List<String> _photos = [];
   List<String> _sexualOrientation = [];
-  double _heightCm = 170.0;
-  String _bodyType = 'Average';
+  double? _heightCm;
+  String? _bodyType;
   List<String> _ethnicity = [];
-  String _hairColour = 'Black';
-  String _eyeColour = 'Brown';
-  String _education = 'Bachelors';
-  String _industry = 'Technology';
-  String _religion = 'Hindu';
+  String? _hairColour;
+  String? _eyeColour;
+  String? _education;
+  String? _industry;
+  String? _religion;
   List<String> _languages = [];
-  String _smoking = 'No';
-  String _drinking = 'Socially';
-  String _exercise = 'Sometimes';
-  String _diet = 'Vegetarian';
-  String _sleepSchedule = 'Flexible';
-  String _livingSituation = 'Alone';
-  String _hasChildren = 'No';
-  String _wantsChildren = 'Open to it';
+  String? _smoking;
+  String? _drinking;
+  String? _exercise;
+  String? _diet;
+  String? _sleepSchedule;
+  String? _livingSituation;
+  String? _hasChildren;
+  String? _wantsChildren;
   List<String> _hasPets = [];
-  String _wantsPets = 'Yes';
-  String _favPet = 'Dog';
-  String _favColour = 'Blue';
+  String? _wantsPets;
+  String? _favPet;
+  String? _favColour;
   List<String> _favFood = [];
   List<String> _favMusic = [];
   List<String> _favMovieGenre = [];
   List<String> _hobbies = [];
-  String _loveLanguage = 'Quality time';
-  String _relationshipGoal = 'Life partner';
+  String? _loveLanguage;
+  String? _relationshipGoal;
   String _showGender = 'everyone';
   double _minAge = 18.0;
   double _maxAge = 35.0;
@@ -200,58 +200,50 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       final prefs = payload['preferences'] as Map<String, dynamic>? ?? {};
       final location = payload['location'] as Map<String, dynamic>? ?? {};
       final photosList = payload['photos'] as List? ?? [];
-      final userMap = payload['user'] as Map<String, dynamic>? ?? {};
-      final firstName = userMap['firstName']?.toString() ?? '';
-      final registeredName = userMap['registeredProfile']?['name']?.toString() ?? '';
-      final defaultDisplayName = firstName.isNotEmpty ? firstName : (registeredName.isNotEmpty ? registeredName : '');
 
       setState(() {
         _photos = photosList.map((p) => p['url']?.toString() ?? '').toList();
 
         final existingDisplayName = profile['displayName']?.toString() ?? '';
-        _displayName.text = existingDisplayName.isNotEmpty ? existingDisplayName : (defaultDisplayName.isNotEmpty ? defaultDisplayName : 'Yaaro0 Member');
+        _displayName.text = existingDisplayName;
         _pronouns.text = profile['pronouns']?.toString() ?? '';
         _headline.text = profile['headline']?.toString() ?? '';
-        
-        final existingBio = profile['bio']?.toString() ?? '';
-        _bio.text = existingBio.isNotEmpty
-            ? existingBio
-            : "Looking to meet verified members, discover shared interests, and have genuine conversations. Let's connect!";
+        _bio.text = profile['bio']?.toString() ?? '';
 
         _sexualOrientation = _parseStringList(profile['sexualOrientation']);
-        _heightCm = double.tryParse(profile['heightCm']?.toString() ?? '') ?? 170.0;
-        _bodyType = profile['bodyType']?.toString() ?? 'Average';
+        _heightCm = double.tryParse(profile['heightCm']?.toString() ?? '');
+        _bodyType = _nonEmptyString(profile['bodyType']);
         _ethnicity = _parseStringList(profile['ethnicity']);
-        _hairColour = profile['hairColour']?.toString() ?? 'Black';
-        _eyeColour = profile['eyeColour']?.toString() ?? 'Brown';
+        _hairColour = _nonEmptyString(profile['hairColour']);
+        _eyeColour = _nonEmptyString(profile['eyeColour']);
 
-        _education = profile['education']?.toString() ?? 'Bachelors';
+        _education = _nonEmptyString(profile['education']);
         _jobTitle.text = profile['jobTitle']?.toString() ?? '';
         _company.text = profile['company']?.toString() ?? '';
-        _industry = profile['industry']?.toString() ?? 'Technology';
-        _religion = profile['religion']?.toString() ?? 'Hindu';
+        _industry = _nonEmptyString(profile['industry']);
+        _religion = _nonEmptyString(profile['religion']);
         _nationality.text = profile['nationality']?.toString() ?? '';
         _languages = _parseStringList(profile['languages']);
 
-        _smoking = profile['smoking']?.toString() ?? 'No';
-        _drinking = profile['drinking']?.toString() ?? 'Socially';
-        _exercise = profile['exercise']?.toString() ?? 'Sometimes';
-        _diet = profile['diet']?.toString() ?? 'Vegetarian';
-        _sleepSchedule = profile['sleepSchedule']?.toString() ?? 'Flexible';
-        _livingSituation = profile['livingSituation']?.toString() ?? 'Alone';
-        _hasChildren = profile['hasChildren']?.toString() ?? 'No';
-        _wantsChildren = profile['wantsChildren']?.toString() ?? 'Open to it';
+        _smoking = _nonEmptyString(profile['smoking']);
+        _drinking = _nonEmptyString(profile['drinking']);
+        _exercise = _nonEmptyString(profile['exercise']);
+        _diet = _nonEmptyString(profile['diet']);
+        _sleepSchedule = _nonEmptyString(profile['sleepSchedule']);
+        _livingSituation = _nonEmptyString(profile['livingSituation']);
+        _hasChildren = _nonEmptyString(profile['hasChildren']);
+        _wantsChildren = _nonEmptyString(profile['wantsChildren']);
         _hasPets = _parseStringList(profile['hasPets']);
-        _wantsPets = profile['wantsPets']?.toString() ?? 'Yes';
+        _wantsPets = _nonEmptyString(profile['wantsPets']);
 
-        _favPet = profile['favPet']?.toString() ?? 'Dog';
-        _favColour = profile['favColour']?.toString() ?? 'Blue';
+        _favPet = _nonEmptyString(profile['favPet']);
+        _favColour = _nonEmptyString(profile['favColour']);
         _favFood = _parseStringList(profile['favFood']);
         _favMusic = _parseStringList(profile['favMusic']);
         _favMovieGenre = _parseStringList(profile['favMovieGenre']);
         _hobbies = _parseStringList(payload['hobbies']);
-        _loveLanguage = profile['loveLanguage']?.toString() ?? 'Quality time';
-        _relationshipGoal = profile['relationshipGoal']?.toString() ?? 'Life partner';
+        _loveLanguage = _nonEmptyString(profile['loveLanguage']);
+        _relationshipGoal = _nonEmptyString(profile['relationshipGoal']);
 
         _showGender = prefs['showGender']?.toString() ?? 'everyone';
         _minAge = double.tryParse(prefs['minAge']?.toString() ?? '') ?? 18.0;
@@ -265,9 +257,6 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
         _loading = false;
       });
-      if (_city.text.trim().isEmpty && _country.text.trim().isEmpty) {
-        await _suggestLocationFromIp(showMessage: false);
-      }
     } catch (_) {
       setState(() {
         _loading = false;
@@ -283,10 +272,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return [];
   }
 
-  double? _parseCoordinate(dynamic value) {
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value);
-    return null;
+  String? _nonEmptyString(dynamic input) {
+    final value = input?.toString().trim();
+    return value == null || value.isEmpty ? null : value;
   }
 
   List<String> get _countryOptions {
@@ -296,47 +284,6 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       return [current, ...countries];
     }
     return countries;
-  }
-
-  Future<void> _suggestLocationFromIp({bool showMessage = true}) async {
-    if (_locating) return;
-    setState(() {
-      _locating = true;
-      if (showMessage) _message = null;
-    });
-
-    try {
-      final response = await http.get(Uri.parse('https://ipapi.co/json/'));
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return;
-      }
-
-      final payload = jsonDecode(response.body);
-      if (payload is! Map<String, dynamic>) {
-        return;
-      }
-
-      if (!mounted) return;
-      final city = payload['city']?.toString().trim() ?? '';
-      final country = payload['country_name']?.toString().trim() ?? '';
-      setState(() {
-        if (_city.text.trim().isEmpty && city.isNotEmpty) {
-          _city.text = city;
-        }
-        if (_country.text.trim().isEmpty && country.isNotEmpty) {
-          _country.text = country;
-        }
-        _latitude ??= _parseCoordinate(payload['latitude']);
-        _longitude ??= _parseCoordinate(payload['longitude']);
-        if (showMessage) _message = 'Location suggestion added.';
-      });
-    } catch (_) {
-      return;
-    } finally {
-      if (mounted) {
-        setState(() => _locating = false);
-      }
-    }
   }
 
   Future<Map<String, String>> _cityFromCoordinates(double latitude, double longitude) async {
@@ -449,7 +396,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   }
 
   String get _heightFtLabel {
-    final totalInches = (_heightCm / 2.54).round();
+    final totalInches = ((_heightCm ?? 170.0) / 2.54).round();
     final ft = totalInches ~/ 12;
     final inches = totalInches % 12;
     return "$ft'$inches\"";
@@ -529,44 +476,60 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   }
 
   Map<String, dynamic> _buildProfileBody() {
-    return {
-      'displayName': _displayName.text.trim(),
-      'pronouns': _pronouns.text.trim(),
-      'sexualOrientation': _sexualOrientation,
-      'headline': _headline.text.trim(),
-      'bio': _bio.text.trim(),
-      'heightCm': _heightCm.toInt(),
-      'bodyType': _bodyType,
-      'ethnicity': _ethnicity,
-      'hairColour': _hairColour,
-      'eyeColour': _eyeColour,
-      'education': _education,
-      'jobTitle': _jobTitle.text.trim(),
-      'company': _company.text.trim(),
-      'industry': _industry,
-      'religion': _religion,
-      'nationality': _nationality.text.trim(),
-      'languages': _languages,
-      'smoking': _smoking,
-      'drinking': _drinking,
-      'exercise': _exercise,
-      'diet': _diet,
-      'sleepSchedule': _sleepSchedule,
-      'livingSituation': _livingSituation,
-      'hasChildren': _hasChildren,
-      'wantsChildren': _wantsChildren,
-      'hasPets': _hasPets,
-      'wantsPets': _wantsPets,
-      'favPet': _favPet,
-      'favColour': _favColour,
-      'favFood': _favFood,
-      'favMusic': _favMusic,
-      'favMovieGenre': _favMovieGenre,
-      'hobbies': _hobbies,
-      'interests': {'hobbies': _hobbies},
-      'loveLanguage': _loveLanguage,
-      'relationshipGoal': _relationshipGoal,
-    };
+    final body = <String, dynamic>{};
+
+    void addText(String key, TextEditingController controller) {
+      final value = controller.text.trim();
+      if (value.isNotEmpty) body[key] = value;
+    }
+
+    void addString(String key, String? value) {
+      final trimmed = value?.trim();
+      if (trimmed != null && trimmed.isNotEmpty) body[key] = trimmed;
+    }
+
+    void addList(String key, List<String> value) {
+      if (value.isNotEmpty) body[key] = value;
+    }
+
+    addText('displayName', _displayName);
+    addText('pronouns', _pronouns);
+    addList('sexualOrientation', _sexualOrientation);
+    addText('headline', _headline);
+    addText('bio', _bio);
+    if (_heightCm != null) body['heightCm'] = _heightCm!.toInt();
+    addString('bodyType', _bodyType);
+    addList('ethnicity', _ethnicity);
+    addString('hairColour', _hairColour);
+    addString('eyeColour', _eyeColour);
+    addString('education', _education);
+    addText('jobTitle', _jobTitle);
+    addText('company', _company);
+    addString('industry', _industry);
+    addString('religion', _religion);
+    addText('nationality', _nationality);
+    addList('languages', _languages);
+    addString('smoking', _smoking);
+    addString('drinking', _drinking);
+    addString('exercise', _exercise);
+    addString('diet', _diet);
+    addString('sleepSchedule', _sleepSchedule);
+    addString('livingSituation', _livingSituation);
+    addString('hasChildren', _hasChildren);
+    addString('wantsChildren', _wantsChildren);
+    addList('hasPets', _hasPets);
+    addString('wantsPets', _wantsPets);
+    addString('favPet', _favPet);
+    addString('favColour', _favColour);
+    addList('favFood', _favFood);
+    addList('favMusic', _favMusic);
+    addList('favMovieGenre', _favMovieGenre);
+    addList('hobbies', _hobbies);
+    if (_hobbies.isNotEmpty) body['interests'] = {'hobbies': _hobbies};
+    addString('loveLanguage', _loveLanguage);
+    addString('relationshipGoal', _relationshipGoal);
+
+    return body;
   }
 
   Future<void> _showValidationErrorDialog({
@@ -672,21 +635,6 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   }
 
   _ValidationResult _validateAllRequiredFields() {
-    if (_displayName.text.trim().isEmpty) {
-      _displayName.text = 'Yaaro0 Member';
-    }
-
-    if (_bio.text.trim().isEmpty) {
-      _bio.text = "Looking to meet verified members, discover shared interests, and have genuine conversations. Let's connect!";
-    }
-
-    if (_city.text.trim().isEmpty || _country.text.trim().isEmpty) {
-      _city.text = 'New York';
-      _country.text = 'United States';
-      _latitude = 40.7128;
-      _longitude = -74.0060;
-    }
-
     return _ValidationResult(isValid: true, step: 0, fieldName: '', message: '');
   }
 
@@ -784,19 +732,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     try {
       switch (_currentStep) {
         case 0:
-          if (_photos.length < 2) {
-            setState(() => _photosHasError = true);
-            throw 'Please upload at least 2 photos to continue.';
-          }
           break;
 
         case 1: // About You
-          if (_displayName.text.trim().isEmpty) {
-            _displayName.text = 'Yaaro0 Member';
-          }
-          if (_bio.text.trim().isEmpty) {
-            _bio.text = "Looking to meet verified members, discover shared interests, and have genuine conversations. Let's connect!";
-          }
           break;
 
         case 2: // Physical
@@ -821,16 +759,14 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           break;
 
         case 7: // Location
-          if (_city.text.trim().isEmpty || _country.text.trim().isEmpty) {
-            _city.text = 'New York';
-            _country.text = 'United States';
-            _latitude = 40.7128;
-            _longitude = -74.0060;
-          }
           final profileBody = _buildProfileBody();
-          await api.updateProfileMe(profileBody);
+          if (profileBody.isNotEmpty) {
+            await api.updateProfileMe(profileBody);
+          }
 
-          await api.updateLocation(_latitude, _longitude, _city.text.trim(), _country.text.trim());
+          if (_city.text.trim().isNotEmpty && _country.text.trim().isNotEmpty) {
+            await api.updateLocation(_latitude, _longitude, _city.text.trim(), _country.text.trim());
+          }
           if (widget.mode == 'onboarding') {
             await api.onboardingComplete();
           }
@@ -841,7 +777,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       // If we are on steps 1 through 5, send the ENTIRE profileBody (all attributes matching web exactly)!
       if (_currentStep >= 1 && _currentStep <= 5) {
         final profileBody = _buildProfileBody();
-        await api.updateProfileMe(profileBody);
+        if (profileBody.isNotEmpty) {
+          await api.updateProfileMe(profileBody);
+        }
       }
 
       // Progress step or show success message in edit mode
@@ -882,74 +820,42 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   }
 
   Future<void> _skipOnboarding() async {
-    if (_currentStep == 7) {
-      final validation = _validateAllRequiredFields();
-      if (!validation.isValid) {
-        _handleValidationError(validation);
-        return;
-      }
+    setState(() {
+      _saving = true;
+      _message = null;
+    });
 
-      setState(() {
-        _saving = true;
-        _message = null;
-      });
-
-      final api = YaaroScope.of(context);
-      try {
-        final profileBody = _buildProfileBody();
-        await api.updateProfileMe(profileBody);
-
-        await api.updateLocation(_latitude, _longitude, _city.text.trim(), _country.text.trim());
-        if (widget.mode == 'onboarding') {
-          await api.onboardingComplete();
-        }
-        widget.onComplete();
-      } on ApiException catch (e) {
-        if (!mounted) return;
-        if (e.errors != null && e.errors!.isNotEmpty) {
-          _handleBackendValidationErrors(e.errors!);
-        } else {
-          _showValidationErrorDialog(
-            title: 'Validation Error',
-            message: e.toString(),
-            onConfirm: () {},
-          );
-        }
-      } catch (e) {
-        if (!mounted) return;
-        _showValidationErrorDialog(
-          title: 'Error Completing Onboarding',
-          message: e.toString(),
-          onConfirm: () {},
-        );
-      } finally {
-        if (mounted) {
-          setState(() => _saving = false);
-        }
-      }
-    } else {
-      setState(() {
-        _saving = true;
-        _message = null;
-      });
-
-      try {
-        await Future<void>.delayed(const Duration(milliseconds: 150));
-        if (!mounted) return;
-        setState(() {
-          _currentStep++;
+    final api = YaaroScope.of(context);
+    try {
+      if (widget.mode == 'onboarding') {
+        await api.updatePreferences({
+          'showGender': _showGender,
+          'minAge': _minAge.toInt(),
+          'maxAge': _maxAge.toInt(),
+          'maxDistanceKm': 20000,
+          'globalMode': true,
+          'showPhotosOnly': true,
         });
-      } catch (e) {
-        if (!mounted) return;
-        _showValidationErrorDialog(
-          title: 'Skip Error',
-          message: 'Unable to skip this step. Please try again.',
-          onConfirm: () {},
-        );
-      } finally {
-        if (mounted) {
-          setState(() => _saving = false);
-        }
+        await api.onboardingComplete();
+      }
+      widget.onComplete();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      _showValidationErrorDialog(
+        title: 'Error Completing Onboarding',
+        message: e.toString(),
+        onConfirm: () {},
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showValidationErrorDialog(
+        title: 'Error Completing Onboarding',
+        message: e.toString(),
+        onConfirm: () {},
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
       }
     }
   }
@@ -1322,11 +1228,11 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         Row(
           children: [
             const Text('Height: ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text('${_heightCm.toInt()} cm ($_heightFtLabel)', style: const TextStyle(color: YaaroColors.rose, fontSize: 16, fontWeight: FontWeight.w900)),
+            Text(_heightCm == null ? 'Not set' : '${_heightCm!.toInt()} cm ($_heightFtLabel)', style: const TextStyle(color: YaaroColors.rose, fontSize: 16, fontWeight: FontWeight.w900)),
           ],
         ),
         Slider(
-          value: _heightCm,
+          value: _heightCm ?? 170.0,
           min: 140.0,
           max: 220.0,
           activeColor: YaaroColors.rose,
@@ -1529,12 +1435,13 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     );
   }
 
-  Widget _buildDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged) {
+  Widget _buildDropdown(String label, String? value, List<String> items, ValueChanged<String?> onChanged) {
+    final displayValue = value?.trim().isNotEmpty == true ? value!.trim() : 'Not set';
     return InkWell(
       onTap: () async {
         final selected = await _selectDropdownOption(
           label: label,
-          value: value,
+          value: value ?? '',
           items: items,
         );
         if (selected != null) {
@@ -1567,7 +1474,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    value,
+                    displayValue,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.white, fontSize: 16),
