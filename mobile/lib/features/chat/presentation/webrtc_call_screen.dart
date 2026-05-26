@@ -48,7 +48,15 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen> {
   }
 
   @override
+  void setState(VoidCallback fn) {
+    if (mounted) {
+      super.setState(fn);
+    }
+  }
+
+  @override
   void dispose() {
+    widget.socket.off('webrtc_signal');
     _timer?.cancel();
     _localStream?.dispose();
     _localRenderer.dispose();

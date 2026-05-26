@@ -70,6 +70,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
+  void setState(VoidCallback fn) {
+    if (mounted) {
+      super.setState(fn);
+    }
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     _textController.dispose();
@@ -94,6 +101,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_socket != null) {
       try {
         _socket!.emit('leave_match', {'matchId': widget.matchId});
+        _socket!.clearListeners();
         _socket!.disconnect();
       } catch (_) {}
       _socket = null;
