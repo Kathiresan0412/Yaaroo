@@ -1519,10 +1519,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
     final token = api.accessToken;
     if (token == null) return;
 
-    const String socketUrl = String.fromEnvironment(
-      'YAARO0_SOCKET_URL',
-      defaultValue: 'https://yaaro-backend.vercel.app',
-    );
+    final String apiHost = '${api.baseUri.scheme}://${api.baseUri.authority}';
+    final String socketUrl = const String.fromEnvironment('YAARO0_SOCKET_URL').isNotEmpty
+        ? const String.fromEnvironment('YAARO0_SOCKET_URL')
+        : apiHost;
 
     _socket = io.io(
       socketUrl,

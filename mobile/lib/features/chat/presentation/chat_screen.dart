@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/api_client.dart';
 import '../../../main.dart' show YaaroColors, YaaroScope;
+import 'webrtc_call_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
@@ -36,6 +37,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   io.Socket? _socket;
   String? _currentUserId;
+  String? _otherUserId;
   late ApiClient _apiClient;
   bool _showGifs = false;
   String? _selectedMessageId;
@@ -195,11 +197,10 @@ class _ChatScreenState extends State<ChatScreen> {
     final token = _apiClient.accessToken;
     if (token == null) return;
 
-    // Use backend URL or process environment
-    const String socketUrl = String.fromEnvironment(
-      'YAARO0_SOCKET_URL',
-      defaultValue: 'https://yaaro-backend.vercel.app',
-    );
+    final String apiHost = '${_apiClient.baseUri.scheme}://${_apiClient.baseUri.authority}';
+    final String socketUrl = const String.fromEnvironment('YAARO0_SOCKET_URL').isNotEmpty
+        ? const String.fromEnvironment('YAARO0_SOCKET_URL')
+        : apiHost;
 
     _socket = io.io(
       socketUrl,
@@ -221,6 +222,7 @@ class _ChatScreenState extends State<ChatScreen> {
             if (success) {
               setState(() {
                 _isOnline = ackData['isOnline'] == true;
+                _otherUserId = ackData['otherUserId']?.toString();
               });
             }
           }
@@ -356,6 +358,29 @@ class _ChatScreenState extends State<ChatScreen> {
       _recordSeconds = 0;
       _notice = 'Voice messages are not available in this build yet.';
     });
+  }
+
+  void _startWebRTCCall({required bool isVideo}) {
+    if (_socket == null || !_socket!.connected || _otherUserId == null) {
+      setState(() {
+        _notice = 'Real-time WebSocket is connecting. Please wait...';
+      });
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WebRTCCallScreen(
+          socket: _socket!,
+          matchId: widget.matchId,
+          otherUserId: _otherUserId!,
+          otherUserName: _matchNameState,
+          otherUserPhotoUrl: _matchPhotoState,
+          isVideo: isVideo,
+        ),
+      ),
+    );
   }
 
   Future<void> _react(String messageId, String emoji) async {
@@ -518,6 +543,17 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.phone, color: YaaroColors.rose),
+            onPressed: () => _startWebRTCCall(isVideo: false),
+          ),
+          IconButton(
+            icon: const Icon(Icons.videocam, color: YaaroColors.rose),
+            onPressed: () => _startWebRTCCall(isVideo: true),
+          ),
+          const SizedBox(width: 8),
+        ],
         elevation: 1,
       ),
       body: Column(
