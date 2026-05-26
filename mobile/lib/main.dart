@@ -3140,6 +3140,9 @@ class AppTextField extends StatelessWidget {
     required this.label,
     this.obscureText = false,
     this.keyboardType,
+    this.focusNode,
+    this.hasError = false,
+    this.onChanged,
     super.key,
   });
 
@@ -3147,6 +3150,9 @@ class AppTextField extends StatelessWidget {
   final String label;
   final bool obscureText;
   final TextInputType? keyboardType;
+  final FocusNode? focusNode;
+  final bool hasError;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -3154,11 +3160,27 @@ class AppTextField extends StatelessWidget {
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      focusNode: focusNode,
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: Colors.white.withOpacity(0.06),
+        fillColor: hasError ? Colors.red.withOpacity(0.08) : Colors.white.withOpacity(0.06),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(
+            color: hasError ? YaaroColors.rose : Colors.white24,
+            width: hasError ? 2.0 : 1.0,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(
+            color: hasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.8),
+            width: 2.0,
+          ),
+        ),
       ),
     );
   }

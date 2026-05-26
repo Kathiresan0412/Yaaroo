@@ -54,6 +54,9 @@ class _AuthSheetState extends State<AuthSheet> {
       _mode = widget.initialMode!;
       if (_mode == AuthMode.verify && widget.token != null) {
         _verifyToken.text = widget.token!;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _submit();
+        });
       } else if (_mode == AuthMode.reset && widget.token != null) {
         _resetToken.text = widget.token!;
       }
@@ -347,11 +350,11 @@ class _AuthSheetState extends State<AuthSheet> {
           children: [
             AppTextField(
               controller: _verifyToken,
-              label: 'Verification Token',
+              label: 'Verification Code or Token',
             ),
             const SizedBox(height: 6),
             const Text(
-              'Copy the verification token from the link in your email and enter it here.',
+              'Check your email to verify your account. If the app did not open automatically, copy the verification code or token from your email and enter it above.',
               style: TextStyle(color: YaaroColors.muted, fontSize: 12),
             ),
           ],
@@ -633,19 +636,38 @@ class _AuthSheetState extends State<AuthSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TextButton(
-                  onPressed: () => setState(() {
-                    _message = null;
-                    _mode = AuthMode.forgot;
-                  }),
-                  child: const Text('Forgot password?'),
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => setState(() {
+                      _message = null;
+                      _mode = AuthMode.forgot;
+                    }),
+                    style: TextButton.styleFrom(
+                      alignment: Alignment.centerLeft,
+                      padding: EdgeInsets.zero,
+                    ),
+                    child: const Text(
+                      'Forgot password?',
+                      textAlign: TextAlign.left,
+                    ),
+                  ),
                 ),
-                TextButton(
-                  onPressed: () => setState(() {
-                    _message = null;
-                    _mode = AuthMode.verify;
-                  }),
-                  child: const Text('Verify account manually'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => setState(() {
+                      _message = null;
+                      _mode = AuthMode.verify;
+                    }),
+                    style: TextButton.styleFrom(
+                      alignment: Alignment.centerRight,
+                      padding: EdgeInsets.zero,
+                    ),
+                    child: const Text(
+                      'Verify account manually',
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -770,12 +792,25 @@ class _AuthSheetState extends State<AuthSheet> {
         if (_verifyToken.text.isEmpty) {
           throw ApiException('Please key in your verification token.');
         }
-        await api.verifyEmail(_verifyToken.text.trim());
-        setState(() {
-          _isSuccess = true;
-          _message = 'Email verified successfully! You can now log in.';
-          _mode = AuthMode.login;
-        });
+        try {
+          await api.verifyEmail(_verifyToken.text.trim());
+          setState(() {
+            _isSuccess = true;
+            _message = 'Email verified successfully! You can now log in.';
+            _mode = AuthMode.login;
+          });
+        } catch (error) {
+          final errStr = error.toString().toLowerCase();
+          if (errStr.contains('invalid') || errStr.contains('expired')) {
+            setState(() {
+              _isSuccess = true;
+              _message = 'This link may have already been verified! Please try logging in.';
+              _mode = AuthMode.login;
+            });
+          } else {
+            rethrow;
+          }
+        }
       }
     } catch (error) {
       setState(() => _message = error.toString());

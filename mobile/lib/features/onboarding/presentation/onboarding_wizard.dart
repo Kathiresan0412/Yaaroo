@@ -4,10 +4,24 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import '../../../core/api_client.dart' show ApiException;
 import '../../../main.dart' show YaaroScope, YaaroColors, AppTextField;
+
+class _ValidationResult {
+  _ValidationResult({
+    required this.isValid,
+    this.step = 0,
+    this.fieldName = '',
+    this.message = '',
+  });
+
+  final bool isValid;
+  final int step;
+  final String fieldName;
+  final String message;
+}
 
 class OnboardingWizard extends StatefulWidget {
   const OnboardingWizard({
@@ -34,6 +48,15 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   final _imagePicker = ImagePicker();
   double? _latitude;
   double? _longitude;
+
+  // Validation focus nodes & error highlight flags
+  final FocusNode _displayNameFocus = FocusNode();
+  final FocusNode _bioFocus = FocusNode();
+  final FocusNode _cityFocus = FocusNode();
+  bool _displayNameHasError = false;
+  bool _bioHasError = false;
+  bool _cityHasError = false;
+  bool _photosHasError = false;
 
   // Multi-step profile state data models
   final _displayName = TextEditingController();
@@ -154,6 +177,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
   @override
   void dispose() {
+    _displayNameFocus.dispose();
+    _bioFocus.dispose();
+    _cityFocus.dispose();
     _displayName.dispose();
     _pronouns.dispose();
     _headline.dispose();
@@ -183,10 +209,14 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         _photos = photosList.map((p) => p['url']?.toString() ?? '').toList();
 
         final existingDisplayName = profile['displayName']?.toString() ?? '';
-        _displayName.text = existingDisplayName.isNotEmpty ? existingDisplayName : defaultDisplayName;
+        _displayName.text = existingDisplayName.isNotEmpty ? existingDisplayName : (defaultDisplayName.isNotEmpty ? defaultDisplayName : 'Yaaro0 Member');
         _pronouns.text = profile['pronouns']?.toString() ?? '';
         _headline.text = profile['headline']?.toString() ?? '';
-        _bio.text = profile['bio']?.toString() ?? '';
+        
+        final existingBio = profile['bio']?.toString() ?? '';
+        _bio.text = existingBio.isNotEmpty
+            ? existingBio
+            : "Looking to meet verified members, discover shared interests, and have genuine conversations. Let's connect!";
 
         _sexualOrientation = _parseStringList(profile['sexualOrientation']);
         _heightCm = double.tryParse(profile['heightCm']?.toString() ?? '') ?? 170.0;
@@ -386,10 +416,24 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       });
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _message = e.message);
+      _showValidationErrorDialog(
+        title: 'Location Error',
+        message: e.message,
+        onConfirm: () {
+          if (e.message.contains('blocked')) {
+            Geolocator.openAppSettings();
+          } else if (e.message.contains('services')) {
+            Geolocator.openLocationSettings();
+          }
+        },
+      );
     } catch (_) {
       if (!mounted) return;
-      setState(() => _message = 'Unable to find your city from device location.');
+      _showValidationErrorDialog(
+        title: 'Location Error',
+        message: 'Unable to find your city from device location. Please make sure location is enabled.',
+        onConfirm: () {},
+      );
     } finally {
       if (mounted) {
         setState(() => _locating = false);
@@ -414,29 +458,37 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   Future<void> _pickAndUploadPhoto() async {
     final api = YaaroScope.of(context);
     try {
-      final image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+      final images = await _imagePicker.pickMultiImage(
         imageQuality: 68,
         maxWidth: 1024,
         maxHeight: 1024,
       );
-      if (image == null) return;
+      if (images.isEmpty) return;
 
       setState(() {
         _saving = true;
         _message = null;
       });
 
-      final bytes = await image.readAsBytes();
-      final mimeType = _mimeTypeForImage(image.name);
-      final dataUrl = 'data:$mimeType;base64,${base64Encode(bytes)}';
-      await api.uploadPhoto(dataUrl);
+      int uploadCount = 0;
+      for (final image in images) {
+        final bytes = await image.readAsBytes();
+        final mimeType = _mimeTypeForImage(image.name);
+        final dataUrl = 'data:$mimeType;base64,${base64Encode(bytes)}';
+        await api.uploadPhoto(dataUrl);
+        uploadCount++;
+      }
 
       final photosPayload = await api.getProfilePhotos();
       if (!mounted) return;
       setState(() {
         _photos = photosPayload.map((p) => p['url']?.toString() ?? '').toList();
-        _message = 'Photo uploaded.';
+        _message = uploadCount > 1
+            ? 'Successfully uploaded $uploadCount photos.'
+            : 'Photo uploaded.';
+        if (_photos.length >= 2) {
+          _photosHasError = false;
+        }
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -467,6 +519,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       setState(() {
         _photos.removeAt(index);
         _message = 'Photo removed.';
+        _photosHasError = _photos.length < 2;
       });
     } catch (_) {
       setState(() => _message = 'Failed to delete photo.');
@@ -516,7 +569,173 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     };
   }
 
+  Future<void> _showValidationErrorDialog({
+    required String title,
+    required String message,
+    required VoidCallback onConfirm,
+  }) async {
+    return showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Validation Error',
+      barrierColor: Colors.black.withOpacity(0.65),
+      transitionDuration: const Duration(milliseconds: 240),
+      pageBuilder: (context, anim1, anim2) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: ScaleTransition(
+              scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutBack),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.85,
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: YaaroColors.surface,
+                  border: Border.all(color: YaaroColors.line),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.5),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: YaaroColors.rose.withOpacity(0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.error_outline_rounded,
+                        color: YaaroColors.rose,
+                        size: 40,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      message,
+                      style: const TextStyle(
+                        color: YaaroColors.muted,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onConfirm();
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: YaaroColors.rose,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                        ),
+                        child: const Text(
+                          "Let's fix it",
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  _ValidationResult _validateAllRequiredFields() {
+    if (_photos.length < 2) {
+      return _ValidationResult(
+        isValid: false,
+        step: 0,
+        fieldName: 'Photos',
+        message: 'Please upload at least 2 photos so other members can see you.',
+      );
+    }
+
+    if (_displayName.text.trim().isEmpty) {
+      _displayName.text = 'Yaaro0 Member';
+    }
+
+    if (_bio.text.trim().isEmpty) {
+      _bio.text = "Looking to meet verified members, discover shared interests, and have genuine conversations. Let's connect!";
+    }
+
+    if (_city.text.trim().isEmpty || _country.text.trim().isEmpty) {
+      return _ValidationResult(
+        isValid: false,
+        step: 7,
+        fieldName: 'Location',
+        message: 'City and Country are required to complete onboarding and see nearby members.',
+      );
+    }
+
+    return _ValidationResult(isValid: true);
+  }
+
+  void _handleValidationError(_ValidationResult result) {
+    _showValidationErrorDialog(
+      title: 'Missing Required Info',
+      message: result.message,
+      onConfirm: () {
+        setState(() {
+          _currentStep = result.step;
+          if (result.step == 0) {
+            _photosHasError = true;
+          } else if (result.step == 1) {
+            if (result.fieldName == 'Display Name') {
+              _displayNameHasError = true;
+              _displayNameFocus.requestFocus();
+            } else if (result.fieldName == 'Bio') {
+              _bioHasError = true;
+              _bioFocus.requestFocus();
+            }
+          } else if (result.step == 7) {
+            _cityHasError = true;
+            _cityFocus.requestFocus();
+          }
+        });
+      },
+    );
+  }
+
   Future<void> _saveStep() async {
+    if (_currentStep == 7) {
+      final validation = _validateAllRequiredFields();
+      if (!validation.isValid) {
+        _handleValidationError(validation);
+        return;
+      }
+    }
+
     setState(() {
       _saving = true;
       _message = null;
@@ -527,16 +746,17 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       switch (_currentStep) {
         case 0:
           if (_photos.length < 2) {
+            setState(() => _photosHasError = true);
             throw 'Please upload at least 2 photos to continue.';
           }
           break;
 
         case 1: // About You
-          if (_displayName.text.trim().isEmpty ||
-              _sexualOrientation.isEmpty ||
-              _headline.text.trim().isEmpty ||
-              _bio.text.trim().isEmpty) {
-            throw 'Display Name, Orientation, Headline and Bio are required.';
+          if (_displayName.text.trim().isEmpty) {
+            _displayName.text = 'Yaaro0 Member';
+          }
+          if (_bio.text.trim().isEmpty) {
+            _bio.text = "Looking to meet verified members, discover shared interests, and have genuine conversations. Let's connect!";
           }
           break;
 
@@ -544,18 +764,12 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           break;
 
         case 3: // Background
-          if (_jobTitle.text.trim().isEmpty || _nationality.text.trim().isEmpty || _languages.isEmpty) {
-            throw 'Job Title, Nationality and Languages are required.';
-          }
           break;
 
         case 4: // Lifestyle
           break;
 
         case 5: // Favourites & Hobbies
-          if (_favFood.isEmpty || _favMusic.isEmpty || _hobbies.isEmpty) {
-            throw 'Please select at least one Favourite Food, Music and Hobby.';
-          }
           break;
 
         case 6: // Preferences
@@ -569,6 +783,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
         case 7: // Location
           if (_city.text.trim().isEmpty || _country.text.trim().isEmpty) {
+            setState(() => _cityHasError = true);
+            _cityFocus.requestFocus();
             throw 'City and Country are required to complete onboarding.';
           }
           await api.updateLocation(_latitude, _longitude, _city.text.trim(), _country.text.trim());
@@ -599,7 +815,11 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _message = e.toString());
+      _showValidationErrorDialog(
+        title: 'Validation Error',
+        message: e.toString(),
+        onConfirm: () {},
+      );
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -608,31 +828,60 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   }
 
   Future<void> _skipOnboarding() async {
-    setState(() {
-      _saving = true;
-      _message = null;
-    });
+    if (_currentStep == 7) {
+      final validation = _validateAllRequiredFields();
+      if (!validation.isValid) {
+        _handleValidationError(validation);
+        return;
+      }
 
-    try {
-      await Future<void>.delayed(const Duration(milliseconds: 320));
-      if (!mounted) return;
       setState(() {
-        if (_currentStep < _steps.length - 1) {
-          _currentStep++;
-        } else {
-          _message = 'Add the required photos and location before finishing.';
+        _saving = true;
+        _message = null;
+      });
+
+      final api = YaaroScope.of(context);
+      try {
+        await api.updateLocation(_latitude, _longitude, _city.text.trim(), _country.text.trim());
+        if (widget.mode == 'onboarding') {
+          await api.onboardingComplete();
         }
-      });
-    } catch (e) {
-      if (!mounted) return;
+        widget.onComplete();
+      } catch (e) {
+        if (!mounted) return;
+        _showValidationErrorDialog(
+          title: 'Error Completing Onboarding',
+          message: e.toString(),
+          onConfirm: () {},
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _saving = false);
+        }
+      }
+    } else {
       setState(() {
-        _message = 'Unable to skip this step. Please try again.';
+        _saving = true;
+        _message = null;
       });
-    } finally {
-      if (mounted) {
+
+      try {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        if (!mounted) return;
         setState(() {
-          _saving = false;
+          _currentStep++;
         });
+      } catch (e) {
+        if (!mounted) return;
+        _showValidationErrorDialog(
+          title: 'Skip Error',
+          message: 'Unable to skip this step. Please try again.',
+          onConfirm: () {},
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _saving = false);
+        }
       }
     }
   }
@@ -859,66 +1108,78 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           style: TextStyle(color: YaaroColors.muted, fontSize: 13),
         ),
         const SizedBox(height: 18),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 0.8,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          padding: _photosHasError ? const EdgeInsets.all(10) : EdgeInsets.zero,
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: _photosHasError ? YaaroColors.rose : Colors.transparent,
+              width: _photosHasError ? 2.0 : 0.0,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            color: _photosHasError ? Colors.red.withOpacity(0.06) : Colors.transparent,
           ),
-          itemCount: 6,
-          itemBuilder: (context, index) {
-            if (index < _photos.length) {
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(_photos[index], fit: BoxFit.cover),
-                  ),
-                  if (index == 0)
-                    Positioned(
-                      left: 6,
-                      top: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: YaaroColors.teal,
-                          borderRadius: BorderRadius.circular(4),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 0.8,
+            ),
+            itemCount: 6,
+            itemBuilder: (context, index) {
+              if (index < _photos.length) {
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(_photos[index], fit: BoxFit.cover),
+                    ),
+                    if (index == 0)
+                      Positioned(
+                        left: 6,
+                        top: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: YaaroColors.teal,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('PRIMARY', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900)),
                         ),
-                        child: const Text('PRIMARY', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900)),
+                      ),
+                    Positioned(
+                      right: 4,
+                      bottom: 4,
+                      child: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.white),
+                        style: IconButton.styleFrom(backgroundColor: Colors.black54),
+                        onPressed: () => _deletePhoto(index),
                       ),
                     ),
-                  Positioned(
-                    right: 4,
-                    bottom: 4,
-                    child: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.white),
-                      style: IconButton.styleFrom(backgroundColor: Colors.black54),
-                      onPressed: () => _deletePhoto(index),
+                  ],
+                );
+              } else {
+                return InkWell(
+                  onTap: _saving ? null : _pickAndUploadPhoto,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.04),
+                      border: Border.all(color: Colors.white10),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.add_a_photo, color: YaaroColors.muted, size: 28),
                     ),
                   ),
-                ],
-              );
-            } else {
-              return InkWell(
-                onTap: _saving ? null : _pickAndUploadPhoto,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.04),
-                    border: Border.all(color: Colors.white10),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.add_a_photo, color: YaaroColors.muted, size: 28),
-                  ),
-                ),
-              );
-            }
-          },
+                );
+              }
+            },
+          ),
         ),
       ],
     );
@@ -930,7 +1191,17 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       children: [
         const Text('Introduce yourself', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const SizedBox(height: 14),
-        AppTextField(controller: _displayName, label: 'Display Name'),
+        AppTextField(
+          controller: _displayName,
+          label: 'Display Name',
+          focusNode: _displayNameFocus,
+          hasError: _displayNameHasError,
+          onChanged: (val) {
+            if (_displayNameHasError && val.trim().isNotEmpty) {
+              setState(() => _displayNameHasError = false);
+            }
+          },
+        ),
         const SizedBox(height: 12),
         AppTextField(controller: _pronouns, label: 'Pronouns (e.g. He/Him, She/Her)'),
         const SizedBox(height: 16),
@@ -942,12 +1213,32 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         const SizedBox(height: 12),
         TextField(
           controller: _bio,
+          focusNode: _bioFocus,
           maxLines: 4,
+          onChanged: (val) {
+            if (_bioHasError && val.trim().isNotEmpty) {
+              setState(() => _bioHasError = false);
+            }
+          },
           decoration: InputDecoration(
             labelText: 'About You (Bio)',
             filled: true,
-            fillColor: Colors.white.withOpacity(0.06),
+            fillColor: _bioHasError ? Colors.red.withOpacity(0.08) : Colors.white.withOpacity(0.06),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: _bioHasError ? YaaroColors.rose : Colors.white24,
+                width: _bioHasError ? 2.0 : 1.0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: _bioHasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.8),
+                width: 2.0,
+              ),
+            ),
           ),
         ),
       ],
@@ -1133,7 +1424,17 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           });
         }),
         const SizedBox(height: 12),
-        AppTextField(controller: _city, label: 'City'),
+        AppTextField(
+          controller: _city,
+          label: 'City',
+          focusNode: _cityFocus,
+          hasError: _cityHasError,
+          onChanged: (val) {
+            if (_cityHasError && val.trim().isNotEmpty) {
+              setState(() => _cityHasError = false);
+            }
+          },
+        ),
         const SizedBox(height: 18),
         OutlinedButton.icon(
           onPressed: _locating ? null : _useDeviceLocation,
