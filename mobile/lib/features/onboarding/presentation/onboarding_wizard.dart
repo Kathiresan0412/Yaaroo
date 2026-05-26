@@ -672,15 +672,6 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   }
 
   _ValidationResult _validateAllRequiredFields() {
-    if (_photos.length < 2) {
-      return _ValidationResult(
-        isValid: false,
-        step: 0,
-        fieldName: 'Photos',
-        message: 'Please upload at least 2 photos so other members can see you.',
-      );
-    }
-
     if (_displayName.text.trim().isEmpty) {
       _displayName.text = 'Yaaro0 Member';
     }
@@ -690,15 +681,13 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     }
 
     if (_city.text.trim().isEmpty || _country.text.trim().isEmpty) {
-      return _ValidationResult(
-        isValid: false,
-        step: 7,
-        fieldName: 'Location',
-        message: 'City and Country are required to complete onboarding and see nearby members.',
-      );
+      _city.text = 'New York';
+      _country.text = 'United States';
+      _latitude = 40.7128;
+      _longitude = -74.0060;
     }
 
-    return _ValidationResult(isValid: true);
+    return _ValidationResult(isValid: true, step: 0, fieldName: '', message: '');
   }
 
   void _handleValidationError(_ValidationResult result) {
@@ -723,6 +712,56 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
             _cityFocus.requestFocus();
           }
         });
+      },
+    );
+  }
+
+  void _handleBackendValidationErrors(Map<String, dynamic> errors) {
+    String errorMsg = "Please fix the following issues to continue:\n\n";
+    int? targetStep;
+    String? targetField;
+
+    errors.forEach((key, val) {
+      errorMsg += "• $val\n";
+      
+      if (targetStep == null) {
+        if (key == 'photos') {
+          targetStep = 0;
+          targetField = 'photos';
+        } else if (key == 'displayName') {
+          targetStep = 1;
+          targetField = 'displayName';
+        } else if (key == 'bio') {
+          targetStep = 1;
+          targetField = 'bio';
+        } else if (key == 'location') {
+          targetStep = 7;
+          targetField = 'location';
+        }
+      }
+    });
+
+    _showValidationErrorDialog(
+      title: 'Required Info Missing',
+      message: errorMsg.trim(),
+      onConfirm: () {
+        if (targetStep != null) {
+          setState(() {
+            _currentStep = targetStep!;
+            if (targetField == 'photos') {
+              _photosHasError = true;
+            } else if (targetField == 'displayName') {
+              _displayNameHasError = true;
+              _displayNameFocus.requestFocus();
+            } else if (targetField == 'bio') {
+              _bioHasError = true;
+              _bioFocus.requestFocus();
+            } else if (targetField == 'location') {
+              _cityHasError = true;
+              _cityFocus.requestFocus();
+            }
+          });
+        }
       },
     );
   }
@@ -783,10 +822,14 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
         case 7: // Location
           if (_city.text.trim().isEmpty || _country.text.trim().isEmpty) {
-            setState(() => _cityHasError = true);
-            _cityFocus.requestFocus();
-            throw 'City and Country are required to complete onboarding.';
+            _city.text = 'New York';
+            _country.text = 'United States';
+            _latitude = 40.7128;
+            _longitude = -74.0060;
           }
+          final profileBody = _buildProfileBody();
+          await api.updateProfileMe(profileBody);
+
           await api.updateLocation(_latitude, _longitude, _city.text.trim(), _country.text.trim());
           if (widget.mode == 'onboarding') {
             await api.onboardingComplete();
@@ -812,6 +855,17 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         setState(() {
           _currentStep++;
         });
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.errors != null && e.errors!.isNotEmpty) {
+        _handleBackendValidationErrors(e.errors!);
+      } else {
+        _showValidationErrorDialog(
+          title: 'Validation Error',
+          message: e.toString(),
+          onConfirm: () {},
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -842,11 +896,25 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
       final api = YaaroScope.of(context);
       try {
+        final profileBody = _buildProfileBody();
+        await api.updateProfileMe(profileBody);
+
         await api.updateLocation(_latitude, _longitude, _city.text.trim(), _country.text.trim());
         if (widget.mode == 'onboarding') {
           await api.onboardingComplete();
         }
         widget.onComplete();
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        if (e.errors != null && e.errors!.isNotEmpty) {
+          _handleBackendValidationErrors(e.errors!);
+        } else {
+          _showValidationErrorDialog(
+            title: 'Validation Error',
+            message: e.toString(),
+            onConfirm: () {},
+          );
+        }
       } catch (e) {
         if (!mounted) return;
         _showValidationErrorDialog(

@@ -53,7 +53,12 @@ class ApiClient {
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(parsed['message']?.toString() ?? 'Request failed.');
+      throw ApiException(
+        parsed['message']?.toString() ?? 'Request failed.',
+        errors: parsed['errors'] is Map
+            ? Map<String, dynamic>.from(parsed['errors'] as Map)
+            : null,
+      );
     }
 
     return parsed;
@@ -512,9 +517,10 @@ class ApiClient {
 }
 
 class ApiException implements Exception {
-  ApiException(this.message);
+  ApiException(this.message, {this.errors});
 
   final String message;
+  final Map<String, dynamic>? errors;
 
   @override
   String toString() => message;
