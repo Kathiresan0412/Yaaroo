@@ -1347,6 +1347,17 @@ img {
   background: linear-gradient(135deg, #ff6036, #fd267a);
 }
 
+.chat-bubble.pending {
+  opacity: 0.78;
+  animation: pendingPulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pendingPulse {
+  0% { opacity: 0.65; }
+  50% { opacity: 0.88; }
+  100% { opacity: 0.65; }
+}
+
 .chat-bubble p,
 .chat-bubble em {
   margin: 0;

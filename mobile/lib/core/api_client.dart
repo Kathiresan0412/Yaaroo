@@ -2,7 +2,68 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'secure_storage.dart';
-import '../main.dart' show User, DiscoveryProfile, SwipeResult, SwipeAction, ExploreCategory, VibeQuestion, MatchItem, LikeItem;
+import '../main.dart'
+    show
+        User,
+        DiscoveryProfile,
+        SwipeResult,
+        SwipeAction,
+        ExploreCategory,
+        VibeQuestion,
+        MatchItem,
+        LikeItem;
+
+class SubscriptionStatus {
+  const SubscriptionStatus({
+    required this.tier,
+    required this.canSeeLikes,
+    required this.boostsRemaining,
+    this.subscription,
+    this.endsAt,
+    this.cancelAtPeriodEnd = false,
+  });
+
+  final String tier;
+  final bool canSeeLikes;
+  final int boostsRemaining;
+  final String? subscription;
+  final DateTime? endsAt;
+  final bool cancelAtPeriodEnd;
+
+  bool get isPaid => tier != 'free';
+
+  String get displayName {
+    switch (tier) {
+      case 'plus':
+        return 'Standard';
+      case 'gold':
+        return 'Premium';
+      case 'platinum':
+        return 'Premium Plus';
+      default:
+        return 'Free';
+    }
+  }
+
+  factory SubscriptionStatus.fromJson(Map<String, dynamic> json) {
+    final capabilities = json['capabilities'] is Map<String, dynamic>
+        ? json['capabilities'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final subscription = json['subscription'] is Map<String, dynamic>
+        ? json['subscription'] as Map<String, dynamic>
+        : null;
+
+    return SubscriptionStatus(
+      tier: json['tier']?.toString() ?? 'free',
+      canSeeLikes: capabilities['canSeeLikes'] == true,
+      boostsRemaining:
+          int.tryParse(json['boostsRemaining']?.toString() ?? '') ?? 0,
+      subscription: subscription?['id']?.toString(),
+      endsAt: DateTime.tryParse(subscription?['endsAt']?.toString() ?? ''),
+      cancelAtPeriodEnd: subscription?['cancelAtPeriodEnd'] == true,
+    );
+  }
+}
 
 class ApiClient {
   ApiClient(String baseUrl) : baseUri = Uri.parse(baseUrl);
@@ -37,7 +98,8 @@ class ApiClient {
   }
 
   void _extractCookies(http.Response response) {
-    final setCookie = response.headers['set-cookie'] ?? response.headers['Set-Cookie'];
+    final setCookie =
+        response.headers['set-cookie'] ?? response.headers['Set-Cookie'];
     if (setCookie != null && setCookie.isNotEmpty) {
       cookies = setCookie;
       _secureStorage.writeCookies(setCookie);
@@ -88,10 +150,12 @@ class ApiClient {
         response = await http.put(url, headers: allHeaders, body: encodedBody);
         break;
       case 'DELETE':
-        response = await http.delete(url, headers: allHeaders, body: encodedBody);
+        response =
+            await http.delete(url, headers: allHeaders, body: encodedBody);
         break;
       case 'PATCH':
-        response = await http.patch(url, headers: allHeaders, body: encodedBody);
+        response =
+            await http.patch(url, headers: allHeaders, body: encodedBody);
         break;
       default:
         throw ApiException('Unsupported HTTP method: $method');
@@ -100,10 +164,12 @@ class ApiClient {
     _extractCookies(response);
 
     // Trap 401 or 403 to trigger auto-refresh
-    if ((response.statusCode == 401 || response.statusCode == 403) && !isRetry) {
+    if ((response.statusCode == 401 || response.statusCode == 403) &&
+        !isRetry) {
       final refreshed = await refreshSession();
       if (refreshed) {
-        return _request(method, path, body: body, headers: headers, isRetry: true);
+        return _request(method, path,
+            body: body, headers: headers, isRetry: true);
       } else {
         logout();
         throw ApiException('Your session has expired. Please log in again.');
@@ -191,12 +257,14 @@ class ApiClient {
   }
 
   Future<void> verifyEmail(String token) async {
-    final response = await _request('GET', '/api/auth/verify-email/${Uri.encodeComponent(token)}');
+    final response = await _request(
+        'GET', '/api/auth/verify-email/${Uri.encodeComponent(token)}');
     await _decode(response);
   }
 
   Future<void> forgotPassword(String email) async {
-    final response = await _request('POST', '/api/auth/forgot-password', body: {'email': email});
+    final response = await _request('POST', '/api/auth/forgot-password',
+        body: {'email': email});
     await _decode(response);
   }
 
@@ -210,7 +278,8 @@ class ApiClient {
 
   Future<void> logout() async {
     try {
-      await http.post(_uri('/api/auth/logout'), headers: _headers(), body: '{}');
+      await http.post(_uri('/api/auth/logout'),
+          headers: _headers(), body: '{}');
     } catch (_) {}
     accessToken = null;
     cookies = null;
@@ -266,12 +335,14 @@ class ApiClient {
   }
 
   Future<List<DiscoveryProfile>> exploreByGoal(String goal) async {
-    final response = await _request('GET', '/api/explore/by-goal/${Uri.encodeComponent(goal)}');
+    final response = await _request(
+        'GET', '/api/explore/by-goal/${Uri.encodeComponent(goal)}');
     return _profilesFromPayload(await _decode(response));
   }
 
   Future<List<DiscoveryProfile>> exploreByInterest(String key) async {
-    final response = await _request('GET', '/api/explore/by-interest/${Uri.encodeComponent(key)}');
+    final response = await _request(
+        'GET', '/api/explore/by-interest/${Uri.encodeComponent(key)}');
     return _profilesFromPayload(await _decode(response));
   }
 
@@ -285,7 +356,8 @@ class ApiClient {
   }
 
   Future<List<DiscoveryProfile>> respondToVibe(String answer) async {
-    final response = await _request('POST', '/api/explore/vibes/respond', body: {'answer': answer});
+    final response = await _request('POST', '/api/explore/vibes/respond',
+        body: {'answer': answer});
     return _profilesFromPayload(await _decode(response));
   }
 
@@ -332,6 +404,39 @@ class ApiClient {
     await _decode(response);
   }
 
+  // --- Premium & Payments ---
+
+  Future<SubscriptionStatus> subscriptionStatus() async {
+    final response = await _request('GET', '/api/payments/subscription');
+    return SubscriptionStatus.fromJson(await _decode(response));
+  }
+
+  Future<String> createCheckout(String tier) async {
+    final response = await _request(
+      'POST',
+      '/api/payments/create-checkout',
+      body: {'tier': tier},
+    );
+    final payload = await _decode(response);
+    final checkoutUrl = payload['checkoutUrl']?.toString();
+    if (checkoutUrl == null || checkoutUrl.isEmpty) {
+      throw ApiException('Checkout is not available right now.');
+    }
+    return checkoutUrl;
+  }
+
+  Future<SubscriptionStatus> cancelSubscription() async {
+    final response = await _request('POST', '/api/payments/cancel', body: {});
+    final payload = await _decode(response);
+    return SubscriptionStatus.fromJson({
+      'tier': payload['subscription'] is Map
+          ? (payload['subscription'] as Map)['plan']?.toString()
+          : 'free',
+      'subscription': payload['subscription'],
+      'capabilities': <String, dynamic>{},
+    });
+  }
+
   // --- Onboarding & Profile ---
 
   Future<Map<String, dynamic>> getProfileMe() async {
@@ -340,7 +445,8 @@ class ApiClient {
   }
 
   Future<void> updateProfileMe(Map<String, dynamic> profileData) async {
-    final response = await _request('PUT', '/api/profile/me', body: profileData);
+    final response =
+        await _request('PUT', '/api/profile/me', body: profileData);
     await _decode(response);
   }
 
@@ -373,11 +479,13 @@ class ApiClient {
   }
 
   Future<void> reorderPhotos(List<String> photoIds) async {
-    final response = await _request('PUT', '/api/profile/photos/reorder', body: {'photoIds': photoIds});
+    final response = await _request('PUT', '/api/profile/photos/reorder',
+        body: {'photoIds': photoIds});
     await _decode(response);
   }
 
-  Future<void> updateLocation(double? lat, double? lng, String city, String country) async {
+  Future<void> updateLocation(
+      double? lat, double? lng, String city, String country) async {
     final response = await _request('PUT', '/api/profile/location', body: {
       'latitude': lat,
       'longitude': lng,
@@ -388,12 +496,14 @@ class ApiClient {
   }
 
   Future<void> updatePreferences(Map<String, dynamic> preferences) async {
-    final response = await _request('PUT', '/api/profile/preferences', body: preferences);
+    final response =
+        await _request('PUT', '/api/profile/preferences', body: preferences);
     await _decode(response);
   }
 
   Future<void> onboardingComplete() async {
-    final response = await _request('PATCH', '/api/profile/onboarding/complete', body: {});
+    final response =
+        await _request('PATCH', '/api/profile/onboarding/complete', body: {});
     final payload = await _decode(response);
     final rawUser = payload['user'];
     if (rawUser is Map<String, dynamic>) {
@@ -408,7 +518,8 @@ class ApiClient {
 
   // --- Messages ---
 
-  Future<Map<String, dynamic>> getMessages(String matchId, {String? cursor}) async {
+  Future<Map<String, dynamic>> getMessages(String matchId,
+      {String? cursor}) async {
     final path = cursor != null
         ? '/api/messages/$matchId?limit=30&cursor=${Uri.encodeComponent(cursor)}'
         : '/api/messages/$matchId?limit=30';
@@ -416,7 +527,9 @@ class ApiClient {
     return await _decode(response);
   }
 
-  Future<Map<String, dynamic>> sendMessage(String matchId, String content, String type, {String? mediaUrl}) async {
+  Future<Map<String, dynamic>> sendMessage(
+      String matchId, String content, String type,
+      {String? mediaUrl}) async {
     final response = await _request('POST', '/api/messages/$matchId', body: {
       'content': content,
       'type': type,
@@ -425,7 +538,8 @@ class ApiClient {
     return await _decode(response);
   }
 
-  Future<Map<String, dynamic>> sendVoiceMessage(String matchId, List<int> bytes) async {
+  Future<Map<String, dynamic>> sendVoiceMessage(
+      String matchId, List<int> bytes) async {
     final url = _uri('/api/messages/$matchId/voice');
     final request = http.MultipartRequest('POST', url);
     request.headers.addAll(_headers());
@@ -444,29 +558,34 @@ class ApiClient {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final parsed = jsonDecode(response.body);
-      throw ApiException(parsed['message']?.toString() ?? 'Failed to upload voice message.');
+      throw ApiException(
+          parsed['message']?.toString() ?? 'Failed to upload voice message.');
     }
 
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   Future<void> deleteMessage(String messageId) async {
-    final response = await _request('DELETE', '/api/message-actions/$messageId');
+    final response =
+        await _request('DELETE', '/api/message-actions/$messageId');
     await _decode(response);
   }
 
   Future<void> reactToMessage(String messageId, String emoji) async {
-    final response = await _request('POST', '/api/messages/$messageId/react', body: {'emoji': emoji});
+    final response = await _request('POST', '/api/messages/$messageId/react',
+        body: {'emoji': emoji});
     await _decode(response);
   }
 
   Future<void> markMessageRead(String messageId) async {
-    final response = await _request('POST', '/api/messages/$messageId/read', body: {});
+    final response =
+        await _request('POST', '/api/messages/$messageId/read', body: {});
     await _decode(response);
   }
 
   Future<void> reportMessage(String messageId) async {
-    final response = await _request('POST', '/api/messages/$messageId/report', body: {
+    final response =
+        await _request('POST', '/api/messages/$messageId/report', body: {
       'reason': 'chat_report',
     });
     await _decode(response);
@@ -480,16 +599,19 @@ class ApiClient {
   }
 
   Future<void> photoVerify(String base64DataUrl) async {
-    final response = await _request('POST', '/api/verification/photo', body: {'photo': base64DataUrl});
+    final response = await _request('POST', '/api/verification/photo',
+        body: {'photo': base64DataUrl});
     await _decode(response);
   }
 
   Future<void> idVerify(String base64DataUrl) async {
-    final response = await _request('POST', '/api/verification/id', body: {'idPhoto': base64DataUrl});
+    final response = await _request('POST', '/api/verification/id',
+        body: {'idPhoto': base64DataUrl});
     await _decode(response);
   }
 
-  Future<void> reportUser(String targetUserId, String reason, String details) async {
+  Future<void> reportUser(
+      String targetUserId, String reason, String details) async {
     final response = await _request('POST', '/api/reports', body: {
       'targetUserId': targetUserId,
       'reason': reason,
@@ -499,17 +621,20 @@ class ApiClient {
   }
 
   Future<void> blockUser(String userId) async {
-    final response = await _request('POST', '/api/users/block/$userId', body: {});
+    final response =
+        await _request('POST', '/api/users/block/$userId', body: {});
     await _decode(response);
   }
 
   Future<void> unblockUser(String userId) async {
-    final response = await _request('DELETE', '/api/users/block/$userId', body: {});
+    final response =
+        await _request('DELETE', '/api/users/block/$userId', body: {});
     await _decode(response);
   }
 
   Future<void> unmatch(String matchId) async {
-    final response = await _request('POST', '/api/users/unmatch/$matchId', body: {});
+    final response =
+        await _request('POST', '/api/users/unmatch/$matchId', body: {});
     await _decode(response);
   }
 

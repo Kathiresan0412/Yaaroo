@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -71,6 +72,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+
+  const accessTokenRef = useRef(accessToken);
+  useEffect(() => {
+    accessTokenRef.current = accessToken;
+  }, [accessToken]);
 
   const refresh = useCallback(async () => {
     let response: Response;
@@ -150,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const authFetch = useCallback(
     async (input: RequestInfo | URL, init: RequestInit = {}) => {
       const headers = new Headers(init.headers);
-      let token = accessToken;
+      let token = accessTokenRef.current;
 
       if (!token) {
         token = await refresh();
@@ -192,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return response;
     },
-    [accessToken, refresh],
+    [refresh],
   );
 
   const value = useMemo(

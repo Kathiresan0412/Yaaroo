@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:app_links/app_links.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'core/api_client.dart';
 import 'core/secure_storage.dart';
@@ -79,6 +80,13 @@ class YaaroColors {
   static const line = Color(0x2EFFFFFF);
 }
 
+Future<void> openMembershipScreen(BuildContext context) async {
+  await Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => const MembershipScreen()),
+  );
+}
+
 class YaaroScope extends InheritedWidget {
   const YaaroScope({
     required this.api,
@@ -151,8 +159,10 @@ class User {
       email: json['email']?.toString(),
       firstName: (json['firstName'] ?? json['first_name'])?.toString(),
       lastName: (json['lastName'] ?? json['last_name'])?.toString(),
-      emailVerified: json['emailVerified'] == true || json['email_verified'] == true,
-      onboardingCompleted: json['onboardingCompleted'] == true || json['onboarding_completed'] == true,
+      emailVerified:
+          json['emailVerified'] == true || json['email_verified'] == true,
+      onboardingCompleted: json['onboardingCompleted'] == true ||
+          json['onboarding_completed'] == true,
     );
   }
 
@@ -470,10 +480,14 @@ class _AppShellState extends State<AppShell> {
     if (scheme == 'yaaro0') {
       if (host == 'verify-email') {
         mode = 'verify';
-        token = pathSegments.isNotEmpty ? pathSegments.first : uri.queryParameters['token'];
+        token = pathSegments.isNotEmpty
+            ? pathSegments.first
+            : uri.queryParameters['token'];
       } else if (host == 'reset-password') {
         mode = 'reset';
-        token = pathSegments.isNotEmpty ? pathSegments.first : uri.queryParameters['token'];
+        token = pathSegments.isNotEmpty
+            ? pathSegments.first
+            : uri.queryParameters['token'];
       }
     } else if (scheme == 'http' || scheme == 'https') {
       if (pathSegments.length >= 2) {
@@ -907,16 +921,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               const SizedBox(height: 18),
               Expanded(
                 child: _loading
-                     ? const Center(child: CircularProgressIndicator())
-                     : _top == null
-                         ? EmptyState(
-                             title: 'Fresh profiles are on the way',
-                             message:
-                                 'Check back soon or explore people by interest.',
-                             actionLabel: 'Refresh',
-                             onAction: _load,
-                           )
-                         : _buildCardStack(),
+                    ? const Center(child: CircularProgressIndicator())
+                    : _top == null
+                        ? EmptyState(
+                            title: 'Fresh profiles are on the way',
+                            message:
+                                'Check back soon or explore people by interest.',
+                            actionLabel: 'Refresh',
+                            onAction: _load,
+                          )
+                        : _buildCardStack(),
               ),
               if (_top != null) ...[
                 const SizedBox(height: 14),
@@ -1191,7 +1205,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         padding: const EdgeInsets.all(12),
                         decoration: panelDecoration().copyWith(
                           border: Border.all(
-                            color: isActive ? YaaroColors.rose : YaaroColors.line,
+                            color:
+                                isActive ? YaaroColors.rose : YaaroColors.line,
                           ),
                         ),
                         child: Column(
@@ -1360,8 +1375,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     try {
       final result = await YaaroScope.of(context).swipe(profile.id, action);
       if (result.matched) {
-        setState(
-            () => _message = "It's a match with ${profile.displayName}.");
+        setState(() => _message = "It's a match with ${profile.displayName}.");
       }
     } catch (_) {
       setState(() => _message = 'Action failed. Try again.');
@@ -1392,7 +1406,20 @@ String formatTimestamp(String? value) {
       return '${hours}h';
     }
 
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return '${months[date.month - 1]} ${date.day}';
   } catch (_) {
     return '';
@@ -1461,47 +1488,51 @@ class _MatchesScreenState extends State<MatchesScreen> {
         setState(() {
           _matches = matches;
           _likes = likes;
-          _likesCount = int.tryParse(likesPayload['count']?.toString() ?? '') ?? likes.length;
+          _likesCount = int.tryParse(likesPayload['count']?.toString() ?? '') ??
+              likes.length;
           _likesBlurred = likesPayload['blurred'] == true;
           _message = '';
         });
       }
 
       final cacheData = jsonEncode({
-        'matches': matches.map((m) => {
-          'id': m.id,
-          'user': {
-            'id': m.userId,
-            'displayName': m.name,
-            'age': m.age,
-            'mainPhotoUrl': m.photoUrl,
-            'isVerified': m.isVerified,
-          },
-          'lastMessage': {
-            'preview': m.preview,
-            'sentAt': m.sentAt,
-          },
-          'unreadCount': m.unreadCount,
-          'compatibilityScore': m.compatibilityScore,
-          'isNew': m.isNew,
-          'matchedAt': m.matchedAt,
-        }).toList(),
-        'likes': likes.map((l) => {
-          'id': l.id,
-          'user': {
-            'id': l.userId,
-            'displayName': l.name,
-            'age': l.age,
-            'mainPhotoUrl': l.photoUrl,
-            'isVerified': l.isVerified,
-          },
-          'action': l.action,
-        }).toList(),
+        'matches': matches
+            .map((m) => {
+                  'id': m.id,
+                  'user': {
+                    'id': m.userId,
+                    'displayName': m.name,
+                    'age': m.age,
+                    'mainPhotoUrl': m.photoUrl,
+                    'isVerified': m.isVerified,
+                  },
+                  'lastMessage': {
+                    'preview': m.preview,
+                    'sentAt': m.sentAt,
+                  },
+                  'unreadCount': m.unreadCount,
+                  'compatibilityScore': m.compatibilityScore,
+                  'isNew': m.isNew,
+                  'matchedAt': m.matchedAt,
+                })
+            .toList(),
+        'likes': likes
+            .map((l) => {
+                  'id': l.id,
+                  'user': {
+                    'id': l.userId,
+                    'displayName': l.name,
+                    'age': l.age,
+                    'mainPhotoUrl': l.photoUrl,
+                    'isVerified': l.isVerified,
+                  },
+                  'action': l.action,
+                })
+            .toList(),
         'likesCount': _likesCount,
         'likesBlurred': _likesBlurred,
       });
       await SecureStorage.instance.write('matches_cache', cacheData);
-
     } catch (e) {
       try {
         final rawCache = await SecureStorage.instance.read('matches_cache');
@@ -1512,8 +1543,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
             final rawLikes = cached['likes'] as List? ?? [];
             if (mounted) {
               setState(() {
-                _matches = rawMatches.whereType<Map<String, dynamic>>().map(MatchItem.fromJson).toList();
-                _likes = rawLikes.whereType<Map<String, dynamic>>().map(LikeItem.fromJson).toList();
+                _matches = rawMatches
+                    .whereType<Map<String, dynamic>>()
+                    .map(MatchItem.fromJson)
+                    .toList();
+                _likes = rawLikes
+                    .whereType<Map<String, dynamic>>()
+                    .map(LikeItem.fromJson)
+                    .toList();
                 _likesCount = cached['likesCount'] as int? ?? 0;
                 _likesBlurred = cached['likesBlurred'] == true;
                 _message = 'Showing saved matches while Yaaro0 reconnects.';
@@ -1539,9 +1576,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
     if (token == null) return;
 
     final String apiHost = '${api.baseUri.scheme}://${api.baseUri.authority}';
-    final String socketUrl = const String.fromEnvironment('YAARO0_SOCKET_URL').isNotEmpty
-        ? const String.fromEnvironment('YAARO0_SOCKET_URL')
-        : apiHost;
+    final String socketUrl =
+        const String.fromEnvironment('YAARO0_SOCKET_URL').isNotEmpty
+            ? const String.fromEnvironment('YAARO0_SOCKET_URL')
+            : apiHost;
 
     _socket = io.io(
       socketUrl,
@@ -1616,19 +1654,23 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   List<MapEntry<String, String>> _sectionRows(Map<String, dynamic>? section) {
     if (section == null) return [];
-    return section.entries.map((entry) {
-      final value = entry.value;
-      String strVal = '';
-      if (value is List) {
-        strVal = value.join(', ');
-      } else if (value != null) {
-        strVal = value.toString();
-      }
-      final label = entry.key
-          .replaceAllMapped(RegExp(r'([A-Z])'), (m) => ' ${m.group(0)}')
-          .replaceFirstMapped(RegExp(r'^.'), (m) => m.group(0)!.toUpperCase());
-      return MapEntry(label, strVal);
-    }).where((entry) => entry.value.isNotEmpty).toList();
+    return section.entries
+        .map((entry) {
+          final value = entry.value;
+          String strVal = '';
+          if (value is List) {
+            strVal = value.join(', ');
+          } else if (value != null) {
+            strVal = value.toString();
+          }
+          final label = entry.key
+              .replaceAllMapped(RegExp(r'([A-Z])'), (m) => ' ${m.group(0)}')
+              .replaceFirstMapped(
+                  RegExp(r'^.'), (m) => m.group(0)!.toUpperCase());
+          return MapEntry(label, strVal);
+        })
+        .where((entry) => entry.value.isNotEmpty)
+        .toList();
   }
 
   Future<void> _unmatch(MatchItem match) async {
@@ -1638,11 +1680,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
     try {
       final api = YaaroScope.of(context);
       await api.deleteMatch(match.id);
-      if (mounted) {
-        setState(() {
-          _matches = _matches.where((m) => m.id != match.id).toList();
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _matches = _matches.where((m) => m.id != match.id).toList();
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Unmatched with ${match.name}.'),
@@ -1663,15 +1704,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
     try {
       final api = YaaroScope.of(context);
       final result = await api.swipe(userId, SwipeAction.like);
-      
-      if (mounted) {
-        setState(() {
-          _likes = _likes.where((l) => l.userId != userId).toList();
-          if (_likesCount > 0) {
-            _likesCount--;
-          }
-        });
-      }
+
+      if (!mounted) return;
+      setState(() {
+        _likes = _likes.where((l) => l.userId != userId).toList();
+        if (_likesCount > 0) {
+          _likesCount--;
+        }
+      });
 
       if (result.matched) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1688,7 +1728,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           ),
         );
       }
-      
+
       _load();
     } catch (e) {
       if (mounted) {
@@ -1703,7 +1743,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: YaaroColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: Row(
             children: [
               const Icon(Icons.shield, color: YaaroColors.rose, size: 28),
@@ -1720,12 +1761,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
           ),
           actions: <Widget>[
             TextButton(
-              child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              child:
+                  const Text('Cancel', style: TextStyle(color: Colors.white70)),
               onPressed: () => Navigator.pop(context),
             ),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: YaaroColors.rose),
-              child: const Text('Unmatch', style: TextStyle(fontWeight: FontWeight.w800)),
+              child: const Text('Unmatch',
+                  style: TextStyle(fontWeight: FontWeight.w800)),
               onPressed: () async {
                 Navigator.pop(context);
                 await _unmatch(match);
@@ -1767,7 +1810,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   );
                 }
 
-                if (snapshot.hasError || !snapshot.hasData || snapshot.data!['profile'] == null) {
+                if (snapshot.hasError ||
+                    !snapshot.hasData ||
+                    snapshot.data!['profile'] == null) {
                   return Container(
                     height: MediaQuery.of(context).size.height * 0.4,
                     decoration: const BoxDecoration(
@@ -1781,26 +1826,36 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(24.0),
                         child: Text(
-                          snapshot.error?.toString() ?? 'Unable to open profile.',
+                          snapshot.error?.toString() ??
+                              'Unable to open profile.',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: YaaroColors.rose, fontSize: 16),
+                          style: const TextStyle(
+                              color: YaaroColors.rose, fontSize: 16),
                         ),
                       ),
                     ),
                   );
                 }
 
-                final profile = snapshot.data!['profile'] as Map<String, dynamic>;
+                final profile =
+                    snapshot.data!['profile'] as Map<String, dynamic>;
                 final photos = profile['photos'] as List? ?? [];
-                final displayName = profile['displayName']?.toString() ?? 'Yaaro0 Member';
+                final displayName =
+                    profile['displayName']?.toString() ?? 'Yaaro0 Member';
                 final age = profile['age']?.toString();
                 final city = profile['city']?.toString();
                 final country = profile['country']?.toString();
                 final distanceKm = profile['distanceKm']?.toString();
-                final bio = profile['bio']?.toString() ?? profile['headline']?.toString() ?? 'This profile is keeping things concise.';
-                final compatibilityScore = profile['compatibilityScore']?.toString() ?? '80';
+                final bio = profile['bio']?.toString() ??
+                    profile['headline']?.toString() ??
+                    'This profile is keeping things concise.';
+                final compatibilityScore =
+                    profile['compatibilityScore']?.toString() ?? '80';
                 final isVerified = profile['isVerified'] == true;
-                final sharedInterests = (profile['sharedInterests'] as List? ?? []).map((i) => i.toString()).toList();
+                final sharedInterests =
+                    (profile['sharedInterests'] as List? ?? [])
+                        .map((i) => i.toString())
+                        .toList();
 
                 int photoIndex = 0;
 
@@ -1832,7 +1887,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                         ? Container(
                                             color: YaaroColors.surfaceAlt,
                                             child: const Center(
-                                              child: Icon(Icons.person, size: 84, color: Colors.white24),
+                                              child: Icon(Icons.person,
+                                                  size: 84,
+                                                  color: Colors.white24),
                                             ),
                                           )
                                         : PageView.builder(
@@ -1844,8 +1901,11 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                             },
                                             itemBuilder: (context, idx) {
                                               final photo = photos[idx];
-                                              final url = photo['url']?.toString() ?? '';
-                                              return Image.network(url, fit: BoxFit.cover);
+                                              final url =
+                                                  photo['url']?.toString() ??
+                                                      '';
+                                              return Image.network(url,
+                                                  fit: BoxFit.cover);
                                             },
                                           ),
                                   ),
@@ -1870,18 +1930,21 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                       left: 0,
                                       right: 0,
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: List.generate(
                                           photos.length,
                                           (idx) => Container(
                                             width: 8,
                                             height: 8,
-                                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                                            margin: const EdgeInsets.symmetric(
+                                                horizontal: 4),
                                             decoration: BoxDecoration(
                                               shape: BoxShape.circle,
                                               color: idx == photoIndex
                                                   ? YaaroColors.rose
-                                                  : Colors.white.withOpacity(0.4),
+                                                  : Colors.white
+                                                      .withOpacity(0.4),
                                             ),
                                           ),
                                         ),
@@ -1898,10 +1961,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                       children: [
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                age != null ? '$displayName, $age' : displayName,
+                                                age != null
+                                                    ? '$displayName, $age'
+                                                    : displayName,
                                                 style: const TextStyle(
                                                   fontSize: 24,
                                                   fontWeight: FontWeight.w900,
@@ -1910,10 +1976,23 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                               ),
                                               const SizedBox(height: 4),
                                               Text(
-                                                [city, country].whereType<String>().where((s) => s.isNotEmpty).join(', ').isNotEmpty
-                                                    ? [city, country].whereType<String>().where((s) => s.isNotEmpty).join(', ')
-                                                    : (distanceKm == null ? 'Nearby' : '$distanceKm km away'),
-                                                style: const TextStyle(color: YaaroColors.muted, fontSize: 14),
+                                                [city, country]
+                                                        .whereType<String>()
+                                                        .where(
+                                                            (s) => s.isNotEmpty)
+                                                        .join(', ')
+                                                        .isNotEmpty
+                                                    ? [city, country]
+                                                        .whereType<String>()
+                                                        .where(
+                                                            (s) => s.isNotEmpty)
+                                                        .join(', ')
+                                                    : (distanceKm == null
+                                                        ? 'Nearby'
+                                                        : '$distanceKm km away'),
+                                                style: const TextStyle(
+                                                    color: YaaroColors.muted,
+                                                    fontSize: 14),
                                               ),
                                             ],
                                           ),
@@ -1923,8 +2002,11 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                           height: 52,
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
-                                            border: Border.all(color: YaaroColors.teal, width: 2.5),
-                                            color: YaaroColors.teal.withOpacity(0.08),
+                                            border: Border.all(
+                                                color: YaaroColors.teal,
+                                                width: 2.5),
+                                            color: YaaroColors.teal
+                                                .withOpacity(0.08),
                                           ),
                                           child: Center(
                                             child: Text(
@@ -1942,16 +2024,23 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                     const SizedBox(height: 12),
                                     if (isVerified)
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 5),
                                         decoration: BoxDecoration(
-                                          color: YaaroColors.teal.withOpacity(0.12),
-                                          border: Border.all(color: YaaroColors.teal.withOpacity(0.24)),
-                                          borderRadius: BorderRadius.circular(20),
+                                          color: YaaroColors.teal
+                                              .withOpacity(0.12),
+                                          border: Border.all(
+                                              color: YaaroColors.teal
+                                                  .withOpacity(0.24)),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
                                         ),
                                         child: const Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(Icons.verified, size: 14, color: YaaroColors.teal),
+                                            Icon(Icons.verified,
+                                                size: 14,
+                                                color: YaaroColors.teal),
                                             SizedBox(width: 4),
                                             Text(
                                               'Verified',
@@ -1967,19 +2056,30 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                     const SizedBox(height: 16),
                                     Text(
                                       bio,
-                                      style: const TextStyle(fontSize: 15, height: 1.4, color: Color(0xE6FFFFFF)),
+                                      style: const TextStyle(
+                                          fontSize: 15,
+                                          height: 1.4,
+                                          color: Color(0xE6FFFFFF)),
                                     ),
                                     const SizedBox(height: 24),
-                                    const Text('Shared Interests', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+                                    const Text('Shared Interests',
+                                        style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w900)),
                                     const SizedBox(height: 10),
                                     Wrap(
                                       spacing: 8,
                                       runSpacing: 8,
                                       children: sharedInterests.isEmpty
                                           ? [
-                                              const TagChip(label: 'Discover more in chat'),
+                                              const TagChip(
+                                                  label:
+                                                      'Discover more in chat'),
                                             ]
-                                          : sharedInterests.map((interest) => TagChip(label: interest)).toList(),
+                                          : sharedInterests
+                                              .map((interest) =>
+                                                  TagChip(label: interest))
+                                              .toList(),
                                     ),
                                     const SizedBox(height: 24),
                                     ..._buildProfileSections(profile),
@@ -1994,20 +2094,23 @@ class _MatchesScreenState extends State<MatchesScreen> {
                             left: 0,
                             right: 0,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 16),
                               color: YaaroColors.surface.withOpacity(0.96),
                               child: Row(
                                 children: [
                                   _profileActionIcon(
                                     icon: Icons.flag,
                                     label: 'Report',
-                                    onPressed: () => _handleReport(userId, displayName),
+                                    onPressed: () =>
+                                        _handleReport(userId, displayName),
                                   ),
                                   const SizedBox(width: 10),
                                   _profileActionIcon(
                                     icon: Icons.block,
                                     label: 'Block',
-                                    onPressed: () => _handleBlock(userId, displayName),
+                                    onPressed: () =>
+                                        _handleBlock(userId, displayName),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -2016,7 +2119,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                         backgroundColor: YaaroColors.rose,
                                         foregroundColor: Colors.white,
                                         minimumSize: const Size.fromHeight(48),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
                                       ),
                                       onPressed: matchId.isNotEmpty
                                           ? () {
@@ -2024,22 +2129,30 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                               Navigator.push(
                                                 context,
                                                 MaterialPageRoute(
-                                                  builder: (context) => ChatScreen(
+                                                  builder: (context) =>
+                                                      ChatScreen(
                                                     matchId: matchId,
                                                     matchName: displayName,
-                                                    matchPhotoUrl: photos.isNotEmpty ? photos.first['url']?.toString() : null,
+                                                    matchPhotoUrl: photos
+                                                            .isNotEmpty
+                                                        ? photos.first['url']
+                                                            ?.toString()
+                                                        : null,
                                                   ),
                                                 ),
                                               );
                                             }
                                           : null,
-                                      icon: const Icon(Icons.chat_bubble, size: 18),
+                                      icon: const Icon(Icons.chat_bubble,
+                                          size: 18),
                                       label: const FittedBox(
                                         fit: BoxFit.scaleDown,
                                         child: Text(
                                           'Message',
                                           maxLines: 1,
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13),
                                         ),
                                       ),
                                     ),
@@ -2054,8 +2167,11 @@ class _MatchesScreenState extends State<MatchesScreen> {
                             child: IconButton(
                               icon: Container(
                                 padding: const EdgeInsets.all(6),
-                                decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
-                                child: const Icon(Icons.close, color: Colors.white, size: 20),
+                                decoration: const BoxDecoration(
+                                    color: Colors.black45,
+                                    shape: BoxShape.circle),
+                                child: const Icon(Icons.close,
+                                    color: Colors.white, size: 20),
                               ),
                               onPressed: () => Navigator.pop(context),
                             ),
@@ -2088,7 +2204,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
             padding: EdgeInsets.zero,
             side: const BorderSide(color: YaaroColors.line),
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
           onPressed: onPressed,
           child: Icon(icon, size: 20),
@@ -2118,10 +2235,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(sec.key, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+                Text(sec.key,
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.035),
                     border: Border.all(color: Colors.white10),
@@ -2181,12 +2301,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: YaaroColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Text('Block Member?', style: TextStyle(fontWeight: FontWeight.w900)),
-          content: Text('Are you sure you want to block $displayName? They will no longer be able to message you or view your profile.'),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Text('Block Member?',
+              style: TextStyle(fontWeight: FontWeight.w900)),
+          content: Text(
+              'Are you sure you want to block $displayName? They will no longer be able to message you or view your profile.'),
           actions: <Widget>[
             TextButton(
-              child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              child:
+                  const Text('Cancel', style: TextStyle(color: Colors.white70)),
               onPressed: () => Navigator.pop(context),
             ),
             FilledButton(
@@ -2198,6 +2322,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 try {
                   final api = YaaroScope.of(this.context);
                   await api.blockUser(userId);
+                  if (!mounted) return;
                   ScaffoldMessenger.of(this.context).showSnackBar(
                     SnackBar(
                       content: Text('Blocked $displayName.'),
@@ -2206,6 +2331,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   );
                   _load();
                 } catch (_) {
+                  if (!mounted) return;
                   ScaffoldMessenger.of(this.context).showSnackBar(
                     const SnackBar(
                       content: Text('Failed to block member.'),
@@ -2228,8 +2354,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: YaaroColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Text('Report $displayName', style: const TextStyle(fontWeight: FontWeight.w900)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text('Report $displayName',
+              style: const TextStyle(fontWeight: FontWeight.w900)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -2242,14 +2370,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   hintText: 'Describe the issue...',
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.06),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ],
           ),
           actions: <Widget>[
             TextButton(
-              child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              child:
+                  const Text('Cancel', style: TextStyle(color: Colors.white70)),
               onPressed: () => Navigator.pop(context),
             ),
             FilledButton(
@@ -2263,6 +2393,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 try {
                   final api = YaaroScope.of(this.context);
                   await api.reportUser(userId, 'harassment', details);
+                  if (!mounted) return;
                   ScaffoldMessenger.of(this.context).showSnackBar(
                     const SnackBar(
                       content: Text('Safety report submitted. Thank you.'),
@@ -2270,6 +2401,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     ),
                   );
                 } catch (_) {
+                  if (!mounted) return;
                   ScaffoldMessenger.of(this.context).showSnackBar(
                     const SnackBar(
                       content: Text('Failed to submit report.'),
@@ -2295,19 +2427,23 @@ class _MatchesScreenState extends State<MatchesScreen> {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(3, (index) => Container(
-                width: 72,
-                height: 96,
-                margin: const EdgeInsets.symmetric(vertical: 15),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
-                ),
-                child: const Center(
-                  child: Icon(Icons.person, color: Colors.white10, size: 36),
-                ),
-              )),
+              children: List.generate(
+                  3,
+                  (index) => Container(
+                        width: 72,
+                        height: 96,
+                        margin: const EdgeInsets.symmetric(vertical: 15),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(8),
+                          border:
+                              Border.all(color: Colors.white.withOpacity(0.06)),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.person,
+                              color: Colors.white10, size: 36),
+                        ),
+                      )),
             ),
             Positioned.fill(
               child: BackdropFilter(
@@ -2330,21 +2466,22 @@ class _MatchesScreenState extends State<MatchesScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: YaaroColors.rose,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 8),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Upgrade to see who liked you!'),
-                              backgroundColor: YaaroColors.rose,
-                            ),
-                          );
+                          if (YaaroScope.of(context).user == null) {
+                            widget.onOpenAuth();
+                            return;
+                          }
+                          openMembershipScreen(context).then((_) => _load());
                         },
                         child: const Text(
                           'Upgrade to See',
-                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                          style: TextStyle(
+                              fontWeight: FontWeight.w900, fontSize: 13),
                         ),
                       ),
                     ],
@@ -2397,7 +2534,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                           ? Image.network(like.photoUrl!, fit: BoxFit.cover)
                           : Container(
                               color: YaaroColors.surfaceAlt,
-                              child: const Icon(Icons.person, color: Colors.white38),
+                              child: const Icon(Icons.person,
+                                  color: Colors.white38),
                             ),
                     ),
                   ),
@@ -2407,7 +2545,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   like.age != null ? '${like.name}, ${like.age}' : like.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w900, fontSize: 13),
                   textAlign: TextAlign.center,
                 ),
                 const Spacer(),
@@ -2427,7 +2566,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       SizedBox(width: 4),
                       Text(
                         'Like Back',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+                        style: TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.w900),
                       ),
                     ],
                   ),
@@ -2481,15 +2621,24 @@ class _MatchesScreenState extends State<MatchesScreen> {
                             : null,
                         child: match.photoUrl == null
                             ? Text(
-                                match.name.substring(0, match.name.length > 2 ? 2 : match.name.length).toUpperCase(),
-                                style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white70),
+                                match.name
+                                    .substring(
+                                        0,
+                                        match.name.length > 2
+                                            ? 2
+                                            : match.name.length)
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white70),
                               )
                             : null,
                       ),
                       const SizedBox(height: 6),
                       Text(
                         match.name,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w900),
                       ),
                     ],
                   ),
@@ -2542,7 +2691,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       },
                       style: const TextStyle(fontSize: 14),
                       decoration: const InputDecoration(
-                        icon: Icon(Icons.search, color: YaaroColors.muted, size: 20),
+                        icon: Icon(Icons.search,
+                            color: YaaroColors.muted, size: 20),
                         hintText: 'Search matches',
                         border: InputBorder.none,
                       ),
@@ -2552,11 +2702,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   if (_loading) const LinearProgressIndicator(minHeight: 2),
                   if (_message.isNotEmpty) StatusPill(text: _message),
                   const SizedBox(height: 18),
-                  
+
                   // Likes You Section
                   SectionTitle(title: 'Likes You', trailing: '$_likesCount'),
                   const SizedBox(height: 10),
-                  _likesBlurred ? _buildBlurredLikesSection() : _buildLikesList(),
+                  _likesBlurred
+                      ? _buildBlurredLikesSection()
+                      : _buildLikesList(),
                   const SizedBox(height: 24),
 
                   // New Matches sub-row
@@ -2564,7 +2716,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   const SizedBox(height: 24),
 
                   // Messages list
-                  SectionTitle(title: 'Messages', trailing: '${filtered.length} active'),
+                  SectionTitle(
+                      title: 'Messages', trailing: '${filtered.length} active'),
                   const SizedBox(height: 10),
                   if (!_loading && filtered.isEmpty)
                     Container(
@@ -2572,11 +2725,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       decoration: panelDecoration(),
                       child: const Column(
                         children: [
-                          Icon(Icons.chat_bubble_outline, size: 36, color: YaaroColors.muted),
+                          Icon(Icons.chat_bubble_outline,
+                              size: 36, color: YaaroColors.muted),
                           SizedBox(height: 8),
-                          Text('No matches yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('No matches yet',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
                           SizedBox(height: 4),
-                          Text('Start swiping to find your match.', style: TextStyle(color: YaaroColors.muted, fontSize: 13)),
+                          Text('Start swiping to find your match.',
+                              style: TextStyle(
+                                  color: YaaroColors.muted, fontSize: 13)),
                         ],
                       ),
                     )
@@ -2586,7 +2744,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: MatchTile(
                           match: match,
-                          onAvatarTap: () => _openProfile(match.userId, match.id),
+                          onAvatarTap: () =>
+                              _openProfile(match.userId, match.id),
                           onUnmatchTap: () => _showUnmatchConfirmation(match),
                         ),
                       ),
@@ -2595,6 +2754,380 @@ class _MatchesScreenState extends State<MatchesScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MembershipPlan {
+  const _MembershipPlan({
+    required this.name,
+    required this.tier,
+    required this.price,
+    required this.summary,
+    required this.features,
+    required this.icon,
+    this.highlighted = false,
+  });
+
+  final String name;
+  final String tier;
+  final String price;
+  final String summary;
+  final List<String> features;
+  final IconData icon;
+  final bool highlighted;
+}
+
+const _membershipPlans = [
+  _MembershipPlan(
+    name: 'Free',
+    tier: 'free',
+    price: 'Rs 0',
+    summary: 'Start matching with the core app.',
+    icon: Icons.favorite_border,
+    features: [
+      'Limited daily likes',
+      'One super like',
+      'Blurred Likes You',
+      'Basic discovery',
+    ],
+  ),
+  _MembershipPlan(
+    name: 'Standard',
+    tier: 'plus',
+    price: '\$9.99',
+    summary: 'More control for serious daily use.',
+    icon: Icons.bolt,
+    features: [
+      'Unlimited likes',
+      'Rewind last swipe',
+      'Passport location',
+      'Incognito mode',
+      'One boost every month',
+    ],
+  ),
+  _MembershipPlan(
+    name: 'Premium',
+    tier: 'gold',
+    price: '\$19.99',
+    summary: 'Unlock the best matching signals.',
+    icon: Icons.workspace_premium,
+    highlighted: true,
+    features: [
+      'Everything in Standard',
+      'See who liked you',
+      'Daily top picks',
+      'More super likes',
+      'Monthly boost included',
+    ],
+  ),
+];
+
+class MembershipScreen extends StatefulWidget {
+  const MembershipScreen({super.key});
+
+  @override
+  State<MembershipScreen> createState() => _MembershipScreenState();
+}
+
+class _MembershipScreenState extends State<MembershipScreen> {
+  SubscriptionStatus? _status;
+  bool _loading = true;
+  String _message = '';
+  String? _busyTier;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatus();
+  }
+
+  Future<void> _loadStatus() async {
+    setState(() {
+      _loading = true;
+      _message = '';
+    });
+    try {
+      final status = await YaaroScope.of(context).subscriptionStatus();
+      if (mounted) {
+        setState(() => _status = status);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _message =
+            e is ApiException ? e.message : 'Payments are unavailable.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _startCheckout(_MembershipPlan plan) async {
+    if (plan.tier == 'free') return;
+
+    setState(() {
+      _busyTier = plan.tier;
+      _message = '';
+    });
+    try {
+      final checkoutUrl =
+          await YaaroScope.of(context).createCheckout(plan.tier);
+      final opened = await launchUrl(
+        Uri.parse(checkoutUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened) {
+        throw ApiException('Could not open checkout.');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Complete checkout, then return to refresh your plan.'),
+            backgroundColor: YaaroColors.teal,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() =>
+            _message = e is ApiException ? e.message : 'Checkout failed.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busyTier = null);
+      }
+    }
+  }
+
+  Future<void> _cancel() async {
+    setState(() => _message = '');
+    try {
+      await YaaroScope.of(context).cancelSubscription();
+      await _loadStatus();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Subscription will cancel at the end of the period.'),
+            backgroundColor: YaaroColors.teal,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _message =
+            e is ApiException ? e.message : 'Could not cancel subscription.');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _status;
+
+    return Scaffold(
+      body: AppGradient(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back),
+                    tooltip: 'Back',
+                  ),
+                  const SizedBox(width: 6),
+                  const Expanded(
+                    child: Text(
+                      'Upgrade',
+                      style:
+                          TextStyle(fontSize: 32, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _loadStatus,
+                    icon: const Icon(Icons.refresh),
+                    tooltip: 'Refresh',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: panelDecoration(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Current plan',
+                      style: TextStyle(
+                          color: YaaroColors.muted,
+                          fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _loading
+                                ? 'Checking...'
+                                : status?.displayName ?? 'Free',
+                            style: const TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                        if (status?.isPaid == true)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: YaaroColors.teal.withOpacity(0.16),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: YaaroColors.teal.withOpacity(0.34)),
+                            ),
+                            child: const Text(
+                              'Active',
+                              style: TextStyle(
+                                  color: YaaroColors.teal,
+                                  fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (status?.endsAt != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        status!.cancelAtPeriodEnd
+                            ? 'Cancels after ${status.endsAt!.toLocal().toString().split(' ').first}'
+                            : 'Renews ${status.endsAt!.toLocal().toString().split(' ').first}',
+                        style: const TextStyle(color: YaaroColors.muted),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Trial availability is controlled in Stripe or the app stores. Configure the trial there, then these plans can advertise and start it.',
+                      style: TextStyle(color: YaaroColors.muted, height: 1.35),
+                    ),
+                  ],
+                ),
+              ),
+              if (_message.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                StatusPill(text: _message),
+              ],
+              const SizedBox(height: 18),
+              ..._membershipPlans.map((plan) {
+                final current = status?.tier == plan.tier ||
+                    (status == null && plan.tier == 'free');
+                final busy = _busyTier == plan.tier;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: YaaroColors.surface.withOpacity(0.94),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: plan.highlighted
+                            ? YaaroColors.rose
+                            : YaaroColors.line,
+                        width: plan.highlighted ? 1.4 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(plan.icon,
+                                color: plan.highlighted
+                                    ? YaaroColors.rose
+                                    : YaaroColors.teal),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                plan.name,
+                                style: const TextStyle(
+                                    fontSize: 22, fontWeight: FontWeight.w900),
+                              ),
+                            ),
+                            Text(
+                              '${plan.price}/mo',
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.w900),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(plan.summary,
+                            style: const TextStyle(color: YaaroColors.muted)),
+                        const SizedBox(height: 12),
+                        ...plan.features.map(
+                          (feature) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle,
+                                    size: 16, color: YaaroColors.teal),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(feature)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        FilledButton(
+                          onPressed: current || busy
+                              ? null
+                              : () => _startCheckout(plan),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: plan.highlighted
+                                ? YaaroColors.rose
+                                : YaaroColors.teal,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor:
+                                Colors.white.withOpacity(0.10),
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                          child: busy
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Text(current
+                                  ? 'Current plan'
+                                  : 'Start ${plan.name}'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              if (status?.isPaid == true &&
+                  status?.cancelAtPeriodEnd != true) ...[
+                const SizedBox(height: 4),
+                OutlinedButton.icon(
+                  onPressed: _cancel,
+                  icon: const Icon(Icons.cancel_outlined),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: YaaroColors.line),
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                  label: const Text('Cancel renewal'),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -2629,9 +3162,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             HeaderBar(
               title: 'Profile',
               actionLabel: user == null ? 'Login' : 'Logout',
-              onAction: user == null
-                  ? widget.onOpenAuth
-                  : widget.onLogout,
+              onAction: user == null ? widget.onOpenAuth : widget.onLogout,
             ),
             const SizedBox(height: 18),
             Container(
@@ -2698,6 +3229,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           backgroundColor: YaaroColors.rose),
                       label: const Text('Edit Profile'),
                     ),
+                  if (user != null) ...[
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => openMembershipScreen(context),
+                      icon: const Icon(Icons.workspace_premium, size: 18),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: YaaroColors.line),
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      label: const Text('Upgrade & payments'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -3010,7 +3554,9 @@ class MatchTile extends StatelessWidget {
                             child: Text(
                               '${match.unreadCount}',
                               style: const TextStyle(
-                                  fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white),
                             ),
                           ),
                         ),
@@ -3063,7 +3609,8 @@ class MatchTile extends StatelessWidget {
                       match.preview,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: YaaroColors.muted, fontSize: 13),
+                      style: const TextStyle(
+                          color: YaaroColors.muted, fontSize: 13),
                     ),
                   ],
                 ),
@@ -3086,7 +3633,8 @@ class MatchTile extends StatelessWidget {
                     ),
                   ),
                 IconButton(
-                  icon: const Icon(Icons.more_vert, color: YaaroColors.muted, size: 20),
+                  icon: const Icon(Icons.more_vert,
+                      color: YaaroColors.muted, size: 20),
                   onPressed: onUnmatchTap,
                 ),
               ],
@@ -3122,7 +3670,8 @@ class HeaderBar extends StatelessWidget {
         if (title != 'Yaaro0') ...[
           const SizedBox(width: 10),
           Text(title,
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+              style:
+                  const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
         ],
         const Spacer(),
         if (actionLabel.isNotEmpty)
@@ -3184,7 +3733,9 @@ class AppTextField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: hasError ? Colors.red.withOpacity(0.08) : Colors.white.withOpacity(0.06),
+        fillColor: hasError
+            ? Colors.red.withOpacity(0.08)
+            : Colors.white.withOpacity(0.06),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -3196,7 +3747,8 @@ class AppTextField extends StatelessWidget {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(
-            color: hasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.8),
+            color:
+                hasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.8),
             width: 2.0,
           ),
         ),

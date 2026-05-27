@@ -1232,7 +1232,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           ],
         ),
         Slider(
-          value: _heightCm ?? 170.0,
+          value: (_heightCm ?? 170.0).clamp(140.0, 220.0),
           min: 140.0,
           max: 220.0,
           activeColor: YaaroColors.rose,
@@ -1349,11 +1349,14 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text('Age Range Filter', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text('${_minAge.toInt()} - ${_maxAge.toInt()} years old', style: const TextStyle(color: YaaroColors.rose, fontSize: 16, fontWeight: FontWeight.w900)),
+            Text('${_minAge.clamp(18.0, 60.0).toInt()} - ${_maxAge.clamp(18.0, 60.0).toInt()} years old', style: const TextStyle(color: YaaroColors.rose, fontSize: 16, fontWeight: FontWeight.w900)),
           ],
         ),
         RangeSlider(
-          values: RangeValues(_minAge, _maxAge),
+          values: RangeValues(
+            _minAge.clamp(18.0, 60.0),
+            _maxAge.clamp(18.0, 60.0),
+          ),
           min: 18.0,
           max: 60.0,
           activeColor: YaaroColors.rose,
@@ -1367,11 +1370,16 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text('Maximum Distance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text('${_maxDistanceKm.toInt()} km', style: const TextStyle(color: YaaroColors.rose, fontSize: 16, fontWeight: FontWeight.w900)),
+            Text(
+              _maxDistanceKm >= 20000 || _maxDistanceKm > 150
+                  ? 'Unlimited (Global)'
+                  : '${_maxDistanceKm.toInt()} km',
+              style: const TextStyle(color: YaaroColors.rose, fontSize: 16, fontWeight: FontWeight.w900),
+            ),
           ],
         ),
         Slider(
-          value: _maxDistanceKm,
+          value: _maxDistanceKm.clamp(1.0, 150.0),
           min: 1.0,
           max: 150.0,
           activeColor: YaaroColors.rose,

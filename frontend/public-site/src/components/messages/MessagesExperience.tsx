@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Camera, Flag, Image as ImageIcon, Mic, Send, Smile, Trash2, X } from "lucide-react";
+import { ArrowLeft, Camera, Flag, Image as ImageIcon, Loader2, Mic, Send, Smile, Trash2, X } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
 import { useAuth } from "../auth/AuthProvider";
 import { readOfflineCache, trackClientEvent, writeOfflineCache } from "../../lib/offline-cache";
@@ -128,6 +128,18 @@ export function MessagesExperience({ matchId }: { matchId: string }) {
       .finally(() => setIsLoading(false));
   }, [loadMessages]);
 
+  // Load match info from cache instantly on mount to avoid slow loading blanks
+  useEffect(() => {
+    const cached = readOfflineCache<{ matches?: { id: string; user: { id: string; displayName: string } }[] }>("matches");
+    if (cached?.matches) {
+      const match = cached.matches.find((item) => item.id === matchId);
+      if (match) {
+        matchedUserIdRef.current = match.user.id;
+        setMatchName(match.user.displayName);
+      }
+    }
+  }, [matchId]);
+
   useEffect(() => {
     authFetch("/api/matches")
       .then((response) => response.json())
@@ -167,7 +179,32 @@ export function MessagesExperience({ matchId }: { matchId: string }) {
         return;
       }
 
-      setMessages((current) => mergeMessages(current, [{ ...message, isMine: message.senderId === user?.id }]));
+      setMessages((current) => {
+        const isMine = message.senderId === user?.id;
+
+        if (isMine) {
+          // If it's mine, check if we have a matching pending message to replace
+          const pendingIndex = current.findIndex(
+            (m) => m.pending && m.type === message.type && (message.type !== "text" || m.content === message.content)
+          );
+          if (pendingIndex !== -1) {
+            const updated = [...current];
+            const duplicateIndex = updated.findIndex((m) => m.id === message.id);
+            if (duplicateIndex !== -1) {
+              updated.splice(duplicateIndex, 1);
+            }
+            const realPendingIndex = updated.findIndex(
+              (m) => m.pending && m.type === message.type && (message.type !== "text" || m.content === message.content)
+            );
+            if (realPendingIndex !== -1) {
+              updated[realPendingIndex] = { ...message, isMine: true };
+              return updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            }
+          }
+        }
+
+        return mergeMessages(current, [{ ...message, isMine }]);
+      });
       socket.emit("mark_read", { matchId, messageId: message.id });
     });
     socket.on("message_read", ({ matchId: eventMatchId, readAt }: { matchId: string; readAt: string }) => {
@@ -211,7 +248,7 @@ export function MessagesExperience({ matchId }: { matchId: string }) {
       .finally(() => setIsLoadingMore(false));
   }
 
-  async function sendPayload(payload: Record<string, unknown>) {
+  async function sendPayload(payload: Record<string, unknown>, tempId?: string) {
     const response = await authFetch(`/api/messages/${matchId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -223,7 +260,13 @@ export function MessagesExperience({ matchId }: { matchId: string }) {
       throw new Error(typeof body.message === "string" ? body.message : "Unable to send message.");
     }
 
-    setMessages((current) => mergeMessages(current, [body.message as ChatMessage]));
+    const realMsg = body.message as ChatMessage;
+    setMessages((current) => {
+      if (tempId) {
+        return current.map((m) => (m.id === tempId ? { ...realMsg, isMine: true } : m));
+      }
+      return mergeMessages(current, [{ ...realMsg, isMine: true }]);
+    });
     trackClientEvent("message_sent", { matchId, type: payload.type || "text" });
   }
 
@@ -234,28 +277,108 @@ export function MessagesExperience({ matchId }: { matchId: string }) {
       return;
     }
 
+    const tempId = `temp-${Date.now()}`;
+    const pendingMessage: ChatMessage = {
+      id: tempId,
+      matchId,
+      senderId: user?.id || "",
+      type: "text",
+      content,
+      mediaUrl: null,
+      durationSeconds: null,
+      reactions: [],
+      isMine: true,
+      isRead: false,
+      readAt: null,
+      isDeleted: false,
+      createdAt: new Date().toISOString(),
+      pending: true,
+    };
+
     setDraft("");
-    socketRef.current?.emit("send_message", { matchId, content, type: "text" }, (ack: { success?: boolean; message?: string }) => {
-      if (!ack?.success) {
-        setNotice(ack?.message || "Unable to send message.");
+    setMessages((current) => mergeMessages(current, [pendingMessage]));
+
+    socketRef.current?.emit(
+      "send_message",
+      { matchId, content, type: "text" },
+      (ack: { success?: boolean; message?: ChatMessage | string }) => {
+        if (!ack?.success) {
+          setNotice(typeof ack?.message === "string" ? ack.message : "Unable to send message.");
+          setMessages((current) => current.filter((m) => m.id !== tempId));
+        } else if (ack.message && typeof ack.message !== "string") {
+          const realMsg = ack.message;
+          setMessages((current) =>
+            current.map((m) => (m.id === tempId ? { ...realMsg, isMine: true } : m))
+          );
+        }
       }
-    });
+    );
   }
 
   async function sendPhoto(file: File) {
+    const tempId = `temp-${Date.now()}`;
+    let localUrl = "";
     try {
-      await sendPayload({ type: "photo", mediaUrl: await fileToDataUrl(file) });
+      localUrl = URL.createObjectURL(file);
+    } catch {
+      // Fallback
+    }
+
+    const pendingMessage: ChatMessage = {
+      id: tempId,
+      matchId,
+      senderId: user?.id || "",
+      type: "photo",
+      content: null,
+      mediaUrl: localUrl || null,
+      durationSeconds: null,
+      reactions: [],
+      isMine: true,
+      isRead: false,
+      readAt: null,
+      isDeleted: false,
+      createdAt: new Date().toISOString(),
+      pending: true,
+    };
+
+    setMessages((current) => mergeMessages(current, [pendingMessage]));
+
+    try {
+      await sendPayload({ type: "photo", mediaUrl: await fileToDataUrl(file) }, tempId);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to send photo.");
+      setMessages((current) => current.filter((m) => m.id !== tempId));
     }
   }
 
   async function sendGif(url: string) {
     setShowGifs(false);
+    const tempId = `temp-${Date.now()}`;
+
+    const pendingMessage: ChatMessage = {
+      id: tempId,
+      matchId,
+      senderId: user?.id || "",
+      type: "gif",
+      content: null,
+      mediaUrl: url,
+      durationSeconds: null,
+      reactions: [],
+      isMine: true,
+      isRead: false,
+      readAt: null,
+      isDeleted: false,
+      createdAt: new Date().toISOString(),
+      pending: true,
+    };
+
+    setMessages((current) => mergeMessages(current, [pendingMessage]));
+
     try {
-      await sendPayload({ type: "gif", gifUrl: url });
+      await sendPayload({ type: "gif", gifUrl: url }, tempId);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to send GIF.");
+      setMessages((current) => current.filter((m) => m.id !== tempId));
     }
   }
 
@@ -367,13 +490,27 @@ export function MessagesExperience({ matchId }: { matchId: string }) {
         {messages.map((message) => (
           <article
             key={message.id}
-            className={message.isMine ? "chat-bubble mine" : "chat-bubble"}
+            className={message.isMine ? (message.pending ? "chat-bubble mine pending" : "chat-bubble mine") : "chat-bubble"}
             onDoubleClick={() => setSelectedMessageId(message.id)}
           >
             {message.isDeleted ? (
               <em>Message deleted</em>
             ) : message.type === "photo" || message.type === "image" || message.type === "gif" ? (
-              <img src={message.mediaUrl || ""} alt={message.type === "gif" ? "GIF message" : "Photo message"} />
+              <div style={{ position: "relative" }}>
+                <img src={message.mediaUrl || ""} alt={message.type === "gif" ? "GIF message" : "Photo message"} />
+                {message.pending && (
+                  <div style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "grid",
+                    placeItems: "center",
+                    background: "rgba(0,0,0,0.4)",
+                    borderRadius: "6px"
+                  }}>
+                    <Loader2 className="spin" size={24} />
+                  </div>
+                )}
+              </div>
             ) : message.type === "voice" ? (
               <audio controls src={message.mediaUrl || ""} />
             ) : (
