@@ -3701,16 +3701,57 @@ class AppGradient extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment.topCenter,
-          radius: 0.95,
-          colors: [Color(0x45FF4F6D), YaaroColors.black],
-          stops: [0, 0.62],
+    return Stack(
+      children: [
+        // Base dark purple/indigo vertical gradient
+        Positioned.fill(
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF260D42), // Rich dark purple
+                  Color(0xFF120524), // Deep indigo-violet
+                  Color(0xFF06010B), // Midnight black-purple
+                ],
+              ),
+            ),
+          ),
         ),
-      ),
-      child: child,
+        // Radial glow overlay at top-right (Magenta)
+        Positioned.fill(
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(0.8, -0.8),
+                radius: 1.0,
+                colors: [
+                  Color(0x36FF4F6D), // Hot pink glow
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Radial glow overlay at bottom-left (Teal/Cyan)
+        Positioned.fill(
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(-0.8, 0.8),
+                radius: 1.2,
+                colors: [
+                  Color(0x2231D0B2), // Neon Teal glow
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Content child
+        Positioned.fill(child: child),
+      ],
     );
   }
 }
@@ -3743,28 +3784,46 @@ class AppTextField extends StatelessWidget {
       keyboardType: keyboardType,
       focusNode: focusNode,
       onChanged: onChanged,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
+      ),
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: TextStyle(
+          color: hasError ? YaaroColors.rose : Colors.white54,
+          fontSize: 14,
+        ),
+        floatingLabelStyle: TextStyle(
+          color: hasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.9),
+          fontWeight: FontWeight.bold,
+        ),
         filled: true,
         fillColor: hasError
             ? Colors.red.withOpacity(0.08)
-            : Colors.white.withOpacity(0.06),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+            : Colors.white.withOpacity(0.045),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
-            color: hasError ? YaaroColors.rose : Colors.white24,
-            width: hasError ? 2.0 : 1.0,
+            color: hasError ? YaaroColors.rose : Colors.white.withOpacity(0.12),
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+            color: hasError ? YaaroColors.rose : Colors.white.withOpacity(0.12),
+            width: 1.2,
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
-            color:
-                hasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.8),
+            color: hasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.9),
             width: 2.0,
           ),
         ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       ),
     );
   }
