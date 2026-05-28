@@ -1012,7 +1012,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   Future<void> _swipe(SwipeAction action) async {
     final profile = _top;
-    if (profile == null) {
+    if (profile == null || _swiping) {
       return;
     }
 
@@ -1020,27 +1020,31 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       _swiping = true;
       _profiles = _profiles.skip(1).toList();
       _drag = Offset.zero;
+      if (action == SwipeAction.like || action == SwipeAction.superlike) {
+        _message = 'Sent ${action == SwipeAction.superlike ? 'a superlike' : 'a like'} to ${profile.displayName}.';
+      } else {
+        _message = '';
+      }
     });
 
-    try {
-      final result = await YaaroScope.of(context).swipe(profile.id, action);
-      if (result.matched) {
-        setState(() => _message = "It's a match with ${profile.displayName}.");
-      } else if (action == SwipeAction.like ||
-          action == SwipeAction.superlike) {
-        setState(() => _message =
-            'Sent ${action == SwipeAction.superlike ? 'a superlike' : 'a like'} to ${profile.displayName}.');
-      }
-    } catch (_) {
-      setState(() {
-        _profiles = [profile, ..._profiles];
-        _message = 'Could not send that swipe. Try again.';
-      });
-    } finally {
+    // Throttled UI unlock: allow the next swipe after 200ms
+    Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) {
         setState(() => _swiping = false);
       }
-    }
+    });
+
+    // Run the swipe request in the background (optimistic UI)
+    YaaroScope.of(context).swipe(profile.id, action).then((result) {
+      if (result.matched && mounted) {
+        setState(() => _message = "It's a match with ${profile.displayName}!");
+      }
+    }).catchError((err) {
+      debugPrint('Swipe failed: $err');
+      if (mounted) {
+        setState(() => _message = 'Could not send swipe to ${profile.displayName}.');
+      }
+    });
   }
 
   Future<void> _undo() async {
