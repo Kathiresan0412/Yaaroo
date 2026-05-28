@@ -3664,6 +3664,8 @@ class HeaderBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = YaaroScope.of(context).user;
+
     return Row(
       children: [
         Image.asset(
@@ -3678,6 +3680,21 @@ class HeaderBar extends StatelessWidget {
                   const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
         ],
         const Spacer(),
+        if (user != null) ...[
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined,
+                color: YaaroColors.muted, size: 24),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationsScreen(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 4),
+        ],
         if (actionLabel.isNotEmpty)
           TextButton(onPressed: onAction, child: Text(actionLabel)),
       ],
@@ -3944,4 +3961,302 @@ BoxDecoration panelDecoration() {
     border: Border.all(color: YaaroColors.line),
     borderRadius: BorderRadius.circular(8),
   );
+}
+
+class NotificationsScreen extends StatefulWidget {
+  const NotificationsScreen({super.key});
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  bool _loading = true;
+  List<dynamic> _notifications = [];
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
+    try {
+      final api = YaaroScope.of(context);
+      final list = await api.getNotifications();
+      setState(() {
+        _notifications = list;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+      });
+    } finally {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _markAllAsRead() async {
+    try {
+      final api = YaaroScope.of(context);
+      await api.markNotificationsAsRead();
+      setState(() {
+        _notifications = _notifications.map((item) {
+          final n = Map<String, dynamic>.from(item as Map);
+          n['read'] = true;
+          return n;
+        }).toList();
+      });
+    } catch (_) {
+      // Silently handle
+    }
+  }
+
+  Future<void> _markAsRead(String id) async {
+    try {
+      final api = YaaroScope.of(context);
+      await api.markNotificationAsRead(id);
+      setState(() {
+        _notifications = _notifications.map((item) {
+          final n = Map<String, dynamic>.from(item as Map);
+          if (n['id'] == id) {
+            n['read'] = true;
+          }
+          return n;
+        }).toList();
+      });
+    } catch (_) {
+      // Silently handle
+    }
+  }
+
+  String _formatTime(String isoString) {
+    try {
+      final dt = DateTime.parse(isoString).toLocal();
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 1) return 'Just now';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+      return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasUnread = _notifications.any((n) => !(n['read'] as bool? ?? false));
+
+    return Scaffold(
+      body: AppGradient(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new,
+                          color: YaaroColors.muted, size: 20),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Notifications',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_notifications.isNotEmpty && hasUnread)
+                      TextButton(
+                        onPressed: _markAllAsRead,
+                        child: const Text(
+                          'Mark all as read',
+                          style: TextStyle(
+                            color: YaaroColors.rose,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const Divider(color: YaaroColors.line, height: 1),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error.isNotEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(_error,
+                                    style: const TextStyle(color: Colors.red)),
+                                const SizedBox(height: 12),
+                                FilledButton(
+                                  onPressed: _loadNotifications,
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : _notifications.isEmpty
+                            ? EmptyState(
+                                title: 'All caught up!',
+                                message: 'No new notifications to display right now.',
+                                actionLabel: 'Refresh',
+                                onAction: _loadNotifications,
+                              )
+                            : RefreshIndicator(
+                                onRefresh: _loadNotifications,
+                                color: YaaroColors.rose,
+                                backgroundColor: YaaroColors.surface,
+                                child: ListView.separated(
+                                  padding: const EdgeInsets.all(16),
+                                  itemCount: _notifications.length,
+                                  separatorBuilder: (context, index) =>
+                                      const SizedBox(height: 12),
+                                  itemBuilder: (context, index) {
+                                    final item = _notifications[index];
+                                    final id = item['id'] as String;
+                                    final title = item['title'] as String? ?? '';
+                                    final body = item['body'] as String? ?? '';
+                                    final type = item['type'] as String? ?? '';
+                                    final read = item['read'] as bool? ?? false;
+                                    final createdAt =
+                                        item['createdAt'] as String? ?? '';
+
+                                    IconData icon;
+                                    Color iconColor;
+                                    switch (type) {
+                                      case 'match':
+                                        icon = Icons.people_alt;
+                                        iconColor = YaaroColors.rose;
+                                        break;
+                                      case 'like':
+                                        icon = Icons.favorite;
+                                        iconColor = YaaroColors.saffron;
+                                        break;
+                                      case 'message':
+                                        icon = Icons.chat_bubble;
+                                        iconColor = YaaroColors.teal;
+                                        break;
+                                      default:
+                                        icon = Icons.notifications;
+                                        iconColor = YaaroColors.rose;
+                                    }
+
+                                    return InkWell(
+                                      onTap: () {
+                                        if (!read) {
+                                          _markAsRead(id);
+                                        }
+                                      },
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: panelDecoration().copyWith(
+                                          color: read
+                                              ? YaaroColors.surface.withOpacity(0.55)
+                                              : YaaroColors.surfaceAlt.withOpacity(0.95),
+                                          border: Border.all(
+                                            color: read
+                                                ? YaaroColors.line
+                                                : YaaroColors.rose.withOpacity(0.4),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: iconColor.withOpacity(0.12),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(
+                                                icon,
+                                                color: iconColor,
+                                                size: 20,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          title,
+                                                          style: TextStyle(
+                                                            fontSize: 15,
+                                                            fontWeight: read
+                                                                ? FontWeight.w600
+                                                                : FontWeight.w800,
+                                                            color: Colors.white,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      if (!read)
+                                                        Container(
+                                                          width: 8,
+                                                          height: 8,
+                                                          decoration: const BoxDecoration(
+                                                            color: YaaroColors.rose,
+                                                            shape: BoxShape.circle,
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    body,
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      color: YaaroColors.muted,
+                                                      height: 1.25,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text(
+                                                    _formatTime(createdAt),
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: read
+                                                          ? YaaroColors.muted.withOpacity(0.6)
+                                                          : YaaroColors.muted,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

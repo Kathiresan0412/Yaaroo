@@ -213,15 +213,15 @@ class _AuthSheetState extends State<AuthSheet> {
         break;
       case AuthMode.forgot:
         titleText = 'Reset password';
-        kicker = 'Enter your email to request a reset token';
+        kicker = 'Enter your email to request a reset code';
         break;
       case AuthMode.reset:
         titleText = 'Choose new password';
-        kicker = 'Enter your reset token and new password';
+        kicker = 'Enter your reset code and new password';
         break;
       case AuthMode.verify:
         titleText = 'Email verification';
-        kicker = 'Enter the verification token sent to your email';
+        kicker = 'Enter the verification code sent to your email';
         break;
     }
 
@@ -243,11 +243,55 @@ class _AuthSheetState extends State<AuthSheet> {
     );
   }
 
+  Widget _buildSocialButtons() {
+    return Column(
+      children: [
+        OutlinedButton.icon(
+          onPressed: () {
+            // Mock TikTok login success
+            _email.text = 'tiktokuser@gmail.com';
+            _firstName.text = 'TikTok';
+            _lastName.text = 'User';
+            _gender = 'female';
+            _dateOfBirth = DateTime(2000, 1, 1);
+            setState(() {
+              _mode = AuthMode.login;
+              _password.text = 'TikTokPassword123!';
+              _message = 'Connected with TikTok successfully.';
+              _isSuccess = true;
+            });
+          },
+          icon: const Icon(Icons.music_video, color: Colors.white),
+          label: const Text('Continue with TikTok', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            side: const BorderSide(color: YaaroColors.line),
+            backgroundColor: Colors.black,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: Container(height: 1, color: Colors.white10)),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: Text('or use email', style: TextStyle(color: YaaroColors.muted, fontSize: 12)),
+            ),
+            Expanded(child: Container(height: 1, color: Colors.white10)),
+          ],
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
   Widget _buildFormFields() {
     switch (_mode) {
       case AuthMode.login:
         return Column(
           children: [
+            _buildSocialButtons(),
             AppTextField(
               controller: _email,
               label: 'Email address',
@@ -323,7 +367,7 @@ class _AuthSheetState extends State<AuthSheet> {
           children: [
             AppTextField(
               controller: _resetToken,
-              label: 'Reset Token',
+              label: 'Reset Code',
             ),
             const SizedBox(height: 12),
             _buildPasswordField(
@@ -350,11 +394,11 @@ class _AuthSheetState extends State<AuthSheet> {
           children: [
             AppTextField(
               controller: _verifyToken,
-              label: 'Verification Code or Token',
+              label: 'Verification Code',
             ),
             const SizedBox(height: 6),
             const Text(
-              'Check your email to verify your account. If the app did not open automatically, copy the verification code or token from your email and enter it above.',
+              'Check your email to verify your account. If the app did not open automatically, copy the verification code from your email and enter it above.',
               style: TextStyle(color: YaaroColors.muted, fontSize: 12),
             ),
           ],
@@ -591,7 +635,7 @@ class _AuthSheetState extends State<AuthSheet> {
         label = 'Request Access';
         break;
       case AuthMode.forgot:
-        label = 'Send Reset Token';
+        label = 'Send Reset Code';
         break;
       case AuthMode.reset:
         label = 'Reset Password';
@@ -688,7 +732,7 @@ class _AuthSheetState extends State<AuthSheet> {
                 _message = null;
                 _mode = AuthMode.verify;
               }),
-              child: const Text('Have a verification token? Verify manually'),
+              child: const Text('Have a verification code? Verify manually'),
             ),
           ],
         );
@@ -769,7 +813,7 @@ class _AuthSheetState extends State<AuthSheet> {
         await api.forgotPassword(_email.text.trim());
         setState(() {
           _isSuccess = true;
-          _message = 'Reset token has been dispatched. Enter it below.';
+          _message = 'Reset code has been sent. Enter it below.';
           _mode = AuthMode.reset;
         });
       } else if (_mode == AuthMode.reset) {
@@ -790,7 +834,7 @@ class _AuthSheetState extends State<AuthSheet> {
         });
       } else if (_mode == AuthMode.verify) {
         if (_verifyToken.text.isEmpty) {
-          throw ApiException('Please key in your verification token.');
+          throw ApiException('Please key in your verification code.');
         }
         try {
           await api.verifyEmail(_verifyToken.text.trim());

@@ -70,6 +70,7 @@ class ApiClient {
 
   final Uri baseUri;
   String? accessToken;
+  String? refreshToken;
   User? user;
   String? cookies;
 
@@ -77,6 +78,7 @@ class ApiClient {
 
   Future<void> init() async {
     accessToken = await _secureStorage.readAccessToken();
+    refreshToken = await _secureStorage.readRefreshToken();
     cookies = await _secureStorage.readCookies();
     user = await _secureStorage.readUser();
   }
@@ -185,7 +187,7 @@ class ApiClient {
       final response = await http.post(
         url,
         headers: _headers(),
-        body: '{}',
+        body: jsonEncode({'refreshToken': refreshToken ?? ''}),
       );
       _extractCookies(response);
 
@@ -193,8 +195,12 @@ class ApiClient {
         final payload = jsonDecode(response.body);
         if (payload is Map<String, dynamic>) {
           accessToken = payload['accessToken']?.toString();
+          refreshToken = payload['refreshToken']?.toString();
           if (accessToken != null) {
             await _secureStorage.writeAccessToken(accessToken!);
+          }
+          if (refreshToken != null) {
+            await _secureStorage.writeRefreshToken(refreshToken!);
           }
           final rawUser = payload['user'];
           if (rawUser is Map<String, dynamic>) {
@@ -221,8 +227,12 @@ class ApiClient {
     _extractCookies(response);
     final payload = await _decode(response);
     accessToken = payload['accessToken']?.toString();
+    refreshToken = payload['refreshToken']?.toString();
     if (accessToken != null) {
       await _secureStorage.writeAccessToken(accessToken!);
+    }
+    if (refreshToken != null) {
+      await _secureStorage.writeRefreshToken(refreshToken!);
     }
     final rawUser = payload['user'];
     if (rawUser is Map<String, dynamic>) {
@@ -282,9 +292,28 @@ class ApiClient {
           headers: _headers(), body: '{}');
     } catch (_) {}
     accessToken = null;
+    refreshToken = null;
     cookies = null;
     user = null;
     await _secureStorage.clearAll();
+  }
+
+  // --- Notifications ---
+
+  Future<List<dynamic>> getNotifications() async {
+    final response = await _request('GET', '/api/notifications');
+    final payload = await _decode(response);
+    return payload['notifications'] is List ? payload['notifications'] as List : [];
+  }
+
+  Future<void> markNotificationsAsRead() async {
+    final response = await _request('PATCH', '/api/notifications/read', body: {});
+    await _decode(response);
+  }
+
+  Future<void> markNotificationAsRead(String id) async {
+    final response = await _request('PATCH', '/api/notifications/$id/read', body: {});
+    await _decode(response);
   }
 
   // --- Swipes & Discover ---

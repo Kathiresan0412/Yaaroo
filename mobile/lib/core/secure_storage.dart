@@ -11,6 +11,7 @@ class SecureStorage {
   static const _accessTokenKey = 'accessToken';
   static const _cookiesKey = 'cookies';
   static const _userKey = 'user';
+  static const _refreshTokenKey = 'refreshToken';
 
   Future<void> writeAccessToken(String token) async {
     await _storage.write(key: _accessTokenKey, value: token);
@@ -22,6 +23,18 @@ class SecureStorage {
 
   Future<void> deleteAccessToken() async {
     await _storage.delete(key: _accessTokenKey);
+  }
+
+  Future<void> writeRefreshToken(String token) async {
+    await _storage.write(key: _refreshTokenKey, value: token);
+  }
+
+  Future<String?> readRefreshToken() async {
+    return await _storage.read(key: _refreshTokenKey);
+  }
+
+  Future<void> deleteRefreshToken() async {
+    await _storage.delete(key: _refreshTokenKey);
   }
 
   Future<void> writeCookies(String cookies) async {
@@ -70,6 +83,7 @@ class SecureStorage {
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _cookiesKey);
     await _storage.delete(key: _userKey);
+    await _storage.delete(key: _refreshTokenKey);
   }
 
   Future<void> write(String key, String value) async {
