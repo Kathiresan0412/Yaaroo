@@ -446,6 +446,7 @@ const choices = {
   education: ["High school", "Diploma", "Bachelors", "Masters", "PhD", "Other"],
   industries: ["Technology", "Healthcare", "Education", "Finance", "Arts", "Hospitality", "Public sector"],
   religion: ["Hindu", "Christian", "Muslim", "Buddhist", "Spiritual", "Agnostic", "Other"],
+  nationality: ["Sri Lankan", "Indian", "American", "British", "Canadian", "Australian", "German", "French", "Singaporean", "Malaysian", "Other"],
   languages: ["Tamil", "English", "Sinhala", "Hindi", "Malayalam", "French", "German"],
   habits: ["No", "Occasionally", "Socially", "Yes"],
   exercise: ["Daily", "Often", "Sometimes", "Rarely"],
@@ -1242,35 +1243,7 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
       const defaultLat = state.latitude ?? 6.9271;
       const defaultLng = state.longitude ?? 79.8612;
 
-      // 3. Make sure we have at least 2 photos in the DB.
-      // If we have less than 2, we will upload beautiful placeholder avatars!
-      let currentPhotos = [...photos];
-      if (currentPhotos.length < 2) {
-        const needed = 2 - currentPhotos.length;
-        const generatedUrls: string[] = [];
-        const nameInitial = defaultDisplayName.charAt(0) || "Y";
-        
-        // Generate beautiful Canvas gradients
-        if (needed >= 1) {
-          generatedUrls.push(generateGradientAvatar(nameInitial, "#FF6036", "#FD267A")); // Pink-orange gradient
-        }
-        if (needed >= 2) {
-          generatedUrls.push(generateGradientAvatar(nameInitial, "#6366F1", "#A855F7")); // Purple gradient
-        }
-
-        // Upload them
-        for (const url of generatedUrls) {
-          const response = await authFetch("/api/profile/photos", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ imageDataUrl: url, photo: url }),
-          });
-          const photoPayload = await readApiPayload(response);
-          if (response.ok && photoPayload.photos) {
-            currentPhotos = photoPayload.photos;
-          }
-        }
-      }
+      // 3. (Seeding photos on skip is removed, no default photos stored in database)
 
       // 4. Save profile fields
       const profileBody = {
@@ -1502,7 +1475,7 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
             <SelectField options={choices.religion} value={state.religion} onChange={(value) => update("religion", value)} />
           </Field>
           <Field label="Nationality" required>
-            <input value={state.nationality} onChange={(event) => update("nationality", event.target.value)} />
+            <SelectField options={choices.nationality} value={state.nationality} onChange={(value) => update("nationality", value)} />
           </Field>
           <div className="wizard-wide">
             <h3>

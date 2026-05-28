@@ -3290,10 +3290,13 @@ class ProfileCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (profile.photoUrl != null)
+            if (profile.photoUrl != null && profile.photoUrl!.isNotEmpty)
               Image.network(profile.photoUrl!, fit: BoxFit.cover)
             else
-              const ColoredBox(color: YaaroColors.surfaceAlt),
+              Image.network(
+                'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70',
+                fit: BoxFit.cover,
+              ),
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -3382,8 +3385,11 @@ class CompactProfileTile extends StatelessWidget {
             child: SizedBox(
               width: 82,
               height: 96,
-              child: profile.photoUrl == null
-                  ? const ColoredBox(color: YaaroColors.surfaceAlt)
+              child: profile.photoUrl == null || profile.photoUrl!.isEmpty
+                  ? Image.network(
+                      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70',
+                      fit: BoxFit.cover,
+                    )
                   : Image.network(profile.photoUrl!, fit: BoxFit.cover),
             ),
           ),
@@ -3459,11 +3465,11 @@ class LikeTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(
                 height: 72,
-                child: like.photoUrl != null
+                child: like.photoUrl != null && like.photoUrl!.isNotEmpty
                     ? Image.network(like.photoUrl!, fit: BoxFit.cover)
-                    : Container(
-                        color: YaaroColors.surfaceAlt,
-                        child: const Icon(Icons.person, color: Colors.white38),
+                    : Image.network(
+                        'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70',
+                        fit: BoxFit.cover,
                       ),
               ),
             ),
@@ -3534,12 +3540,10 @@ class MatchTile extends StatelessWidget {
                     CircleAvatar(
                       radius: 28,
                       backgroundColor: YaaroColors.surfaceAlt,
-                      backgroundImage: match.photoUrl == null
-                          ? null
+                      backgroundImage: match.photoUrl == null || match.photoUrl!.isEmpty
+                          ? const NetworkImage('https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70')
                           : NetworkImage(match.photoUrl!),
-                      child: match.photoUrl == null
-                          ? Text(match.name.characters.first)
-                          : null,
+                      child: null,
                     ),
                     if (match.unreadCount > 0)
                       Positioned(

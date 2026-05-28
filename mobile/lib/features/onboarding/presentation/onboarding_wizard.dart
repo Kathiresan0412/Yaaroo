@@ -113,6 +113,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     'education': ['High school', 'Diploma', 'Bachelors', 'Masters', 'PhD', 'Other'],
     'industries': ['Technology', 'Healthcare', 'Education', 'Finance', 'Arts', 'Hospitality', 'Public sector'],
     'religion': ['Hindu', 'Christian', 'Muslim', 'Buddhist', 'Spiritual', 'Agnostic', 'Other'],
+    'nationality': ['Sri Lankan', 'Indian', 'American', 'British', 'Canadian', 'Australian', 'German', 'French', 'Singaporean', 'Malaysian', 'Other'],
     'languages': ['Tamil', 'English', 'Sinhala', 'Hindi', 'Malayalam', 'French', 'German'],
     'habits': ['No', 'Occasionally', 'Socially', 'Yes'],
     'exercise': ['Daily', 'Often', 'Sometimes', 'Rarely'],
@@ -785,9 +786,14 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       // Progress step or show success message in edit mode
       if (widget.mode == 'edit') {
         if (!mounted) return;
-        setState(() {
-          _message = 'Section updated successfully.';
-        });
+        if (_currentStep < _steps.length - 1) {
+          setState(() {
+            _message = 'Section updated successfully.';
+            _currentStep++;
+          });
+        } else {
+          widget.onComplete();
+        }
       } else {
         if (!mounted) return;
         setState(() {
@@ -1268,7 +1274,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         const SizedBox(height: 12),
         _buildDropdown('Religion', _religion, _options['religion']!, (val) => setState(() => _religion = val!)),
         const SizedBox(height: 12),
-        AppTextField(controller: _nationality, label: 'Nationality'),
+        _buildDropdown('Nationality', _nationality.text.trim().isEmpty ? 'Select nationality' : _nationality.text.trim(), _options['nationality']!, (val) => setState(() => _nationality.text = val!)),
         const SizedBox(height: 16),
         const Text('Languages Spoken', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
