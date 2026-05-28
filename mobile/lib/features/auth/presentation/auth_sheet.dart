@@ -246,23 +246,42 @@ class _AuthSheetState extends State<AuthSheet> {
   Widget _buildSocialButtons() {
     return Column(
       children: [
+        // Google Button
         OutlinedButton.icon(
-          onPressed: () {
-            // Mock TikTok login success
-            _email.text = 'tiktokuser@gmail.com';
-            _firstName.text = 'TikTok';
-            _lastName.text = 'User';
-            _gender = 'female';
-            _dateOfBirth = DateTime(2000, 1, 1);
-            setState(() {
-              _mode = AuthMode.login;
-              _password.text = 'TikTokPassword123!';
-              _message = 'Connected with TikTok successfully.';
-              _isSuccess = true;
-            });
-          },
-          icon: const Icon(Icons.music_video, color: Colors.white),
-          label: const Text('Continue with TikTok', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          onPressed: _loading
+              ? null
+              : () => _handleOAuthLogin(
+                    provider: 'google',
+                    oauthId: 'google_oauth_100200300',
+                    email: 'googleuser@gmail.com',
+                    firstName: 'Google',
+                    lastName: 'User',
+                  ),
+          icon: const Icon(Icons.g_mobiledata, color: Colors.white, size: 28),
+          label: const Text('Continue with Google',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            side: const BorderSide(color: YaaroColors.line),
+            backgroundColor: YaaroColors.surfaceAlt,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // TikTok Button
+        OutlinedButton.icon(
+          onPressed: _loading
+              ? null
+              : () => _handleOAuthLogin(
+                    provider: 'tiktok',
+                    oauthId: 'tiktok_oauth_400500600',
+                    email: 'tiktokuser@gmail.com',
+                    firstName: 'TikTok',
+                    lastName: 'User',
+                  ),
+          icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
+          label: const Text('Continue with TikTok',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
             side: const BorderSide(color: YaaroColors.line),
@@ -861,6 +880,48 @@ class _AuthSheetState extends State<AuthSheet> {
     } finally {
       if (mounted) {
         setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _handleOAuthLogin({
+    required String provider,
+    required String oauthId,
+    required String email,
+    required String firstName,
+    required String lastName,
+  }) async {
+    setState(() {
+      _loading = true;
+      _message = null;
+      _isSuccess = false;
+    });
+
+    try {
+      final api = YaaroScope.of(context);
+      await api.loginWithOAuth(
+        provider: provider,
+        oauthId: oauthId,
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+      );
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } on ApiException catch (e) {
+      setState(() {
+        _message = e.message;
+      });
+    } catch (e) {
+      setState(() {
+        _message = 'OAuth login failed. Please try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
       }
     }
   }

@@ -241,6 +241,41 @@ class ApiClient {
     }
   }
 
+  Future<void> loginWithOAuth({
+    required String provider,
+    required String oauthId,
+    required String email,
+    required String firstName,
+    required String lastName,
+  }) async {
+    final response = await http.post(
+      _uri('/api/auth/oauth/$provider'),
+      headers: _headers(),
+      body: jsonEncode({
+        'oauthId': oauthId,
+        'email': email,
+        'firstName': firstName,
+        'lastName': lastName,
+      }),
+    );
+    _extractCookies(response);
+    final payload = await _decode(response);
+    accessToken = payload['accessToken']?.toString();
+    refreshToken = payload['refreshToken']?.toString();
+    if (accessToken != null) {
+      await _secureStorage.writeAccessToken(accessToken!);
+    }
+    if (refreshToken != null) {
+      await _secureStorage.writeRefreshToken(refreshToken!);
+    }
+    final rawUser = payload['user'];
+    if (rawUser is Map<String, dynamic>) {
+      user = User.fromJson(rawUser);
+      await _secureStorage.writeUser(user!);
+    }
+  }
+
+
   Future<void> signup({
     required String firstName,
     required String lastName,

@@ -1203,7 +1203,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     final isActive = category.key == _activeInterest;
                     return InkWell(
                       borderRadius: BorderRadius.circular(8),
-                      onTap: () => _loadByInterest(category),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                ExploreCategoryDetailScreen(category: category),
+                          ),
+                        );
+                      },
                       child: Container(
                         width: 148,
                         padding: const EdgeInsets.all(12),
@@ -1324,27 +1332,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  Future<void> _loadByInterest(ExploreCategory category) async {
-    setState(() {
-      _profilesLoading = true;
-      _activeGoal = '';
-      _activeInterest = category.key;
-    });
-    try {
-      final profiles =
-          await YaaroScope.of(context).exploreByInterest(category.key);
-      setState(() {
-        _profiles = profiles;
-        _message = '';
-      });
-    } catch (_) {
-      setState(() => _message = 'No profiles found for ${category.label} yet.');
-    } finally {
-      if (mounted) {
-        setState(() => _profilesLoading = false);
-      }
-    }
-  }
+
 
   Future<void> _answerVibe(String answer) async {
     setState(() {
@@ -4256,6 +4244,294 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   },
                                 ),
                               ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ExploreCategoryDetailScreen extends StatefulWidget {
+  const ExploreCategoryDetailScreen({required this.category, super.key});
+
+  final ExploreCategory category;
+
+  @override
+  State<ExploreCategoryDetailScreen> createState() =>
+      _ExploreCategoryDetailScreenState();
+}
+
+class _ExploreCategoryDetailScreenState
+    extends State<ExploreCategoryDetailScreen> {
+  bool _loading = true;
+  List<DiscoveryProfile> _allProfiles = [];
+  List<DiscoveryProfile> _filteredProfiles = [];
+  String _activeGoal = '';
+  String _message = '';
+  VibeQuestion? _vibeQuestion;
+  bool _vibeLoading = false;
+  List<DiscoveryProfile> _vibeProfiles = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _message = '';
+    });
+    try {
+      final api = YaaroScope.of(context);
+      final list = await api.exploreByInterest(widget.category.key);
+      
+      _vibeLoading = true;
+      final q = await api.vibeToday();
+      
+      setState(() {
+        _allProfiles = list;
+        _vibeQuestion = q;
+        _vibeProfiles = [];
+        _applyFilter();
+      });
+      
+      if (q != null && q.answer != null) {
+        final vList = await api.respondToVibe(q.answer!);
+        setState(() {
+          _vibeProfiles = vList;
+        });
+      }
+    } catch (_) {
+      setState(() => _message = 'Unable to load this category.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _vibeLoading = false;
+        });
+      }
+    }
+  }
+
+  void _applyFilter() {
+    if (_activeGoal.isEmpty) {
+      _filteredProfiles = _allProfiles;
+    } else {
+      _filteredProfiles = _allProfiles
+          .where((p) => p.relationshipGoal?.toLowerCase() == _activeGoal.toLowerCase())
+          .toList();
+    }
+  }
+
+  Future<void> _answerVibe(String answer) async {
+    if (_vibeQuestion == null) return;
+    setState(() => _vibeLoading = true);
+    try {
+      final list = await YaaroScope.of(context).respondToVibe(answer);
+      setState(() {
+        _vibeQuestion = VibeQuestion(
+          id: _vibeQuestion!.id,
+          prompt: _vibeQuestion!.prompt,
+          answers: _vibeQuestion!.answers,
+          answer: answer,
+        );
+        _vibeProfiles = list;
+        _message = 'Vibe saved!';
+      });
+    } catch (_) {
+      setState(() => _message = 'Failed to answer vibe.');
+    } finally {
+      if (mounted) {
+        setState(() => _vibeLoading = false);
+      }
+    }
+  }
+
+  Future<void> _decide(DiscoveryProfile profile, SwipeAction action) async {
+    setState(() {
+      _allProfiles = _allProfiles.where((item) => item.id != profile.id).toList();
+      _vibeProfiles = _vibeProfiles.where((item) => item.id != profile.id).toList();
+      _applyFilter();
+      _message = action == SwipeAction.like
+          ? 'Liked ${profile.displayName}.'
+          : 'Passed on ${profile.displayName}.';
+    });
+
+    try {
+      final result = await YaaroScope.of(context).swipe(profile.id, action);
+      if (result.matched) {
+        setState(() => _message = "It's a match with ${profile.displayName}!");
+      }
+    } catch (_) {
+      setState(() => _message = 'Action failed. Try again.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: AppGradient(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new,
+                        color: YaaroColors.muted, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Text(
+                    'Explore',
+                    style: TextStyle(
+                      color: YaaroColors.rose,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Text(widget.category.emoji, style: const TextStyle(fontSize: 28)),
+                  const SizedBox(width: 8),
+                  Text(
+                    widget.category.label,
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Browse shared interests, intent, nearby profiles, daily Vibes, and quick Hot Takes.',
+                style: TextStyle(color: YaaroColors.muted, height: 1.35),
+              ),
+              if (_message.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                StatusPill(text: _message),
+              ],
+              const SizedBox(height: 20),
+              
+              SectionTitle(
+                title: 'People in this interest',
+                trailing: _loading ? 'Loading' : 'Live',
+              ),
+              const SizedBox(height: 10),
+              
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: ['Long-term', 'Casual', 'Friends', 'Not sure'].map((goal) {
+                  final isSelected = _activeGoal.toLowerCase() == goal.toLowerCase();
+                  return ChoiceChip(
+                    label: Text(goal),
+                    selected: isSelected,
+                    selectedColor: YaaroColors.rose.withOpacity(0.26),
+                    onSelected: (selected) {
+                      setState(() {
+                        _activeGoal = selected ? goal : '';
+                        _applyFilter();
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              
+              if (_loading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (_filteredProfiles.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: panelDecoration(),
+                  child: const Center(
+                    child: Text(
+                      'No profiles in this lane yet.',
+                      style: TextStyle(color: YaaroColors.muted),
+                    ),
+                  ),
+                )
+              else
+                ..._filteredProfiles.map((profile) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: CompactProfileTile(
+                    profile: profile,
+                    onPass: () => _decide(profile, SwipeAction.pass),
+                    onLike: () => _decide(profile, SwipeAction.like),
+                  ),
+                )),
+                
+              const SizedBox(height: 24),
+              
+              SectionTitle(
+                title: 'Vibes',
+                trailing: _vibeLoading ? 'Syncing' : 'Today',
+              ),
+              const SizedBox(height: 10),
+              if (_vibeQuestion != null)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: panelDecoration(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _vibeQuestion!.prompt,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _vibeQuestion!.answers
+                            .map((answer) => ChoiceChip(
+                                  label: Text(answer),
+                                  selected: answer == _vibeQuestion!.answer,
+                                  selectedColor: YaaroColors.teal.withOpacity(0.24),
+                                  onSelected: (_) => _answerVibe(answer),
+                                ))
+                            .toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_vibeProfiles.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ..._vibeProfiles.map((profile) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: CompactProfileTile(
+                    profile: profile,
+                    onPass: () => _decide(profile, SwipeAction.pass),
+                    onLike: () => _decide(profile, SwipeAction.like),
+                  ),
+                )),
+              ],
+              
+              const SizedBox(height: 24),
+              
+              const SectionTitle(
+                title: 'Hot Takes',
+                trailing: 'Soon',
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: panelDecoration(),
+                child: const Text(
+                  '30-second text dates are warming up. This speed chat lane is coming soon.',
+                  style: TextStyle(color: YaaroColors.muted, height: 1.35),
+                ),
               ),
             ],
           ),
