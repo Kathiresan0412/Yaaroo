@@ -41,6 +41,7 @@ class _AuthSheetState extends State<AuthSheet> {
   bool _isSuccess = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
+  bool _showPasswordRequirements = false;
 
   // Password Validation States
   bool _hasMinLength = false;
@@ -408,10 +409,13 @@ class _AuthSheetState extends State<AuthSheet> {
               label: 'Password',
               visible: _showPassword,
               onToggle: () => setState(() => _showPassword = !_showPassword),
+              showHelp: true,
             ),
-            const SizedBox(height: 8),
-            _buildPasswordValidationGuide(),
-            const SizedBox(height: 8),
+            if (_showPasswordRequirements) ...[
+              const SizedBox(height: 8),
+              _buildPasswordValidationGuide(),
+            ],
+            const SizedBox(height: 12),
             _buildPasswordField(
               controller: _confirmPassword,
               label: 'Confirm password',
@@ -441,10 +445,13 @@ class _AuthSheetState extends State<AuthSheet> {
               label: 'New Password',
               visible: _showPassword,
               onToggle: () => setState(() => _showPassword = !_showPassword),
+              showHelp: true,
             ),
-            const SizedBox(height: 8),
-            _buildPasswordValidationGuide(),
-            const SizedBox(height: 8),
+            if (_showPasswordRequirements) ...[
+              const SizedBox(height: 8),
+              _buildPasswordValidationGuide(),
+            ],
+            const SizedBox(height: 12),
             _buildPasswordField(
               controller: _confirmPassword,
               label: 'Confirm New Password',
@@ -477,6 +484,7 @@ class _AuthSheetState extends State<AuthSheet> {
     required String label,
     required bool visible,
     required VoidCallback onToggle,
+    bool showHelp = false,
   }) {
     return TextField(
       controller: controller,
@@ -510,13 +518,27 @@ class _AuthSheetState extends State<AuthSheet> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         suffixIcon: Padding(
           padding: const EdgeInsets.only(right: 8),
-          child: IconButton(
-            tooltip: visible ? 'Hide password' : 'Show password',
-            icon: Icon(
-              visible ? Icons.visibility_off : Icons.visibility,
-              color: Colors.white60,
-            ),
-            onPressed: onToggle,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showHelp)
+                IconButton(
+                  tooltip: 'Password requirements',
+                  icon: Icon(
+                    Icons.help_outline,
+                    color: _showPasswordRequirements ? const Color(0xFF31D0B2) : Colors.white60,
+                  ),
+                  onPressed: () => setState(() => _showPasswordRequirements = !_showPasswordRequirements),
+                ),
+              IconButton(
+                tooltip: visible ? 'Hide password' : 'Show password',
+                icon: Icon(
+                  visible ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.white60,
+                ),
+                onPressed: onToggle,
+              ),
+            ],
           ),
         ),
       ),

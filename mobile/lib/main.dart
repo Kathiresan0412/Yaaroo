@@ -883,15 +883,19 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     setState(() => _loading = true);
     try {
       final cards = await YaaroScope.of(context).discover();
-      setState(() {
-        _profiles = cards;
-        _message = '';
-      });
+      if (mounted) {
+        setState(() {
+          _profiles = cards;
+          _message = '';
+        });
+      }
     } catch (_) {
-      setState(() {
-        _profiles = const [];
-        _message = '';
-      });
+      if (mounted) {
+        setState(() {
+          _profiles = const [];
+          _message = '';
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -1052,9 +1056,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     try {
       await YaaroScope.of(context).undoSwipe();
       await _load();
-      setState(() => _message = 'Last swipe undone.');
+      if (mounted) {
+        setState(() => _message = 'Last swipe undone.');
+      }
     } catch (_) {
-      setState(() => _message = 'Undo is unavailable right now.');
+      if (mounted) {
+        setState(() => _message = 'Undo is unavailable right now.');
+      }
     }
   }
 }
