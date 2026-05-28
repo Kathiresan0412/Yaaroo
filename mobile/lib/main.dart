@@ -1101,19 +1101,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
         api.exploreNearby(),
         api.vibeToday(),
       ]);
-      setState(() {
-        _categories = results[0] as List<ExploreCategory>;
-        _profiles = results[1] as List<DiscoveryProfile>;
-        _vibeQuestion = results[2] as VibeQuestion?;
-        _message = '';
-      });
+      if (mounted) {
+        setState(() {
+          _categories = results[0] as List<ExploreCategory>;
+          _profiles = results[1] as List<DiscoveryProfile>;
+          _vibeQuestion = results[2] as VibeQuestion?;
+          _message = '';
+        });
+      }
     } catch (_) {
-      setState(() {
-        _categories = const [];
-        _profiles = const [];
-        _vibeQuestion = null;
-        _message = '';
-      });
+      if (mounted) {
+        setState(() {
+          _categories = const [];
+          _profiles = const [];
+          _vibeQuestion = null;
+          _message = '';
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -1306,12 +1310,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
     });
     try {
       final profiles = await YaaroScope.of(context).exploreNearby();
-      setState(() {
-        _profiles = profiles;
-        _message = '';
-      });
+      if (mounted) {
+        setState(() {
+          _profiles = profiles;
+          _message = '';
+        });
+      }
     } catch (_) {
-      setState(() => _message = 'Nearby profiles are unavailable right now.');
+      if (mounted) {
+        setState(() => _message = 'Nearby profiles are unavailable right now.');
+      }
     } finally {
       if (mounted) {
         setState(() => _profilesLoading = false);
@@ -1327,20 +1335,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
     });
     try {
       final profiles = await YaaroScope.of(context).exploreByGoal(goal);
-      setState(() {
-        _profiles = profiles;
-        _message = '';
-      });
+      if (mounted) {
+        setState(() {
+          _profiles = profiles;
+          _message = '';
+        });
+      }
     } catch (_) {
-      setState(() => _message = 'No profiles found for $goal yet.');
+      if (mounted) {
+        setState(() => _message = 'No profiles found for $goal yet.');
+      }
     } finally {
       if (mounted) {
         setState(() => _profilesLoading = false);
       }
     }
   }
-
-
 
   Future<void> _answerVibe(String answer) async {
     setState(() {
@@ -1356,9 +1366,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
     });
     try {
       final profiles = await YaaroScope.of(context).respondToVibe(answer);
-      setState(() => _vibeProfiles = profiles);
+      if (mounted) {
+        setState(() => _vibeProfiles = profiles);
+      }
     } catch (_) {
-      setState(() => _message = 'Unable to save your vibe right now.');
+      if (mounted) {
+        setState(() => _message = 'Unable to save your vibe right now.');
+      }
     }
   }
 
@@ -1374,11 +1388,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     try {
       final result = await YaaroScope.of(context).swipe(profile.id, action);
-      if (result.matched) {
+      if (result.matched && mounted) {
         setState(() => _message = "It's a match with ${profile.displayName}.");
       }
     } catch (_) {
-      setState(() => _message = 'Action failed. Try again.');
+      if (mounted) {
+        setState(() => _message = 'Action failed. Try again.');
+      }
     }
   }
 }
