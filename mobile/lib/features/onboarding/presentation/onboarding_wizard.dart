@@ -68,7 +68,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   final _city = TextEditingController();
   final _country = TextEditingController();
 
-  List<String> _photos = [];
+  List<Map<String, dynamic>> _photos = [];
   List<String> _sexualOrientation = [];
   double? _heightCm;
   String? _bodyType;
@@ -202,7 +202,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       final photosList = payload['photos'] as List? ?? [];
 
       setState(() {
-        _photos = photosList.map((p) => p['url']?.toString() ?? '').toList();
+        _photos = List<Map<String, dynamic>>.from(photosList);
 
         final existingDisplayName = profile['displayName']?.toString() ?? '';
         _displayName.text = existingDisplayName;
@@ -425,7 +425,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       final photosPayload = await api.getProfilePhotos();
       if (!mounted) return;
       setState(() {
-        _photos = photosPayload.map((p) => p['url']?.toString() ?? '').toList();
+        _photos = List<Map<String, dynamic>>.from(photosPayload);
         if (_photos.length >= 2) {
           _photosHasError = false;
         }
@@ -458,17 +458,50 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
   Future<void> _deletePhoto(int index) async {
     if (_photos.length <= index) return;
+    final photoId = _photos[index]['id']?.toString();
+    if (photoId == null) return;
+
     setState(() => _saving = true);
+    final api = YaaroScope.of(context);
     try {
+      final payload = await api.deletePhoto(photoId);
+      if (!mounted) return;
       setState(() {
-        _photos.removeAt(index);
+        final photosList = payload['photos'] as List? ?? [];
+        _photos = List<Map<String, dynamic>>.from(photosList);
         _photosHasError = _photos.length < 2;
       });
       _showToast('Photo removed.', isError: false);
-    } catch (_) {
-      _showToast('Failed to delete photo.');
+    } catch (e) {
+      _showToast('Failed to delete photo: $e');
     } finally {
-      setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _pinPrimaryPhoto(int index) async {
+    if (_photos.length <= index) return;
+    final photoId = _photos[index]['id']?.toString();
+    if (photoId == null) return;
+
+    setState(() => _saving = true);
+    final api = YaaroScope.of(context);
+    try {
+      final payload = await api.pinPrimaryPhoto(photoId);
+      if (!mounted) return;
+      setState(() {
+        final photosList = payload['photos'] as List? ?? [];
+        _photos = List<Map<String, dynamic>>.from(photosList);
+      });
+      _showToast('Pinned primary photo.', isError: false);
+    } catch (e) {
+      _showToast('Failed to pin photo: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
@@ -1027,24 +1060,65 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
             itemCount: 6,
             itemBuilder: (context, index) {
               if (index < _photos.length) {
+                final photo = _photos[index];
+                final isPrimary = photo['isPrimary'] == true;
+                final photoUrl = photo['url']?.toString() ?? '';
+
                 return Stack(
                   fit: StackFit.expand,
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(_photos[index], fit: BoxFit.cover),
+                      child: Image.network(photoUrl, fit: BoxFit.cover),
                     ),
-                    if (index == 0)
+                    if (isPrimary)
                       Positioned(
                         left: 6,
                         top: 6,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                           decoration: BoxDecoration(
                             color: YaaroColors.teal,
                             borderRadius: BorderRadius.circular(4),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          child: const Text('PRIMARY', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900)),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.push_pin, size: 10, color: Colors.white),
+                              SizedBox(width: 3),
+                              Text(
+                                'PRIMARY',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      Positioned(
+                        left: 6,
+                        top: 6,
+                        child: IconButton(
+                          icon: const Icon(Icons.push_pin_outlined, color: Colors.white70, size: 14),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black54,
+                            padding: const EdgeInsets.all(6),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          tooltip: 'Pin as primary',
+                          onPressed: () => _pinPrimaryPhoto(index),
                         ),
                       ),
                     Positioned(

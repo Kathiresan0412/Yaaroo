@@ -556,9 +556,14 @@ class ApiClient {
     await _decode(response);
   }
 
-  Future<void> deletePhoto(String id) async {
+  Future<Map<String, dynamic>> deletePhoto(String id) async {
     final response = await _request('DELETE', '/api/profile/photos/$id');
-    await _decode(response);
+    return await _decode(response);
+  }
+
+  Future<Map<String, dynamic>> pinPrimaryPhoto(String id) async {
+    final response = await _request('PUT', '/api/profile/photos/$id/primary', body: {});
+    return await _decode(response);
   }
 
   Future<void> reorderPhotos(List<String> photoIds) async {
