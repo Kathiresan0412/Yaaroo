@@ -922,12 +922,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   bool _swiping = false;
   String _message = '';
   Offset _drag = Offset.zero;
+  bool _didLoad = false;
 
   DiscoveryProfile? get _top => _profiles.isEmpty ? null : _profiles.first;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoad) {
+      return;
+    }
+    _didLoad = true;
     _load();
   }
 
@@ -960,7 +965,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     return AppGradient(
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
           child: Column(
             children: [
               HeaderBar(
@@ -1013,28 +1018,33 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     0,
                     i == visible.length - 1
                         ? _drag.dy
-                        : 16.0 * (visible.length - i - 1)),
+                        : -12.0 * (visible.length - i - 1)),
                 child: Transform.rotate(
                   angle: i == visible.length - 1 ? _drag.dx / 850 : 0,
-                  child: GestureDetector(
-                    onPanUpdate: i == visible.length - 1
-                        ? (details) => setState(() => _drag += details.delta)
-                        : null,
-                    onPanEnd: i == visible.length - 1
-                        ? (_) {
-                            final action = _drag.dx > 110
-                                ? SwipeAction.like
-                                : _drag.dx < -110
-                                    ? SwipeAction.pass
-                                    : null;
-                            if (action == null) {
-                              setState(() => _drag = Offset.zero);
-                            } else {
-                              _swipe(action);
+                  child: Transform.scale(
+                    scale: i == visible.length - 1
+                        ? 1.0
+                        : 1.0 - 0.04 * (visible.length - i - 1),
+                    child: GestureDetector(
+                      onPanUpdate: i == visible.length - 1
+                          ? (details) => setState(() => _drag += details.delta)
+                          : null,
+                      onPanEnd: i == visible.length - 1
+                          ? (_) {
+                              final action = _drag.dx > 110
+                                  ? SwipeAction.like
+                                  : _drag.dx < -110
+                                      ? SwipeAction.pass
+                                      : null;
+                              if (action == null) {
+                                setState(() => _drag = Offset.zero);
+                              } else {
+                                _swipe(action);
+                              }
                             }
-                          }
-                        : null,
-                    child: ProfileCard(profile: visible[i]),
+                          : null,
+                      child: ProfileCard(profile: visible[i]),
+                    ),
                   ),
                 ),
               ),
@@ -1724,12 +1734,22 @@ class _MatchesScreenState extends State<MatchesScreen> {
   String _query = '';
   bool _loading = true;
   io.Socket? _socket;
+  bool _didLoad = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoad) {
+      return;
+    }
+    _didLoad = true;
+    _load();
+    _setupSocket();
+  }
 
   @override
   void initState() {
     super.initState();
-    _load();
-    Future.delayed(Duration.zero, _setupSocket);
   }
 
   @override
@@ -3186,10 +3206,15 @@ class _MembershipScreenState extends State<MembershipScreen> {
   bool _loading = true;
   String _message = '';
   String? _busyTier;
+  bool _didLoad = false;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoad) {
+      return;
+    }
+    _didLoad = true;
     _loadStatus();
   }
 
@@ -3624,7 +3649,7 @@ class ProfileCard extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 430),
+        constraints: const BoxConstraints(maxWidth: 430, maxHeight: 580),
         decoration: BoxDecoration(
           color: YaaroColors.surfaceAlt,
           border: Border.all(color: YaaroColors.line),
@@ -4481,10 +4506,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _loading = true;
   List<dynamic> _notifications = [];
   String _error = '';
+  bool _didLoad = false;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoad) {
+      return;
+    }
+    _didLoad = true;
     _loadNotifications();
   }
 
@@ -4801,10 +4831,15 @@ class _ExploreCategoryDetailScreenState
   VibeQuestion? _vibeQuestion;
   bool _vibeLoading = false;
   List<DiscoveryProfile> _vibeProfiles = [];
+  bool _didLoad = false;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoad) {
+      return;
+    }
+    _didLoad = true;
     _load();
   }
 
