@@ -353,16 +353,20 @@ class ApiClient {
   Future<List<dynamic>> getNotifications() async {
     final response = await _request('GET', '/api/notifications');
     final payload = await _decode(response);
-    return payload['notifications'] is List ? payload['notifications'] as List : [];
+    return payload['notifications'] is List
+        ? payload['notifications'] as List
+        : [];
   }
 
   Future<void> markNotificationsAsRead() async {
-    final response = await _request('PATCH', '/api/notifications/read', body: {});
+    final response =
+        await _request('PATCH', '/api/notifications/read', body: {});
     await _decode(response);
   }
 
   Future<void> markNotificationAsRead(String id) async {
-    final response = await _request('PATCH', '/api/notifications/$id/read', body: {});
+    final response =
+        await _request('PATCH', '/api/notifications/$id/read', body: {});
     await _decode(response);
   }
 
@@ -596,6 +600,19 @@ class ApiClient {
   }
 
   // --- Messages ---
+
+  Future<List<MatchItem>> conversations() async {
+    final response = await _request('GET', '/api/conversations');
+    final payload = await _decode(response);
+    final conversations = payload['conversations'];
+    if (conversations is List) {
+      return conversations
+          .whereType<Map<String, dynamic>>()
+          .map(MatchItem.fromJson)
+          .toList();
+    }
+    return [];
+  }
 
   Future<Map<String, dynamic>> getMessages(String matchId,
       {String? cursor}) async {

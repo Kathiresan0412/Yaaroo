@@ -48,7 +48,8 @@ class _ChatScreenState extends State<ChatScreen> {
   Timer? _recordTimer;
 
   // Active audio playback simulations
-  final Map<String, double> _audioPlaybackPosition = {}; // messageId -> progress (0.0 to 1.0)
+  final Map<String, double> _audioPlaybackPosition =
+      {}; // messageId -> progress (0.0 to 1.0)
   final Map<String, bool> _audioPlayingState = {}; // messageId -> isPlaying
   final Map<String, Timer?> _audioPlaybackTimers = {}; // messageId -> timer
 
@@ -90,7 +91,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _onScroll() {
     // Scroll near top to fetch pagination cursor
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 100) {
       if (_nextCursor != null && !_isLoadingMore) {
         _loadMoreMessages();
       }
@@ -141,7 +143,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     try {
-      final payload = await _apiClient.getMessages(widget.matchId, cursor: cursor);
+      final payload =
+          await _apiClient.getMessages(widget.matchId, cursor: cursor);
       final rawMessages = payload['messages'] as List? ?? [];
       final incoming = rawMessages
           .whereType<Map<String, dynamic>>()
@@ -177,7 +180,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     final sorted = map.values.toList()
-      ..sort((a, b) => DateTime.parse(b.createdAt).compareTo(DateTime.parse(a.createdAt)));
+      ..sort((a, b) =>
+          DateTime.parse(b.createdAt).compareTo(DateTime.parse(a.createdAt)));
 
     setState(() {
       _messages.clear();
@@ -195,7 +199,8 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!m.isMine && !m.isRead) {
         _apiClient.markMessageRead(m.id).catchError((_) {});
         if (_socket != null && _socket!.connected) {
-          _socket!.emit('mark_read', {'matchId': widget.matchId, 'messageId': m.id});
+          _socket!.emit(
+              'mark_read', {'matchId': widget.matchId, 'messageId': m.id});
         }
       }
     }
@@ -205,10 +210,12 @@ class _ChatScreenState extends State<ChatScreen> {
     final token = _apiClient.accessToken;
     if (token == null) return;
 
-    final String apiHost = '${_apiClient.baseUri.scheme}://${_apiClient.baseUri.authority}';
-    final String socketUrl = const String.fromEnvironment('YAARO0_SOCKET_URL').isNotEmpty
-        ? const String.fromEnvironment('YAARO0_SOCKET_URL')
-        : apiHost;
+    final String apiHost =
+        '${_apiClient.baseUri.scheme}://${_apiClient.baseUri.authority}';
+    final String socketUrl =
+        const String.fromEnvironment('YAARO0_SOCKET_URL').isNotEmpty
+            ? const String.fromEnvironment('YAARO0_SOCKET_URL')
+            : apiHost;
 
     _socket = io.io(
       socketUrl,
@@ -248,7 +255,8 @@ class _ChatScreenState extends State<ChatScreen> {
         if (msg.matchId == widget.matchId) {
           _mergeAndSortMessages([msg]);
           // Mark immediately read
-          _socket!.emit('mark_read', {'matchId': widget.matchId, 'messageId': msg.id});
+          _socket!.emit(
+              'mark_read', {'matchId': widget.matchId, 'messageId': msg.id});
           _apiClient.markMessageRead(msg.id).catchError((_) {});
         }
       }
@@ -262,7 +270,8 @@ class _ChatScreenState extends State<ChatScreen> {
           setState(() {
             for (var i = 0; i < _messages.length; i++) {
               if (_messages[i].isMine) {
-                _messages[i] = _messages[i].copyWith(isRead: true, readAt: readAt);
+                _messages[i] =
+                    _messages[i].copyWith(isRead: true, readAt: readAt);
               }
             }
           });
@@ -273,7 +282,8 @@ class _ChatScreenState extends State<ChatScreen> {
     _socket!.on('message_reaction', (data) {
       if (data is Map && data['message'] is Map<String, dynamic>) {
         final updatedJson = data['message'] as Map<String, dynamic>;
-        final updatedMsg = ChatMessage.fromJson(updatedJson, _currentUserId ?? '');
+        final updatedMsg =
+            ChatMessage.fromJson(updatedJson, _currentUserId ?? '');
         setState(() {
           final idx = _messages.indexWhere((m) => m.id == updatedMsg.id);
           if (idx != -1) {
@@ -309,6 +319,11 @@ class _ChatScreenState extends State<ChatScreen> {
         ack: (ack) {
           if (ack is Map && ack['success'] == true) {
             // Socket message is sent, wait for 'new_message' socket event or load from REST
+          } else if (ack is Map && ack['status'] == 402) {
+            setState(() {
+              _notice = ack['message']?.toString() ??
+                  'Free members can send 2 messages per day.';
+            });
           } else {
             setState(() {
               _notice = 'WebSocket delivery failure, trying REST...';
@@ -326,7 +341,8 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final res = await _apiClient.sendMessage(widget.matchId, text, 'text');
       if (res['success'] == true && res['message'] is Map<String, dynamic>) {
-        final newMsg = ChatMessage.fromJson(res['message'], _currentUserId ?? '');
+        final newMsg =
+            ChatMessage.fromJson(res['message'], _currentUserId ?? '');
         _mergeAndSortMessages([newMsg]);
       }
     } catch (e) {
@@ -347,9 +363,11 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final res = await _apiClient.sendMessage(widget.matchId, '', 'gif', mediaUrl: url);
+      final res = await _apiClient.sendMessage(widget.matchId, '', 'gif',
+          mediaUrl: url);
       if (res['success'] == true && res['message'] is Map<String, dynamic>) {
-        final newMsg = ChatMessage.fromJson(res['message'], _currentUserId ?? '');
+        final newMsg =
+            ChatMessage.fromJson(res['message'], _currentUserId ?? '');
         _mergeAndSortMessages([newMsg]);
       }
     } catch (e) {
@@ -412,7 +430,8 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         for (var i = 0; i < _messages.length; i++) {
           if (_messages[i].id == messageId) {
-            _messages[i] = _messages[i].copyWith(isDeleted: true, content: null, mediaUrl: null);
+            _messages[i] = _messages[i]
+                .copyWith(isDeleted: true, content: null, mediaUrl: null);
           }
         }
       });
@@ -538,7 +557,8 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 Text(
                   _matchNameState,
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w900, fontSize: 16),
                 ),
                 Text(
                   _isOnline ? 'Online now' : 'Reconnecting when active',
@@ -576,11 +596,15 @@ class _ChatScreenState extends State<ChatScreen> {
                   Expanded(
                     child: Text(
                       _notice!,
-                      style: const TextStyle(color: YaaroColors.saffron, fontSize: 13, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          color: YaaroColors.saffron,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: YaaroColors.saffron, size: 16),
+                    icon: const Icon(Icons.close,
+                        color: YaaroColors.saffron, size: 16),
                     onPressed: () => setState(() => _notice = null),
                   ),
                 ],
@@ -588,7 +612,8 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: YaaroColors.rose))
+                ? const Center(
+                    child: CircularProgressIndicator(color: YaaroColors.rose))
                 : _messages.isEmpty
                     ? const Center(
                         child: Text(
@@ -599,11 +624,13 @@ class _ChatScreenState extends State<ChatScreen> {
                     : ListView.builder(
                         controller: _scrollController,
                         reverse: true,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         itemCount: _messages.length,
                         itemBuilder: (context, index) {
                           final message = _messages[index];
-                          final showSeen = lastMineRead.id.isNotEmpty && message.id == lastMineRead.id;
+                          final showSeen = lastMineRead.id.isNotEmpty &&
+                              message.id == lastMineRead.id;
                           return Column(
                             crossAxisAlignment: message.isMine
                                 ? CrossAxisAlignment.end
@@ -612,10 +639,12 @@ class _ChatScreenState extends State<ChatScreen> {
                               _buildMessageBubble(message),
                               if (showSeen && message.readAt != null)
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 4, right: 8, bottom: 8),
+                                  padding: const EdgeInsets.only(
+                                      top: 4, right: 8, bottom: 8),
                                   child: Text(
                                     'Seen ${DateFormat('jm').format(DateTime.parse(message.readAt!))}',
-                                    style: const TextStyle(fontSize: 10, color: Colors.white24),
+                                    style: const TextStyle(
+                                        fontSize: 10, color: Colors.white24),
                                   ),
                                 ),
                             ],
@@ -678,7 +707,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   fontSize: 14,
                 ),
               )
-            else if (message.type == 'photo' || message.type == 'image' || message.type == 'gif')
+            else if (message.type == 'photo' ||
+                message.type == 'image' ||
+                message.type == 'gif')
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: Image.network(
@@ -687,7 +718,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     if (loadingProgress == null) return child;
                     return const SizedBox(
                       height: 150,
-                      child: Center(child: CircularProgressIndicator(color: Colors.white30)),
+                      child: Center(
+                          child:
+                              CircularProgressIndicator(color: Colors.white30)),
                     );
                   },
                   errorBuilder: (context, error, stackTrace) => Container(
@@ -721,7 +754,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 if (!message.isDeleted) ...[
                   const SizedBox(width: 6),
-                  const Icon(Icons.sentiment_satisfied, size: 12, color: Colors.white38),
+                  const Icon(Icons.sentiment_satisfied,
+                      size: 12, color: Colors.white38),
                 ],
               ],
             ),
@@ -815,16 +849,19 @@ class _ChatScreenState extends State<ChatScreen> {
                 TextButton.icon(
                   onPressed: () => _deleteMessage(message.id),
                   icon: const Icon(Icons.delete, color: YaaroColors.rose),
-                  label: const Text('Delete Message', style: TextStyle(color: YaaroColors.rose)),
+                  label: const Text('Delete Message',
+                      style: TextStyle(color: YaaroColors.rose)),
                 ),
               TextButton.icon(
                 onPressed: () => _reportMessage(message.id),
                 icon: const Icon(Icons.flag, color: YaaroColors.saffron),
-                label: const Text('Report Safety', style: TextStyle(color: YaaroColors.saffron)),
+                label: const Text('Report Safety',
+                    style: TextStyle(color: YaaroColors.saffron)),
               ),
               TextButton(
                 onPressed: () => setState(() => _selectedMessageId = null),
-                child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                child: const Text('Cancel',
+                    style: TextStyle(color: Colors.white70)),
               ),
             ],
           ),
@@ -872,7 +909,8 @@ class _ChatScreenState extends State<ChatScreen> {
             onPressed: _sendPhoto,
           ),
           IconButton(
-            icon: Icon(Icons.gif, color: _showGifs ? YaaroColors.rose : YaaroColors.muted),
+            icon: Icon(Icons.gif,
+                color: _showGifs ? YaaroColors.rose : YaaroColors.muted),
             onPressed: () {
               setState(() {
                 _showGifs = !_showGifs;
@@ -885,7 +923,9 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: _isRecording ? YaaroColors.rose.withOpacity(0.24) : Colors.transparent,
+                color: _isRecording
+                    ? YaaroColors.rose.withOpacity(0.24)
+                    : Colors.transparent,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -899,11 +939,15 @@ class _ChatScreenState extends State<ChatScreen> {
             child: _isRecording
                 ? Row(
                     children: [
-                      const Icon(Icons.fiber_manual_record, color: YaaroColors.rose, size: 16),
+                      const Icon(Icons.fiber_manual_record,
+                          color: YaaroColors.rose, size: 16),
                       const SizedBox(width: 6),
                       Text(
                         'Recording: 0:${_recordSeconds.toString().padLeft(2, '0')}',
-                        style: const TextStyle(color: YaaroColors.rose, fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(
+                            color: YaaroColors.rose,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13),
                       ),
                       const Spacer(),
                       const Text(
@@ -964,7 +1008,8 @@ class ChatMessage {
     required this.createdAt,
   });
 
-  factory ChatMessage.fromJson(Map<String, dynamic> json, String currentUserId) {
+  factory ChatMessage.fromJson(
+      Map<String, dynamic> json, String currentUserId) {
     final rawReactions = json['reactions'] as List? ?? [];
     final parsedReactions = rawReactions
         .whereType<Map<String, dynamic>>()
@@ -980,11 +1025,13 @@ class ChatMessage {
       mediaUrl: json['mediaUrl']?.toString() ?? json['gifUrl']?.toString(),
       durationSeconds: int.tryParse(json['durationSeconds']?.toString() ?? ''),
       reactions: parsedReactions,
-      isMine: (json['senderId']?.toString() == currentUserId) || json['isMine'] == true,
+      isMine: (json['senderId']?.toString() == currentUserId) ||
+          json['isMine'] == true,
       isRead: json['isRead'] == true,
       readAt: json['readAt']?.toString(),
       isDeleted: json['isDeleted'] == true,
-      createdAt: json['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
+      createdAt:
+          json['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
     );
   }
 

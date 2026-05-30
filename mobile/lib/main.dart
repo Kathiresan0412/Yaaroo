@@ -614,6 +614,7 @@ class _AppShellState extends State<AppShell> {
       DiscoverScreen(onOpenAuth: _openAuth),
       ExploreScreen(onOpenAuth: _openAuth),
       MatchesScreen(onOpenAuth: _openAuth),
+      ChatListScreen(onOpenAuth: _openAuth),
       ProfileScreen(
         onOpenAuth: _openAuth,
         onLogout: () async {
@@ -646,7 +647,9 @@ class _AppShellState extends State<AppShell> {
               NavigationDestination(
                   icon: Icon(Icons.explore), label: 'Explore'),
               NavigationDestination(
-                  icon: Icon(Icons.chat_bubble), label: 'Matches'),
+                  icon: Icon(Icons.favorite), label: 'Matches'),
+              NavigationDestination(
+                  icon: Icon(Icons.chat_bubble), label: 'Chat'),
               NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
             ],
           ),
@@ -1073,12 +1076,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       _swiping = true;
       _profiles = _profiles.skip(1).toList();
       _drag = Offset.zero;
-      if (action == SwipeAction.like || action == SwipeAction.superlike) {
-        _message =
-            'Sent ${action == SwipeAction.superlike ? 'a superlike' : 'a like'} to ${profile.displayName}.';
-      } else {
-        _message = '';
-      }
+      _message = '';
     });
 
     // Throttled UI unlock: allow the next swipe after 200ms
@@ -1090,16 +1088,116 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
     // Run the swipe request in the background (optimistic UI)
     YaaroScope.of(context).swipe(profile.id, action).then((result) {
-      if (result.matched && mounted) {
-        setState(() => _message = "It's a match with ${profile.displayName}!");
+      if (!mounted) {
+        return;
+      }
+      if (action == SwipeAction.like || action == SwipeAction.superlike) {
+        _showInterestCelebration(profile, result);
       }
     }).catchError((err) {
       debugPrint('Swipe failed: $err');
       if (mounted) {
-        setState(
-            () => _message = 'Could not send swipe to ${profile.displayName}.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('Could not send interest to ${profile.displayName}.')),
+        );
       }
     });
+  }
+
+  Future<void> _showInterestCelebration(
+      DiscoveryProfile profile, SwipeResult result) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: YaaroColors.surface,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.6, end: 1),
+                  duration: const Duration(milliseconds: 520),
+                  curve: Curves.elasticOut,
+                  builder: (context, value, child) {
+                    return Transform.scale(scale: value, child: child);
+                  },
+                  child: Container(
+                    width: 76,
+                    height: 76,
+                    decoration: BoxDecoration(
+                      color: YaaroColors.rose.withOpacity(0.18),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.favorite,
+                        color: YaaroColors.rose, size: 42),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  result.matched
+                      ? "It's a match with ${profile.displayName}!"
+                      : 'Your interest request was sent to ${profile.displayName}.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  result.matched
+                      ? 'You can start chatting now.'
+                      : 'We will let you know when they choose you back.',
+                  textAlign: TextAlign.center,
+                  style:
+                      const TextStyle(color: YaaroColors.muted, height: 1.35),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(result.matched ? 'Later' : 'OK'),
+                      ),
+                    ),
+                    if (result.matched && result.matchId != null) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatScreen(
+                                  matchId: result.matchId!,
+                                  matchName: profile.displayName,
+                                  matchPhotoUrl: profile.photoUrl,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.chat_bubble),
+                          label: const Text('Chat now'),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _undo() async {
@@ -1136,12 +1234,19 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String _activeInterest = '';
   String _activeInterestLabel = '';
   String _message = '';
+  String _categoriesMessage = '';
   bool _loading = true;
+  bool _categoriesLoading = true;
   bool _profilesLoading = false;
+  bool _didLoad = false;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoad) {
+      return;
+    }
+    _didLoad = true;
     _load();
   }
 
@@ -1156,11 +1261,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
       var profiles = const <DiscoveryProfile>[];
       VibeQuestion? vibeQuestion;
       var message = '';
+      var categoriesMessage = '';
 
       try {
         categories = await categoriesFuture;
       } catch (_) {
         message = 'Explore categories are unavailable right now.';
+        categoriesMessage = message;
       }
 
       try {
@@ -1183,6 +1290,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
           _profiles = profiles;
           _vibeQuestion = vibeQuestion;
           _message = message;
+          _categoriesMessage = categoriesMessage.isNotEmpty
+              ? categoriesMessage
+              : categories.isEmpty
+                  ? 'No interest categories are active in the database yet.'
+                  : '';
         });
       }
 
@@ -1192,7 +1304,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
       }
     } finally {
       if (mounted) {
-        setState(() => _loading = false);
+        setState(() {
+          _loading = false;
+          _categoriesLoading = false;
+        });
       }
     }
   }
@@ -1226,67 +1341,86 @@ class _ExploreScreenState extends State<ExploreScreen> {
               const SizedBox(height: 14),
               StatusPill(text: _message),
             ],
-            if (_categories.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              SectionTitle(
-                  title: 'By interest',
-                  trailing: _activeInterestLabel.isEmpty
-                      ? '${_categories.length} groups'
-                      : _activeInterestLabel),
-              const SizedBox(height: 10),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _categories.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 1.45,
+            const SizedBox(height: 24),
+            SectionTitle(
+                title: 'By interest',
+                trailing: _categoriesLoading
+                    ? 'Loading'
+                    : _activeInterestLabel.isEmpty
+                        ? '${_categories.length} groups'
+                        : _activeInterestLabel),
+            const SizedBox(height: 10),
+            if (_categoriesLoading)
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: panelDecoration(),
+                child: const Center(child: CircularProgressIndicator()),
+              )
+            else if (_categories.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: panelDecoration(),
+                child: Text(
+                  _categoriesMessage.isEmpty
+                      ? 'No interest categories are active in the database yet.'
+                      : _categoriesMessage,
+                  style:
+                      const TextStyle(color: YaaroColors.muted, height: 1.35),
                 ),
-                itemBuilder: (context, index) {
-                  final category = _categories[index];
-                  final isActive = category.key == _activeInterest;
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () => _loadByInterest(category),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: panelDecoration().copyWith(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFFE85C47), YaaroColors.rose],
+              )
+            else
+              GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _categories.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 1.45,
+                  ),
+                  itemBuilder: (context, index) {
+                    final category = _categories[index];
+                    final isActive = category.key == _activeInterest;
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _loadByInterest(category),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: panelDecoration().copyWith(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFFE85C47), YaaroColors.rose],
+                          ),
+                          border: Border.all(
+                            color:
+                                isActive ? Colors.white70 : Colors.transparent,
+                          ),
                         ),
-                        border: Border.all(
-                          color: isActive ? Colors.white70 : Colors.transparent,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(category.emoji,
+                                style: const TextStyle(fontSize: 22)),
+                            const Spacer(),
+                            Text(
+                              category.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w900, fontSize: 16),
+                            ),
+                            Text(
+                              '${category.count} people',
+                              style: const TextStyle(
+                                  color: Color(0xDFFFFFFF), fontSize: 12),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(category.emoji,
-                              style: const TextStyle(fontSize: 22)),
-                          const Spacer(),
-                          Text(
-                            category.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w900, fontSize: 16),
-                          ),
-                          Text(
-                            '${category.count} people',
-                            style: const TextStyle(
-                                color: Color(0xDFFFFFFF), fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
+                    );
+                  }),
             const SizedBox(height: 22),
             SectionTitle(
                 title: _activeInterest.isEmpty
@@ -1588,7 +1722,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
   int _likesCount = 0;
   bool _likesBlurred = true;
   String _query = '';
-  String _message = '';
   bool _loading = true;
   io.Socket? _socket;
 
@@ -1620,7 +1753,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
         api.likesReceivedFull(),
       ]);
 
-      final matches = results[0] as List<MatchItem>;
+      final matches = _dedupeMatches(results[0] as List<MatchItem>);
       final likesPayload = results[1] as Map<String, dynamic>;
       final rawLikes = likesPayload['likes'];
       List<LikeItem> likes = [];
@@ -1638,7 +1771,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
           _likesCount = int.tryParse(likesPayload['count']?.toString() ?? '') ??
               likes.length;
           _likesBlurred = likesPayload['blurred'] == true;
-          _message = '';
         });
       }
 
@@ -1680,35 +1812,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
         'likesBlurred': _likesBlurred,
       });
       await SecureStorage.instance.write('matches_cache', cacheData);
-    } catch (e) {
-      try {
-        final rawCache = await SecureStorage.instance.read('matches_cache');
-        if (rawCache != null) {
-          final cached = jsonDecode(rawCache);
-          if (cached is Map<String, dynamic>) {
-            final rawMatches = cached['matches'] as List? ?? [];
-            final rawLikes = cached['likes'] as List? ?? [];
-            if (mounted) {
-              setState(() {
-                _matches = rawMatches
-                    .whereType<Map<String, dynamic>>()
-                    .map(MatchItem.fromJson)
-                    .toList();
-                _likes = rawLikes
-                    .whereType<Map<String, dynamic>>()
-                    .map(LikeItem.fromJson)
-                    .toList();
-                _likesCount = cached['likesCount'] as int? ?? 0;
-                _likesBlurred = cached['likesBlurred'] == true;
-                _message = 'Showing saved matches while Yaaro0 reconnects.';
-              });
-            }
-            return;
-          }
-        }
-      } catch (_) {}
+    } catch (_) {
       if (mounted) {
-        setState(() => _message = 'Matches are unavailable.');
+        setState(() {
+          _matches = const [];
+          _likes = const [];
+          _likesCount = 0;
+          _likesBlurred = true;
+        });
       }
     } finally {
       if (mounted) {
@@ -1788,11 +1899,37 @@ class _MatchesScreenState extends State<MatchesScreen> {
   }
 
   List<MatchItem> get _filteredMatches {
+    final matches = _dedupeMatches(_matches);
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) {
-      return _matches;
+      return matches;
     }
-    return _matches.where((m) => m.name.toLowerCase().contains(query)).toList();
+    return matches.where((m) => m.name.toLowerCase().contains(query)).toList();
+  }
+
+  List<MatchItem> _dedupeMatches(List<MatchItem> matches) {
+    final byPerson = <String, MatchItem>{};
+
+    for (final match in matches) {
+      final key = match.userId.isNotEmpty ? match.userId : match.id;
+      final existing = byPerson[key];
+      if (existing == null) {
+        byPerson[key] = match;
+        continue;
+      }
+
+      final existingTime = DateTime.tryParse(existing.sentAt ?? '') ??
+          DateTime.tryParse(existing.matchedAt) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final matchTime = DateTime.tryParse(match.sentAt ?? '') ??
+          DateTime.tryParse(match.matchedAt) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      if (matchTime.isAfter(existingTime)) {
+        byPerson[key] = match;
+      }
+    }
+
+    return byPerson.values.toList();
   }
 
   List<MatchItem> get _newMatches {
@@ -1820,34 +1957,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
         .toList();
   }
 
-  Future<void> _unmatch(MatchItem match) async {
-    if (mounted) {
-      setState(() => _message = '');
-    }
-    try {
-      final api = YaaroScope.of(context);
-      await api.deleteMatch(match.id);
-      if (!mounted) return;
-      setState(() {
-        _matches = _matches.where((m) => m.id != match.id).toList();
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unmatched with ${match.name}.'),
-          backgroundColor: YaaroColors.rose,
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        setState(() => _message = 'Unable to unmatch.');
-      }
-    }
-  }
-
   Future<void> _likeBack(String userId, String name) async {
-    if (mounted) {
-      setState(() => _message = '');
-    }
     try {
       final api = YaaroScope.of(context);
       final result = await api.swipe(userId, SwipeAction.like);
@@ -1879,58 +1989,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
       _load();
     } catch (e) {
       if (mounted) {
-        setState(() => _message = 'Unable to like back.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to like back.')),
+        );
       }
     }
   }
 
-  Future<void> _showUnmatchConfirmation(MatchItem match) async {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: YaaroColors.surface,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Row(
-            children: [
-              const Icon(Icons.shield, color: YaaroColors.rose, size: 28),
-              const SizedBox(width: 10),
-              Text(
-                'Unmatch ${match.name}?',
-                style: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ],
-          ),
-          content: const Text(
-            'This removes the match from your list and deletes all conversations. This action cannot be undone.',
-            style: TextStyle(color: YaaroColors.muted, height: 1.35),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child:
-                  const Text('Cancel', style: TextStyle(color: Colors.white70)),
-              onPressed: () => Navigator.pop(context),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: YaaroColors.rose),
-              child: const Text('Unmatch',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
-              onPressed: () async {
-                Navigator.pop(context);
-                await _unmatch(match);
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Future<void> _openProfile(String userId, String matchId) async {
-    if (mounted) {
-      setState(() => _message = '');
-    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -2799,8 +2865,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredMatches;
-
     return AppGradient(
       child: SafeArea(
         child: Column(
@@ -2847,7 +2911,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   ),
                   const SizedBox(height: 14),
                   if (_loading) const LinearProgressIndicator(minHeight: 2),
-                  if (_message.isNotEmpty) StatusPill(text: _message),
                   const SizedBox(height: 18),
 
                   // Likes You Section
@@ -2860,47 +2923,186 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
                   // New Matches sub-row
                   _buildNewMatchesSection(),
-                  const SizedBox(height: 24),
-
-                  // Messages list
-                  SectionTitle(
-                      title: 'Messages', trailing: '${filtered.length} active'),
-                  const SizedBox(height: 10),
-                  if (!_loading && filtered.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: panelDecoration(),
-                      child: const Column(
-                        children: [
-                          Icon(Icons.chat_bubble_outline,
-                              size: 36, color: YaaroColors.muted),
-                          SizedBox(height: 8),
-                          Text('No matches yet',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16)),
-                          SizedBox(height: 4),
-                          Text('Start swiping to find your match.',
-                              style: TextStyle(
-                                  color: YaaroColors.muted, fontSize: 13)),
-                        ],
-                      ),
-                    )
-                  else
-                    ...filtered.map(
-                      (match) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: MatchTile(
-                          match: match,
-                          onAvatarTap: () =>
-                              _openProfile(match.userId, match.id),
-                          onUnmatchTap: () => _showUnmatchConfirmation(match),
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class ChatListScreen extends StatefulWidget {
+  const ChatListScreen({required this.onOpenAuth, super.key});
+
+  final VoidCallback onOpenAuth;
+
+  @override
+  State<ChatListScreen> createState() => _ChatListScreenState();
+}
+
+class _ChatListScreenState extends State<ChatListScreen> {
+  List<MatchItem> _matches = const [];
+  String _query = '';
+  bool _loading = true;
+  bool _didLoad = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoad) {
+      return;
+    }
+    _didLoad = true;
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (mounted) {
+      setState(() => _loading = true);
+    }
+
+    try {
+      final matches = await YaaroScope.of(context).conversations();
+      if (mounted) {
+        setState(() => _matches = _dedupeMatches(matches));
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _matches = const []);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  List<MatchItem> get _filteredMatches {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) {
+      return _matches;
+    }
+    return _matches.where((m) => m.name.toLowerCase().contains(query)).toList();
+  }
+
+  List<MatchItem> _dedupeMatches(List<MatchItem> matches) {
+    final byPerson = <String, MatchItem>{};
+
+    for (final match in matches) {
+      final key = match.userId.isNotEmpty ? match.userId : match.id;
+      final existing = byPerson[key];
+      if (existing == null) {
+        byPerson[key] = match;
+        continue;
+      }
+
+      final existingTime = DateTime.tryParse(existing.sentAt ?? '') ??
+          DateTime.tryParse(existing.matchedAt) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final matchTime = DateTime.tryParse(match.sentAt ?? '') ??
+          DateTime.tryParse(match.matchedAt) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      if (matchTime.isAfter(existingTime)) {
+        byPerson[key] = match;
+      }
+    }
+
+    return byPerson.values.toList();
+  }
+
+  void _openChat(MatchItem match) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          matchId: match.id,
+          matchName: match.name,
+          matchPhotoUrl: match.photoUrl,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filteredMatches;
+
+    return AppGradient(
+      child: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
+            children: [
+              HeaderBar(
+                title: 'Chat',
+                actionLabel: YaaroScope.of(context).user == null ? 'Login' : '',
+                onAction: widget.onOpenAuth,
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Continue your conversations',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: panelDecoration(),
+                child: TextField(
+                  onChanged: (value) => setState(() => _query = value),
+                  style: const TextStyle(fontSize: 14),
+                  decoration: const InputDecoration(
+                    icon:
+                        Icon(Icons.search, color: YaaroColors.muted, size: 20),
+                    hintText: 'Search chats',
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              if (_loading) const LinearProgressIndicator(minHeight: 2),
+              const SizedBox(height: 18),
+              SectionTitle(
+                  title: 'Messages', trailing: '${filtered.length} active'),
+              const SizedBox(height: 10),
+              if (!_loading && filtered.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: panelDecoration(),
+                  child: const Column(
+                    children: [
+                      Icon(Icons.chat_bubble_outline,
+                          size: 36, color: YaaroColors.muted),
+                      SizedBox(height: 8),
+                      Text('No chats yet',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
+                      SizedBox(height: 4),
+                      Text('Your chat history will appear here.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: YaaroColors.muted, fontSize: 13)),
+                    ],
+                  ),
+                )
+              else
+                ...filtered.map(
+                  (match) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: ChatListTile(
+                      match: match,
+                      onTap: () => _openChat(match),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -3794,6 +3996,100 @@ class MatchTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class ChatListTile extends StatelessWidget {
+  const ChatListTile({
+    required this.match,
+    required this.onTap,
+    super.key,
+  });
+
+  final MatchItem match;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: panelDecoration(),
+        child: Row(
+          children: [
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: YaaroColors.surfaceAlt,
+                  backgroundImage: match.photoUrl == null ||
+                          match.photoUrl!.isEmpty
+                      ? const NetworkImage(
+                          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70')
+                      : NetworkImage(match.photoUrl!),
+                ),
+                if (match.unreadCount > 0)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: const BoxDecoration(
+                        color: YaaroColors.rose,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${match.unreadCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    match.age == null
+                        ? match.name
+                        : '${match.name}, ${match.age}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    match.preview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: YaaroColors.muted,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: YaaroColors.muted),
+          ],
+        ),
       ),
     );
   }
