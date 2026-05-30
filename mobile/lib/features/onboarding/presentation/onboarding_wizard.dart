@@ -44,7 +44,6 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   bool _loading = true;
   bool _saving = false;
   bool _locating = false;
-  String? _message;
   final _imagePicker = ImagePicker();
   double? _latitude;
   double? _longitude;
@@ -261,8 +260,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     } catch (_) {
       setState(() {
         _loading = false;
-        _message = 'Failed to load profile. Please try again.';
       });
+      _showToast('Failed to load profile. Please try again.');
     }
   }
 
@@ -325,7 +324,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     if (_locating) return;
     setState(() {
       _locating = true;
-      _message = null;
+      _cityHasError = false;
     });
 
     try {
@@ -360,28 +359,25 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         _longitude = longitude;
         _city.text = location['city']!;
         _country.text = location['country']!;
-        _message = 'Location selected.';
+        _cityHasError = false;
       });
+      _showToast('Location selected.', isError: false);
     } on ApiException catch (e) {
       if (!mounted) return;
-      _showValidationErrorDialog(
-        title: 'Location Error',
-        message: e.message,
-        onConfirm: () {
-          if (e.message.contains('blocked')) {
-            Geolocator.openAppSettings();
-          } else if (e.message.contains('services')) {
-            Geolocator.openLocationSettings();
-          }
-        },
+      final isBlocked = e.message.contains('blocked');
+      final isServices = e.message.contains('services');
+      _showToast(
+        e.message,
+        actionLabel: isBlocked || isServices ? 'Settings' : null,
+        onAction: isBlocked
+            ? Geolocator.openAppSettings
+            : isServices
+                ? Geolocator.openLocationSettings
+                : null,
       );
     } catch (_) {
       if (!mounted) return;
-      _showValidationErrorDialog(
-        title: 'Location Error',
-        message: 'Unable to find your city from device location. Please make sure location is enabled.',
-        onConfirm: () {},
-      );
+      _showToast('Unable to find your city from device location. Please make sure location is enabled.');
     } finally {
       if (mounted) {
         setState(() => _locating = false);
@@ -415,7 +411,6 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
       setState(() {
         _saving = true;
-        _message = null;
       });
 
       int uploadCount = 0;
@@ -431,28 +426,29 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       if (!mounted) return;
       setState(() {
         _photos = photosPayload.map((p) => p['url']?.toString() ?? '').toList();
-        _message = uploadCount > 1
-            ? 'Successfully uploaded $uploadCount photos.'
-            : 'Photo uploaded.';
         if (_photos.length >= 2) {
           _photosHasError = false;
         }
       });
+      _showToast(
+        uploadCount > 1 ? 'Successfully uploaded $uploadCount photos.' : 'Photo uploaded.',
+        isError: false,
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _message = e.message);
+      _showToast(e.message);
     } on PlatformException catch (e) {
       if (!mounted) return;
       final isMissingPlugin = e.code == 'channel-error' ||
           e.message?.contains('Unable to establish connection') == true;
-      setState(() {
-        _message = isMissingPlugin
+      _showToast(
+        isMissingPlugin
             ? 'Photo picker is not ready yet. Fully stop and rebuild the app, then try again.'
-            : 'Photo picker failed. Please allow photo access and try again.';
-      });
+            : 'Photo picker failed. Please allow photo access and try again.',
+      );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _message = 'Photo upload failed: $e');
+      _showToast('Photo upload failed: $e');
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -466,11 +462,11 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     try {
       setState(() {
         _photos.removeAt(index);
-        _message = 'Photo removed.';
         _photosHasError = _photos.length < 2;
       });
+      _showToast('Photo removed.', isError: false);
     } catch (_) {
-      setState(() => _message = 'Failed to delete photo.');
+      _showToast('Failed to delete photo.');
     } finally {
       setState(() => _saving = false);
     }
@@ -533,106 +529,39 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return body;
   }
 
-  Future<void> _showValidationErrorDialog({
+  void _showToast(
+    String message, {
+    bool isError = true,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: isError ? YaaroColors.rose : YaaroColors.surfaceAlt,
+          action: actionLabel != null && onAction != null
+              ? SnackBarAction(
+                  label: actionLabel,
+                  textColor: Colors.white,
+                  onPressed: onAction,
+                )
+              : null,
+        ),
+      );
+  }
+
+  Future<void> _showValidationErrorToast({
     required String title,
     required String message,
     required VoidCallback onConfirm,
   }) async {
-    return showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Validation Error',
-      barrierColor: Colors.black.withOpacity(0.65),
-      transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (context, anim1, anim2) {
-        return Center(
-          child: Material(
-            color: Colors.transparent,
-            child: ScaleTransition(
-              scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutBack),
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.85,
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: YaaroColors.surface,
-                  border: Border.all(color: YaaroColors.line),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.5),
-                      blurRadius: 24,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: YaaroColors.rose.withOpacity(0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.error_outline_rounded,
-                        color: YaaroColors.rose,
-                        size: 40,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      message,
-                      style: const TextStyle(
-                        color: YaaroColors.muted,
-                        fontSize: 14,
-                        height: 1.4,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          onConfirm();
-                        },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: YaaroColors.rose,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                        ),
-                        child: const Text(
-                          "Let's fix it",
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    onConfirm();
+    _showToast('$title: $message');
   }
 
   _ValidationResult _validateAllRequiredFields() {
@@ -640,7 +569,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   }
 
   void _handleValidationError(_ValidationResult result) {
-    _showValidationErrorDialog(
+    _showValidationErrorToast(
       title: 'Missing Required Info',
       message: result.message,
       onConfirm: () {
@@ -690,7 +619,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       }
     });
 
-    _showValidationErrorDialog(
+    _showValidationErrorToast(
       title: 'Required Info Missing',
       message: errorMsg.trim(),
       onConfirm: () {
@@ -726,7 +655,6 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
     setState(() {
       _saving = true;
-      _message = null;
     });
 
     final api = YaaroScope.of(context);
@@ -788,9 +716,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         if (!mounted) return;
         if (_currentStep < _steps.length - 1) {
           setState(() {
-            _message = 'Section updated successfully.';
             _currentStep++;
           });
+          _showToast('Section updated successfully.', isError: false);
         } else {
           widget.onComplete();
         }
@@ -805,7 +733,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       if (e.errors != null && e.errors!.isNotEmpty) {
         _handleBackendValidationErrors(e.errors!);
       } else {
-        _showValidationErrorDialog(
+        _showValidationErrorToast(
           title: 'Validation Error',
           message: e.toString(),
           onConfirm: () {},
@@ -813,7 +741,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       }
     } catch (e) {
       if (!mounted) return;
-      _showValidationErrorDialog(
+      _showValidationErrorToast(
         title: 'Validation Error',
         message: e.toString(),
         onConfirm: () {},
@@ -828,7 +756,6 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   Future<void> _skipOnboarding() async {
     setState(() {
       _saving = true;
-      _message = null;
     });
 
     final api = YaaroScope.of(context);
@@ -847,14 +774,14 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       widget.onComplete();
     } on ApiException catch (e) {
       if (!mounted) return;
-      _showValidationErrorDialog(
+      _showValidationErrorToast(
         title: 'Error Completing Onboarding',
         message: e.toString(),
         onConfirm: () {},
       );
     } catch (e) {
       if (!mounted) return;
-      _showValidationErrorDialog(
+      _showValidationErrorToast(
         title: 'Error Completing Onboarding',
         message: e.toString(),
         onConfirm: () {},
@@ -939,7 +866,6 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                                   if (selected) {
                                     setState(() {
                                       _currentStep = index;
-                                      _message = null;
                                     });
                                   }
                                 }
@@ -958,16 +884,6 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                     }),
                   ),
                 ),
-                if (_message != null)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    color: YaaroColors.saffron.withOpacity(0.15),
-                    child: Text(
-                      _message!,
-                      style: const TextStyle(color: YaaroColors.saffron, fontWeight: FontWeight.bold),
-                    ),
-                  ),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(18),

@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 
 export function GET(request: Request) {
   const clientKey = process.env.TIKTOK_CLIENT_KEY;
-  const origin = new URL(request.url).origin;
+  const requestUrl = new URL(request.url);
+  const origin = requestUrl.origin;
   const redirectUri =
     process.env.TIKTOK_REDIRECT_URI || `${origin}/api/auth/tiktok/callback`;
+  const isMobile = requestUrl.searchParams.get("mobile") === "1";
 
   if (!clientKey) {
     return NextResponse.redirect(
@@ -17,7 +19,7 @@ export function GET(request: Request) {
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "user.info.basic");
-  url.searchParams.set("state", crypto.randomUUID());
+  url.searchParams.set("state", `${isMobile ? "mobile" : "web"}:${crypto.randomUUID()}`);
 
   return NextResponse.redirect(url);
 }

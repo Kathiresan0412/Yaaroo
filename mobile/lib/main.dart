@@ -18,11 +18,23 @@ const _dartDefineApiBaseUrl = String.fromEnvironment(
   defaultValue: 'https://yaaro-backend.vercel.app',
 );
 
+const _dartDefineWebBaseUrl = String.fromEnvironment(
+  'YAARO0_WEB_URL',
+  defaultValue: 'http://127.0.0.1:3000',
+);
+
 String get apiBaseUrl {
   final envApiBaseUrl = dotenv.env['YAARO0_API_URL']?.trim();
   return envApiBaseUrl?.isNotEmpty == true
       ? envApiBaseUrl!
       : _dartDefineApiBaseUrl;
+}
+
+String get webBaseUrl {
+  final envWebBaseUrl = dotenv.env['YAARO0_WEB_URL']?.trim();
+  return envWebBaseUrl?.isNotEmpty == true
+      ? envWebBaseUrl!
+      : _dartDefineWebBaseUrl;
 }
 
 Future<void> main() async {
@@ -488,6 +500,9 @@ class _AppShellState extends State<AppShell> {
         token = pathSegments.isNotEmpty
             ? pathSegments.first
             : uri.queryParameters['token'];
+      } else if (host == 'oauth') {
+        _completeOAuthDeepLink(uri);
+        return;
       }
     } else if (scheme == 'http' || scheme == 'https') {
       if (pathSegments.length >= 2) {
@@ -506,6 +521,40 @@ class _AppShellState extends State<AppShell> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _openAuthForDeepLink(authMode, token!);
       });
+    }
+  }
+
+  Future<void> _completeOAuthDeepLink(Uri uri) async {
+    final error = uri.queryParameters['error'];
+    if (error != null) {
+      debugPrint('OAuth deep link failed: $error');
+      return;
+    }
+
+    final payload = uri.queryParameters['payload'];
+    if (payload == null || payload.isEmpty) {
+      debugPrint('OAuth deep link is missing payload.');
+      return;
+    }
+
+    try {
+      final normalized = base64Url.normalize(payload);
+      final decoded = utf8.decode(base64Url.decode(normalized));
+      final parsed = jsonDecode(decoded);
+      if (parsed is! Map<String, dynamic>) {
+        throw const FormatException('Unexpected OAuth payload.');
+      }
+      await YaaroScope.of(context).storeAuthPayload(parsed);
+      if (mounted) {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+        setState(() {
+          _showLanding = false;
+        });
+      }
+    } catch (error) {
+      debugPrint('OAuth deep link parse failed: $error');
     }
   }
 
@@ -1025,7 +1074,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       _profiles = _profiles.skip(1).toList();
       _drag = Offset.zero;
       if (action == SwipeAction.like || action == SwipeAction.superlike) {
-        _message = 'Sent ${action == SwipeAction.superlike ? 'a superlike' : 'a like'} to ${profile.displayName}.';
+        _message =
+            'Sent ${action == SwipeAction.superlike ? 'a superlike' : 'a like'} to ${profile.displayName}.';
       } else {
         _message = '';
       }
@@ -1046,7 +1096,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     }).catchError((err) {
       debugPrint('Swipe failed: $err');
       if (mounted) {
-        setState(() => _message = 'Could not send swipe to ${profile.displayName}.');
+        setState(
+            () => _message = 'Could not send swipe to ${profile.displayName}.');
       }
     });
   }
@@ -1083,6 +1134,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   VibeQuestion? _vibeQuestion;
   String _activeGoal = '';
   String _activeInterest = '';
+  String _activeInterestLabel = '';
   String _message = '';
   bool _loading = true;
   bool _profilesLoading = false;
@@ -1094,29 +1146,49 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _load() async {
+    final api = YaaroScope.of(context);
+    final categoriesFuture = api.categories();
+    final nearbyFuture = api.exploreNearby();
+    final vibeFuture = api.vibeToday();
+
     try {
-      final api = YaaroScope.of(context);
-      final results = await Future.wait<dynamic>([
-        api.categories(),
-        api.exploreNearby(),
-        api.vibeToday(),
-      ]);
+      var categories = const <ExploreCategory>[];
+      var profiles = const <DiscoveryProfile>[];
+      VibeQuestion? vibeQuestion;
+      var message = '';
+
+      try {
+        categories = await categoriesFuture;
+      } catch (_) {
+        message = 'Explore categories are unavailable right now.';
+      }
+
+      try {
+        profiles = await nearbyFuture;
+      } catch (_) {
+        message = message.isEmpty
+            ? 'Nearby profiles are unavailable right now.'
+            : message;
+      }
+
+      try {
+        vibeQuestion = await vibeFuture;
+      } catch (_) {
+        vibeQuestion = null;
+      }
+
       if (mounted) {
         setState(() {
-          _categories = results[0] as List<ExploreCategory>;
-          _profiles = results[1] as List<DiscoveryProfile>;
-          _vibeQuestion = results[2] as VibeQuestion?;
-          _message = '';
+          _categories = categories;
+          _profiles = profiles;
+          _vibeQuestion = vibeQuestion;
+          _message = message;
         });
       }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _categories = const [];
-          _profiles = const [];
-          _vibeQuestion = null;
-          _message = '';
-        });
+
+      if (categories.isEmpty && mounted) {
+        debugPrint(
+            'Explore categories are empty. Check auth and YAARO0_API_URL: $apiBaseUrl');
       }
     } finally {
       if (mounted) {
@@ -1147,14 +1219,114 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Browse shared interests, intent, nearby profiles, and daily conversation prompts.',
+              'Browse shared interests, intent, nearby profiles, daily Vibes, and quick Hot Takes.',
               style: TextStyle(color: YaaroColors.muted, height: 1.35),
             ),
             if (_message.isNotEmpty) ...[
               const SizedBox(height: 14),
               StatusPill(text: _message),
             ],
-            const SizedBox(height: 20),
+            if (_categories.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              SectionTitle(
+                  title: 'By interest',
+                  trailing: _activeInterestLabel.isEmpty
+                      ? '${_categories.length} groups'
+                      : _activeInterestLabel),
+              const SizedBox(height: 10),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _categories.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 1.45,
+                ),
+                itemBuilder: (context, index) {
+                  final category = _categories[index];
+                  final isActive = category.key == _activeInterest;
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => _loadByInterest(category),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: panelDecoration().copyWith(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFE85C47), YaaroColors.rose],
+                        ),
+                        border: Border.all(
+                          color: isActive ? Colors.white70 : Colors.transparent,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(category.emoji,
+                              style: const TextStyle(fontSize: 22)),
+                          const Spacer(),
+                          Text(
+                            category.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 16),
+                          ),
+                          Text(
+                            '${category.count} people',
+                            style: const TextStyle(
+                                color: Color(0xDFFFFFFF), fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+            const SizedBox(height: 22),
+            SectionTitle(
+                title: _activeInterest.isEmpty
+                    ? 'Nearby picks'
+                    : 'People in this interest',
+                trailing: _profilesLoading ? 'Loading' : 'Live'),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: ['Long-term', 'Casual', 'Friends', 'Not sure']
+                  .map(
+                    (goal) => ChoiceChip(
+                      label: Text(goal),
+                      selected: goal == _activeGoal,
+                      selectedColor: YaaroColors.rose.withOpacity(0.26),
+                      onSelected: (_) => _loadByGoal(goal),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 14),
+            ..._profiles.map(
+              (profile) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: CompactProfileTile(
+                  profile: profile,
+                  onPass: () => _decide(profile, SwipeAction.pass),
+                  onLike: () => _decide(profile, SwipeAction.like),
+                ),
+              ),
+            ),
+            if (!_profilesLoading && _profiles.isEmpty)
+              EmptyState(
+                title: 'No profiles in this lane yet',
+                message: 'Try a different interest or relationship goal.',
+                actionLabel: 'Refresh nearby',
+                onAction: _loadNearby,
+              ),
+            const SizedBox(height: 24),
             SectionTitle(
                 title: 'Vibes', trailing: _loading ? 'Syncing' : 'Today'),
             const SizedBox(height: 10),
@@ -1198,104 +1370,33 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   ),
                 ),
               ),
-            ],
-            if (_categories.isNotEmpty) ...[
-              const SizedBox(height: 22),
-              SectionTitle(
-                  title: 'Interests', trailing: '${_categories.length} groups'),
+            ] else if (_vibeQuestion?.answer != null) ...[
               const SizedBox(height: 10),
-              SizedBox(
-                height: 104,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _categories.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    final category = _categories[index];
-                    final isActive = category.key == _activeInterest;
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                ExploreCategoryDetailScreen(category: category),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        width: 148,
-                        padding: const EdgeInsets.all(12),
-                        decoration: panelDecoration().copyWith(
-                          border: Border.all(
-                            color:
-                                isActive ? YaaroColors.rose : YaaroColors.line,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(category.emoji,
-                                style: const TextStyle(fontSize: 18)),
-                            const SizedBox(height: 6),
-                            Text(category.label,
-                                maxLines: 2, overflow: TextOverflow.ellipsis),
-                            const Spacer(),
-                            Text(
-                              '${category.count} people',
-                              style: const TextStyle(
-                                  color: YaaroColors.muted, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              const Text(
+                'Your answer is saved. Matching Vibes will appear here as more people answer.',
+                style: TextStyle(color: YaaroColors.muted, height: 1.35),
               ),
             ],
-            const SizedBox(height: 22),
-            SectionTitle(title: 'Intent', trailing: _activeGoal),
+            const SizedBox(height: 24),
+            const SectionTitle(title: 'Hot Takes', trailing: 'Soon'),
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: ['Long-term', 'Casual', 'Friends', 'Not sure']
-                  .map(
-                    (goal) => ChoiceChip(
-                      label: Text(goal),
-                      selected: goal == _activeGoal,
-                      selectedColor: YaaroColors.rose.withOpacity(0.26),
-                      onSelected: (_) => _loadByGoal(goal),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: panelDecoration(),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.timer_outlined, color: YaaroColors.saffron),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '30-second text dates are warming up. This speed chat lane is coming soon.',
+                      style: TextStyle(color: YaaroColors.muted, height: 1.35),
                     ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 22),
-            SectionTitle(
-                title: _activeInterest.isEmpty
-                    ? 'Nearby picks'
-                    : 'People in this interest',
-                trailing: _profilesLoading ? 'Loading' : 'Live'),
-            const SizedBox(height: 10),
-            ..._profiles.map(
-              (profile) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: CompactProfileTile(
-                  profile: profile,
-                  onPass: () => _decide(profile, SwipeAction.pass),
-                  onLike: () => _decide(profile, SwipeAction.like),
-                ),
+                  ),
+                ],
               ),
             ),
-            if (!_profilesLoading && _profiles.isEmpty)
-              EmptyState(
-                title: 'No profiles in this lane yet',
-                message: 'Try a different interest or relationship goal.',
-                actionLabel: 'Refresh nearby',
-                onAction: _loadNearby,
-              ),
           ],
         ),
       ),
@@ -1307,6 +1408,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _profilesLoading = true;
       _activeGoal = '';
       _activeInterest = '';
+      _activeInterestLabel = '';
     });
     try {
       final profiles = await YaaroScope.of(context).exploreNearby();
@@ -1332,6 +1434,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _profilesLoading = true;
       _activeGoal = goal;
       _activeInterest = '';
+      _activeInterestLabel = '';
     });
     try {
       final profiles = await YaaroScope.of(context).exploreByGoal(goal);
@@ -1344,6 +1447,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
     } catch (_) {
       if (mounted) {
         setState(() => _message = 'No profiles found for $goal yet.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _profilesLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadByInterest(ExploreCategory category) async {
+    setState(() {
+      _profilesLoading = true;
+      _activeGoal = '';
+      _activeInterest = category.key;
+      _activeInterestLabel = category.label;
+    });
+    try {
+      final profiles =
+          await YaaroScope.of(context).exploreByInterest(category.key);
+      if (mounted) {
+        setState(() {
+          _profiles = profiles;
+          _message = '';
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+            () => _message = 'No profiles found for ${category.label} yet.');
       }
     } finally {
       if (mounted) {
@@ -3556,8 +3687,10 @@ class MatchTile extends StatelessWidget {
                     CircleAvatar(
                       radius: 28,
                       backgroundColor: YaaroColors.surfaceAlt,
-                      backgroundImage: match.photoUrl == null || match.photoUrl!.isEmpty
-                          ? const NetworkImage('https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70')
+                      backgroundImage: match.photoUrl == null ||
+                              match.photoUrl!.isEmpty
+                          ? const NetworkImage(
+                              'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70')
                           : NetworkImage(match.photoUrl!),
                       child: null,
                     ),
@@ -3820,7 +3953,8 @@ class AppTextField extends StatelessWidget {
           fontSize: 14,
         ),
         floatingLabelStyle: TextStyle(
-          color: hasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.9),
+          color:
+              hasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.9),
           fontWeight: FontWeight.bold,
         ),
         filled: true,
@@ -3843,11 +3977,13 @@ class AppTextField extends StatelessWidget {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
-            color: hasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.9),
+            color:
+                hasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.9),
             width: 2.0,
           ),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       ),
     );
   }
@@ -4136,7 +4272,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     IconButton(
@@ -4189,7 +4326,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         : _notifications.isEmpty
                             ? EmptyState(
                                 title: 'All caught up!',
-                                message: 'No new notifications to display right now.',
+                                message:
+                                    'No new notifications to display right now.',
                                 actionLabel: 'Refresh',
                                 onAction: _loadNotifications,
                               )
@@ -4205,7 +4343,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   itemBuilder: (context, index) {
                                     final item = _notifications[index];
                                     final id = item['id'] as String;
-                                    final title = item['title'] as String? ?? '';
+                                    final title =
+                                        item['title'] as String? ?? '';
                                     final body = item['body'] as String? ?? '';
                                     final type = item['type'] as String? ?? '';
                                     final read = item['read'] as bool? ?? false;
@@ -4243,12 +4382,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                         padding: const EdgeInsets.all(16),
                                         decoration: panelDecoration().copyWith(
                                           color: read
-                                              ? YaaroColors.surface.withOpacity(0.55)
-                                              : YaaroColors.surfaceAlt.withOpacity(0.95),
+                                              ? YaaroColors.surface
+                                                  .withOpacity(0.55)
+                                              : YaaroColors.surfaceAlt
+                                                  .withOpacity(0.95),
                                           border: Border.all(
                                             color: read
                                                 ? YaaroColors.line
-                                                : YaaroColors.rose.withOpacity(0.4),
+                                                : YaaroColors.rose
+                                                    .withOpacity(0.4),
                                           ),
                                         ),
                                         child: Row(
@@ -4258,7 +4400,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                             Container(
                                               padding: const EdgeInsets.all(8),
                                               decoration: BoxDecoration(
-                                                color: iconColor.withOpacity(0.12),
+                                                color:
+                                                    iconColor.withOpacity(0.12),
                                                 shape: BoxShape.circle,
                                               ),
                                               child: Icon(
@@ -4281,8 +4424,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                           style: TextStyle(
                                                             fontSize: 15,
                                                             fontWeight: read
-                                                                ? FontWeight.w600
-                                                                : FontWeight.w800,
+                                                                ? FontWeight
+                                                                    .w600
+                                                                : FontWeight
+                                                                    .w800,
                                                             color: Colors.white,
                                                           ),
                                                         ),
@@ -4291,9 +4436,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                         Container(
                                                           width: 8,
                                                           height: 8,
-                                                          decoration: const BoxDecoration(
-                                                            color: YaaroColors.rose,
-                                                            shape: BoxShape.circle,
+                                                          decoration:
+                                                              const BoxDecoration(
+                                                            color: YaaroColors
+                                                                .rose,
+                                                            shape:
+                                                                BoxShape.circle,
                                                           ),
                                                         ),
                                                     ],
@@ -4313,7 +4461,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                     style: TextStyle(
                                                       fontSize: 11,
                                                       color: read
-                                                          ? YaaroColors.muted.withOpacity(0.6)
+                                                          ? YaaroColors.muted
+                                                              .withOpacity(0.6)
                                                           : YaaroColors.muted,
                                                     ),
                                                   ),
@@ -4371,17 +4520,17 @@ class _ExploreCategoryDetailScreenState
     try {
       final api = YaaroScope.of(context);
       final list = await api.exploreByInterest(widget.category.key);
-      
+
       _vibeLoading = true;
       final q = await api.vibeToday();
-      
+
       setState(() {
         _allProfiles = list;
         _vibeQuestion = q;
         _vibeProfiles = [];
         _applyFilter();
       });
-      
+
       if (q != null && q.answer != null) {
         final vList = await api.respondToVibe(q.answer!);
         setState(() {
@@ -4405,7 +4554,8 @@ class _ExploreCategoryDetailScreenState
       _filteredProfiles = _allProfiles;
     } else {
       _filteredProfiles = _allProfiles
-          .where((p) => p.relationshipGoal?.toLowerCase() == _activeGoal.toLowerCase())
+          .where((p) =>
+              p.relationshipGoal?.toLowerCase() == _activeGoal.toLowerCase())
           .toList();
     }
   }
@@ -4436,8 +4586,10 @@ class _ExploreCategoryDetailScreenState
 
   Future<void> _decide(DiscoveryProfile profile, SwipeAction action) async {
     setState(() {
-      _allProfiles = _allProfiles.where((item) => item.id != profile.id).toList();
-      _vibeProfiles = _vibeProfiles.where((item) => item.id != profile.id).toList();
+      _allProfiles =
+          _allProfiles.where((item) => item.id != profile.id).toList();
+      _vibeProfiles =
+          _vibeProfiles.where((item) => item.id != profile.id).toList();
       _applyFilter();
       _message = action == SwipeAction.like
           ? 'Liked ${profile.displayName}.'
@@ -4482,11 +4634,13 @@ class _ExploreCategoryDetailScreenState
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Text(widget.category.emoji, style: const TextStyle(fontSize: 28)),
+                  Text(widget.category.emoji,
+                      style: const TextStyle(fontSize: 28)),
                   const SizedBox(width: 8),
                   Text(
                     widget.category.label,
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
+                    style: const TextStyle(
+                        fontSize: 28, fontWeight: FontWeight.w900),
                   ),
                 ],
               ),
@@ -4500,18 +4654,18 @@ class _ExploreCategoryDetailScreenState
                 StatusPill(text: _message),
               ],
               const SizedBox(height: 20),
-              
               SectionTitle(
                 title: 'People in this interest',
                 trailing: _loading ? 'Loading' : 'Live',
               ),
               const SizedBox(height: 10),
-              
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: ['Long-term', 'Casual', 'Friends', 'Not sure'].map((goal) {
-                  final isSelected = _activeGoal.toLowerCase() == goal.toLowerCase();
+                children:
+                    ['Long-term', 'Casual', 'Friends', 'Not sure'].map((goal) {
+                  final isSelected =
+                      _activeGoal.toLowerCase() == goal.toLowerCase();
                   return ChoiceChip(
                     label: Text(goal),
                     selected: isSelected,
@@ -4526,7 +4680,6 @@ class _ExploreCategoryDetailScreenState
                 }).toList(),
               ),
               const SizedBox(height: 14),
-              
               if (_loading)
                 const Center(
                   child: Padding(
@@ -4547,16 +4700,14 @@ class _ExploreCategoryDetailScreenState
                 )
               else
                 ..._filteredProfiles.map((profile) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: CompactProfileTile(
-                    profile: profile,
-                    onPass: () => _decide(profile, SwipeAction.pass),
-                    onLike: () => _decide(profile, SwipeAction.like),
-                  ),
-                )),
-                
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: CompactProfileTile(
+                        profile: profile,
+                        onPass: () => _decide(profile, SwipeAction.pass),
+                        onLike: () => _decide(profile, SwipeAction.like),
+                      ),
+                    )),
               const SizedBox(height: 24),
-              
               SectionTitle(
                 title: 'Vibes',
                 trailing: _vibeLoading ? 'Syncing' : 'Today',
@@ -4571,7 +4722,8 @@ class _ExploreCategoryDetailScreenState
                     children: [
                       Text(
                         _vibeQuestion!.prompt,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 12),
                       Wrap(
@@ -4581,7 +4733,8 @@ class _ExploreCategoryDetailScreenState
                             .map((answer) => ChoiceChip(
                                   label: Text(answer),
                                   selected: answer == _vibeQuestion!.answer,
-                                  selectedColor: YaaroColors.teal.withOpacity(0.24),
+                                  selectedColor:
+                                      YaaroColors.teal.withOpacity(0.24),
                                   onSelected: (_) => _answerVibe(answer),
                                 ))
                             .toList(),
@@ -4592,17 +4745,15 @@ class _ExploreCategoryDetailScreenState
               if (_vibeProfiles.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 ..._vibeProfiles.map((profile) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: CompactProfileTile(
-                    profile: profile,
-                    onPass: () => _decide(profile, SwipeAction.pass),
-                    onLike: () => _decide(profile, SwipeAction.like),
-                  ),
-                )),
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: CompactProfileTile(
+                        profile: profile,
+                        onPass: () => _decide(profile, SwipeAction.pass),
+                        onLike: () => _decide(profile, SwipeAction.like),
+                      ),
+                    )),
               ],
-              
               const SizedBox(height: 24),
-              
               const SectionTitle(
                 title: 'Hot Takes',
                 trailing: 'Soon',

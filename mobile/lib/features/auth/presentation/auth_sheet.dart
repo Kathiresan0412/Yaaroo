@@ -3,8 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/api_client.dart';
-import '../../../main.dart' show YaaroScope, YaaroColors, AppTextField;
+import '../../../main.dart'
+    show YaaroScope, YaaroColors, AppTextField, webBaseUrl;
 
 class AuthSheet extends StatefulWidget {
   const AuthSheet({
@@ -298,13 +300,7 @@ class _AuthSheetState extends State<AuthSheet> {
         OutlinedButton.icon(
           onPressed: _loading
               ? null
-              : () => _handleOAuthLogin(
-                    provider: 'google',
-                    oauthId: 'google_oauth_100200300',
-                    email: 'googleuser@gmail.com',
-                    firstName: 'Google',
-                    lastName: 'User',
-                  ),
+              : () => _showSocialLoginUnavailable('Google'),
           icon: const Icon(Icons.g_mobiledata, color: Colors.white, size: 28),
           label: const Text('Continue with Google',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -320,13 +316,7 @@ class _AuthSheetState extends State<AuthSheet> {
         OutlinedButton.icon(
           onPressed: _loading
               ? null
-              : () => _handleOAuthLogin(
-                    provider: 'tiktok',
-                    oauthId: 'tiktok_oauth_400500600',
-                    email: 'tiktokuser@gmail.com',
-                    firstName: 'TikTok',
-                    lastName: 'User',
-                  ),
+              : _startTikTokLogin,
           icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
           label: const Text('Continue with TikTok',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -1058,13 +1048,15 @@ class _AuthSheetState extends State<AuthSheet> {
     }
   }
 
-  Future<void> _handleOAuthLogin({
-    required String provider,
-    required String oauthId,
-    required String email,
-    required String firstName,
-    required String lastName,
-  }) async {
+  void _showSocialLoginUnavailable(String provider) {
+    setState(() {
+      _message =
+          '$provider login is not connected yet. Please use email login for now.';
+      _isSuccess = false;
+    });
+  }
+
+  Future<void> _startTikTokLogin() async {
     setState(() {
       _loading = true;
       _message = null;
@@ -1072,30 +1064,26 @@ class _AuthSheetState extends State<AuthSheet> {
     });
 
     try {
-      final api = YaaroScope.of(context);
-      await api.loginWithOAuth(
-        provider: provider,
-        oauthId: oauthId,
-        email: email,
-        firstName: firstName,
-        lastName: lastName,
+      final authUri = Uri.parse(webBaseUrl).replace(
+        path: '/api/auth/tiktok',
+        queryParameters: {'mobile': '1'},
       );
-      if (mounted) {
-        Navigator.pop(context);
+      final launched = await launchUrl(
+        authUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        throw ApiException('Unable to open TikTok login.');
       }
-    } on ApiException catch (e) {
+    } on ApiException catch (error) {
+      setState(() => _message = error.message);
+    } catch (_) {
       setState(() {
-        _message = e.message;
-      });
-    } catch (e) {
-      setState(() {
-        _message = 'OAuth login failed. Please try again.';
+        _message = 'Unable to open TikTok login. Please try again.';
       });
     } finally {
       if (mounted) {
-        setState(() {
-          _loading = false;
-        });
+        setState(() => _loading = false);
       }
     }
   }
@@ -1479,4 +1467,3 @@ class VineBorderPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

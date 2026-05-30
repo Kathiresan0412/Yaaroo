@@ -275,6 +275,21 @@ class ApiClient {
     }
   }
 
+  Future<void> storeAuthPayload(Map<String, dynamic> payload) async {
+    accessToken = payload['accessToken']?.toString();
+    refreshToken = payload['refreshToken']?.toString();
+    if (accessToken != null) {
+      await _secureStorage.writeAccessToken(accessToken!);
+    }
+    if (refreshToken != null) {
+      await _secureStorage.writeRefreshToken(refreshToken!);
+    }
+    final rawUser = payload['user'];
+    if (rawUser is Map<String, dynamic>) {
+      user = User.fromJson(rawUser);
+      await _secureStorage.writeUser(user!);
+    }
+  }
 
   Future<void> signup({
     required String firstName,
