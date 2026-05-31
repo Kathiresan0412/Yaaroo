@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   // Determine if we should run in mock Sandbox Mode (if client ID is missing and we received the mock code)
   const isSandboxMode = !clientId && code === "mock-google-code";
 
-  if (!code || (!isSandboxMode && (!clientId || !clientSecret))) {
+  if (!code || (!isSandboxMode && !clientId)) {
     return fail("google-callback");
   }
 
@@ -60,17 +60,21 @@ export async function GET(request: Request) {
   } else {
     let tokenResponse: Response;
 
+    const bodyParams = new URLSearchParams({
+      code: code!,
+      client_id: clientId!,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    });
+    if (clientSecret) {
+      bodyParams.set("client_secret", clientSecret);
+    }
+
     try {
       tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          code: code!,
-          client_id: clientId!,
-          client_secret: clientSecret!,
-          redirect_uri: redirectUri,
-          grant_type: "authorization_code",
-        }),
+        body: bodyParams,
       });
     } catch (error) {
       console.error("Google token request failed", error);
