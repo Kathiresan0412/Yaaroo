@@ -300,7 +300,7 @@ class _AuthSheetState extends State<AuthSheet> {
         OutlinedButton.icon(
           onPressed: _loading
               ? null
-              : () => _showSocialLoginUnavailable('Google'),
+              : _startGoogleLogin,
           icon: const Icon(Icons.g_mobiledata, color: Colors.white, size: 28),
           label: const Text('Continue with Google',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -1048,12 +1048,36 @@ class _AuthSheetState extends State<AuthSheet> {
     }
   }
 
-  void _showSocialLoginUnavailable(String provider) {
+  Future<void> _startGoogleLogin() async {
     setState(() {
-      _message =
-          '$provider login is not connected yet. Please use email login for now.';
+      _loading = true;
+      _message = null;
       _isSuccess = false;
     });
+
+    try {
+      final authUri = Uri.parse(webBaseUrl).replace(
+        path: '/api/auth/google',
+        queryParameters: {'mobile': '1'},
+      );
+      final launched = await launchUrl(
+        authUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        throw ApiException('Unable to open Google login.');
+      }
+    } on ApiException catch (error) {
+      setState(() => _message = error.message);
+    } catch (_) {
+      setState(() {
+        _message = 'Unable to open Google login. Please try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
   }
 
   Future<void> _startTikTokLogin() async {

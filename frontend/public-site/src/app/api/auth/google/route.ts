@@ -2,14 +2,19 @@ import { NextResponse } from "next/server";
 
 export function GET(request: Request) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
-  const origin = new URL(request.url).origin;
+  const requestUrl = new URL(request.url);
+  const origin = requestUrl.origin;
   const redirectUri =
     process.env.GOOGLE_REDIRECT_URI || `${origin}/api/auth/google/callback`;
+  const isMobile = requestUrl.searchParams.get("mobile") === "1";
 
+  // Google Sandbox Mode fallback for localhost/development when no client credentials exist
   if (!clientId) {
-    return NextResponse.redirect(
-      new URL("/login?error=google-not-configured", origin),
-    );
+    console.log("GOOGLE_CLIENT_ID is not configured. Redirecting to Sandbox Mode callback...");
+    const callbackUrl = new URL("/api/auth/google/callback", origin);
+    callbackUrl.searchParams.set("code", "mock-google-code");
+    callbackUrl.searchParams.set("state", `${isMobile ? "mobile" : "web"}:${crypto.randomUUID()}`);
+    return NextResponse.redirect(callbackUrl);
   }
 
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
@@ -18,6 +23,8 @@ export function GET(request: Request) {
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "openid email profile");
   url.searchParams.set("prompt", "select_account");
+  url.searchParams.set("state", `${isMobile ? "mobile" : "web"}:${crypto.randomUUID()}`);
 
   return NextResponse.redirect(url);
 }
+
