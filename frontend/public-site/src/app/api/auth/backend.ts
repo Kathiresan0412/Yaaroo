@@ -55,6 +55,7 @@ export async function proxyAuthRequest(
     status: response.status,
     headers: {
       "Content-Type": text ? response.headers.get("content-type") || "application/json" : "application/json",
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
     },
   });
   appendSetCookieHeaders(nextResponse.headers, response.headers);

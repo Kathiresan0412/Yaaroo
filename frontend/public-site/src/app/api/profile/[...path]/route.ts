@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 
 const backendUrl = process.env.YAARO0_API_URL || "http://127.0.0.1:8000";
@@ -44,6 +46,7 @@ async function proxyProfileRequest(request: Request, context: RouteContext) {
     status: response.status,
     headers: {
       "Content-Type": text ? contentType : "application/json",
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
     },
   });
 }
