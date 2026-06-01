@@ -164,6 +164,12 @@ class _YaaroMobileAppState extends State<YaaroMobileApp>
               theme: ThemeData(
                 brightness: Brightness.light,
                 scaffoldBackgroundColor: const Color(0xFFF9FAFB),
+                textTheme: ThemeData.light().textTheme.apply(
+                      bodyColor: const Color(0xFF111216),
+                      displayColor: const Color(0xFF111216),
+                    ),
+                iconTheme: const IconThemeData(color: Color(0xFF111216)),
+                dividerTheme: const DividerThemeData(color: Color(0x1F000000)),
                 colorScheme: ColorScheme.fromSeed(
                   seedColor: YaaroColors.rose,
                   brightness: Brightness.light,
@@ -178,6 +184,12 @@ class _YaaroMobileAppState extends State<YaaroMobileApp>
               darkTheme: ThemeData(
                 brightness: Brightness.dark,
                 scaffoldBackgroundColor: YaaroColors.black,
+                textTheme: ThemeData.dark().textTheme.apply(
+                      bodyColor: Colors.white,
+                      displayColor: Colors.white,
+                    ),
+                iconTheme: const IconThemeData(color: Colors.white),
+                dividerTheme: const DividerThemeData(color: Color(0x2EFFFFFF)),
                 colorScheme: ColorScheme.fromSeed(
                   seedColor: YaaroColors.rose,
                   brightness: Brightness.dark,
@@ -215,6 +227,25 @@ class YaaroColors {
     color: Color(0x1F000000),
     darkColor: Color(0x2EFFFFFF),
   );
+
+  static bool isDarkFor(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  static Color textFor(BuildContext context) =>
+      isDarkFor(context) ? Colors.white : const Color(0xFF111216);
+
+  static Color mutedFor(BuildContext context) =>
+      isDarkFor(context) ? const Color(0xB8FFFFFF) : const Color(0x99000000);
+
+  static Color lineFor(BuildContext context) =>
+      isDarkFor(context) ? const Color(0x2EFFFFFF) : const Color(0x1F000000);
+
+  static Color panelFor(BuildContext context) => isDarkFor(context)
+      ? surface.withOpacity(0.88)
+      : Colors.white.withOpacity(0.92);
+
+  static Color surfaceAltFor(BuildContext context) =>
+      isDarkFor(context) ? surfaceAlt : const Color(0xFFF3F4F6);
 }
 
 Future<void> openMembershipScreen(BuildContext context) async {
@@ -716,6 +747,7 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final api = YaaroScope.of(context);
     final user = api.user;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_showLanding && user == null) {
       return LandingScreen(
@@ -769,7 +801,9 @@ class _AppShellState extends State<AppShell> {
           child: NavigationBar(
             selectedIndex: _tab,
             height: 70,
-            backgroundColor: YaaroColors.surface.withOpacity(0.94),
+            backgroundColor: isDark
+                ? YaaroColors.surface.withOpacity(0.94)
+                : Colors.white.withOpacity(0.94),
             indicatorColor: YaaroColors.rose.withOpacity(0.22),
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             onDestinationSelected: (index) => setState(() => _tab = index),
@@ -1495,13 +1529,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
             if (_categoriesLoading)
               Container(
                 padding: const EdgeInsets.all(18),
-                decoration: panelDecoration(),
+                decoration: panelDecoration(context),
                 child: const Center(child: CircularProgressIndicator()),
               )
             else if (_categories.isEmpty)
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: panelDecoration(),
+                decoration: panelDecoration(context),
                 child: Text(
                   _categoriesMessage.isEmpty
                       ? 'No interest categories are active in the database yet.'
@@ -1529,7 +1563,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       onTap: () => _loadByInterest(category),
                       child: Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: panelDecoration().copyWith(
+                        decoration: panelDecoration(context).copyWith(
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -1608,7 +1642,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: panelDecoration(),
+              decoration: panelDecoration(context),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1658,7 +1692,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: panelDecoration(),
+              decoration: panelDecoration(context),
               child: const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2785,7 +2819,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   Widget _buildBlurredLikesSection() {
     return Container(
       height: 126,
-      decoration: panelDecoration(),
+      decoration: panelDecoration(context),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Stack(
@@ -2864,7 +2898,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     if (_likes.isEmpty) {
       return Container(
         height: 100,
-        decoration: panelDecoration(),
+        decoration: panelDecoration(context),
         child: const Center(
           child: Text(
             'No likes yet. Keep swiping!',
@@ -2885,7 +2919,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           return Container(
             width: 112,
             padding: const EdgeInsets.all(8),
-            decoration: panelDecoration(),
+            decoration: panelDecoration(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -2957,7 +2991,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           Container(
             height: 92,
             width: double.infinity,
-            decoration: panelDecoration(),
+            decoration: panelDecoration(context),
             child: const Center(
               child: Text(
                 'No new matches yet.',
@@ -3045,7 +3079,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   // Search Bar Input
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: panelDecoration(),
+                    decoration: panelDecoration(context),
                     child: TextField(
                       onChanged: (val) {
                         setState(() {
@@ -3205,7 +3239,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: panelDecoration(),
+                decoration: panelDecoration(context),
                 child: TextField(
                   onChanged: (value) => setState(() => _query = value),
                   style: const TextStyle(fontSize: 14),
@@ -3226,7 +3260,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
               if (!_loading && filtered.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(24),
-                  decoration: panelDecoration(),
+                  decoration: panelDecoration(context),
                   child: const Column(
                     children: [
                       Icon(Icons.chat_bubble_outline,
@@ -3466,7 +3500,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: panelDecoration(),
+                decoration: panelDecoration(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -3673,7 +3707,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 18),
             Container(
               padding: const EdgeInsets.all(18),
-              decoration: panelDecoration(),
+              decoration: panelDecoration(context),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -4018,7 +4052,7 @@ class CompactProfileTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(10),
-      decoration: panelDecoration(),
+      decoration: panelDecoration(context),
       child: Row(
         children: [
           ClipRRect(
@@ -4096,7 +4130,7 @@ class LikeTile extends StatelessWidget {
     return Container(
       width: 112,
       padding: const EdgeInsets.all(8),
-      decoration: panelDecoration(),
+      decoration: panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -4166,7 +4200,7 @@ class MatchTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: panelDecoration(),
+      decoration: panelDecoration(context),
       child: Row(
         children: [
           // Left: Interactive Avatar Tap
@@ -4310,7 +4344,7 @@ class ChatListTile extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: panelDecoration(),
+        decoration: panelDecoration(context),
         child: Row(
           children: [
             Stack(
@@ -4370,8 +4404,8 @@ class ChatListTile extends StatelessWidget {
                     match.preview,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: YaaroColors.muted,
+                    style: TextStyle(
+                      color: YaaroColors.mutedFor(context),
                       fontSize: 13,
                     ),
                   ),
@@ -4379,7 +4413,7 @@ class ChatListTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: YaaroColors.muted),
+            Icon(Icons.chevron_right, color: YaaroColors.mutedFor(context)),
           ],
         ),
       ),
@@ -4419,8 +4453,23 @@ class HeaderBar extends StatelessWidget {
         const Spacer(),
         if (user != null) ...[
           IconButton(
-            icon: const Icon(Icons.notifications_outlined,
-                color: YaaroColors.muted, size: 24),
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined, size: 24),
+            color: YaaroColors.mutedFor(context),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Notifications',
+            icon: const Icon(Icons.notifications_outlined, size: 24),
+            color: YaaroColors.mutedFor(context),
             onPressed: () {
               Navigator.push(
                 context,
@@ -4530,21 +4579,22 @@ class AppTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return TextField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
       focusNode: focusNode,
       onChanged: onChanged,
-      style: const TextStyle(
-        color: Colors.white,
+      style: TextStyle(
+        color: YaaroColors.textFor(context),
         fontSize: 15,
         fontWeight: FontWeight.w500,
       ),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(
-          color: hasError ? YaaroColors.rose : Colors.white54,
+          color: hasError ? YaaroColors.rose : YaaroColors.mutedFor(context),
           fontSize: 14,
         ),
         floatingLabelStyle: TextStyle(
@@ -4555,17 +4605,19 @@ class AppTextField extends StatelessWidget {
         filled: true,
         fillColor: hasError
             ? Colors.red.withOpacity(0.08)
-            : Colors.white.withOpacity(0.045),
+            : (isDark
+                ? Colors.white.withOpacity(0.045)
+                : Colors.black.withOpacity(0.035)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
-            color: hasError ? YaaroColors.rose : Colors.white.withOpacity(0.12),
+            color: hasError ? YaaroColors.rose : YaaroColors.lineFor(context),
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
-            color: hasError ? YaaroColors.rose : Colors.white.withOpacity(0.12),
+            color: hasError ? YaaroColors.rose : YaaroColors.lineFor(context),
             width: 1.2,
           ),
         ),
@@ -4585,26 +4637,28 @@ class AppTextField extends StatelessWidget {
 }
 
 class StatusPill extends StatelessWidget {
-  const StatusPill({required this.text, this.color = Colors.white, super.key});
+  const StatusPill({required this.text, this.color, super.key});
 
   final String text;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = color ?? YaaroColors.textFor(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: color.withOpacity(color == Colors.white ? 0.11 : 0.18),
-        border: Border.all(color: color.withOpacity(0.18)),
+        color: effectiveColor.withOpacity(
+            effectiveColor == Colors.white || color == null ? 0.11 : 0.18),
+        border: Border.all(color: effectiveColor.withOpacity(0.18)),
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
         text,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style:
-            TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 12),
+        style: TextStyle(
+            color: effectiveColor, fontWeight: FontWeight.w800, fontSize: 12),
       ),
     );
   }
@@ -4624,10 +4678,11 @@ class RoundAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: onPressed == null
-          ? YaaroColors.surface.withOpacity(0.45)
-          : YaaroColors.surface,
+          ? YaaroColors.panelFor(context).withOpacity(0.45)
+          : (isDark ? YaaroColors.surface : Colors.white),
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onPressed,
@@ -4649,14 +4704,20 @@ class TagChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.12),
+        color: isDark
+            ? Colors.white.withOpacity(0.12)
+            : Colors.black.withOpacity(0.06),
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(label,
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+          style: TextStyle(
+              color: YaaroColors.textFor(context),
+              fontWeight: FontWeight.w800,
+              fontSize: 12)),
     );
   }
 }
@@ -4672,9 +4733,12 @@ class SectionTitle extends StatelessWidget {
     return Row(
       children: [
         Text(title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            style: TextStyle(
+                color: YaaroColors.textFor(context),
+                fontSize: 18,
+                fontWeight: FontWeight.w900)),
         const Spacer(),
-        Text(trailing, style: const TextStyle(color: YaaroColors.muted)),
+        Text(trailing, style: TextStyle(color: YaaroColors.mutedFor(context))),
       ],
     );
   }
@@ -4697,20 +4761,22 @@ class SettingsRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
-      decoration: panelDecoration(),
+      decoration: panelDecoration(context),
       child: Row(
         children: [
           Icon(icon, color: YaaroColors.teal),
           const SizedBox(width: 12),
           Expanded(
               child: Text(title,
-                  style: const TextStyle(fontWeight: FontWeight.w800))),
+                  style: TextStyle(
+                      color: YaaroColors.textFor(context),
+                      fontWeight: FontWeight.w800))),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.right,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: YaaroColors.muted),
+              style: TextStyle(color: YaaroColors.mutedFor(context)),
             ),
           ),
         ],
@@ -4738,7 +4804,7 @@ class EmptyState extends StatelessWidget {
     return Center(
       child: Container(
         padding: const EdgeInsets.all(18),
-        decoration: panelDecoration(),
+        decoration: panelDecoration(context),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -4746,12 +4812,14 @@ class EmptyState extends StatelessWidget {
                 color: YaaroColors.saffron, size: 34),
             const SizedBox(height: 10),
             Text(title,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                style: TextStyle(
+                    color: YaaroColors.textFor(context),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18)),
             const SizedBox(height: 6),
             Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: YaaroColors.muted)),
+                style: TextStyle(color: YaaroColors.mutedFor(context))),
             const SizedBox(height: 14),
             FilledButton(onPressed: onAction, child: Text(actionLabel)),
           ],
@@ -4766,11 +4834,17 @@ BoxDecoration panelDecoration([BuildContext? context]) {
       ? YaaroMobileApp.isDark
       : Theme.of(context).brightness == Brightness.dark;
   return BoxDecoration(
-    color: isDark
-        ? YaaroColors.surface.withOpacity(0.88)
-        : Colors.white.withOpacity(0.92),
+    color: context == null
+        ? (isDark
+            ? YaaroColors.surface.withOpacity(0.88)
+            : Colors.white.withOpacity(0.92))
+        : YaaroColors.panelFor(context),
     border: Border.all(
-        color: isDark ? YaaroColors.line : Colors.black.withOpacity(0.08)),
+        color: context == null
+            ? (isDark
+                ? const Color(0x2EFFFFFF)
+                : Colors.black.withOpacity(0.08))
+            : YaaroColors.lineFor(context)),
     borderRadius: BorderRadius.circular(8),
     boxShadow: isDark
         ? null
@@ -4880,6 +4954,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final hasUnread = _notifications.any((n) => !(n['read'] as bool? ?? false));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: AppGradient(
@@ -4892,8 +4967,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new,
-                          color: YaaroColors.muted, size: 20),
+                      icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                      color: YaaroColors.mutedFor(context),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 8),
@@ -4919,7 +4994,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ],
                 ),
               ),
-              const Divider(color: YaaroColors.line, height: 1),
+              Divider(color: YaaroColors.lineFor(context), height: 1),
               Expanded(
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
@@ -4995,15 +5070,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       borderRadius: BorderRadius.circular(8),
                                       child: Container(
                                         padding: const EdgeInsets.all(16),
-                                        decoration: panelDecoration().copyWith(
+                                        decoration:
+                                            panelDecoration(context).copyWith(
                                           color: read
-                                              ? YaaroColors.surface
-                                                  .withOpacity(0.55)
-                                              : YaaroColors.surfaceAlt
-                                                  .withOpacity(0.95),
+                                              ? YaaroColors.panelFor(context)
+                                                  .withOpacity(
+                                                      isDark ? 0.55 : 0.9)
+                                              : YaaroColors.surfaceAltFor(
+                                                      context)
+                                                  .withOpacity(
+                                                      isDark ? 0.95 : 1),
                                           border: Border.all(
                                             color: read
-                                                ? YaaroColors.line
+                                                ? YaaroColors.lineFor(context)
                                                 : YaaroColors.rose
                                                     .withOpacity(0.4),
                                           ),
@@ -5043,7 +5122,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                                     .w600
                                                                 : FontWeight
                                                                     .w800,
-                                                            color: Colors.white,
+                                                            color: YaaroColors
+                                                                .textFor(
+                                                                    context),
                                                           ),
                                                         ),
                                                       ),
@@ -5064,9 +5145,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                   const SizedBox(height: 4),
                                                   Text(
                                                     body,
-                                                    style: const TextStyle(
+                                                    style: TextStyle(
                                                       fontSize: 13,
-                                                      color: YaaroColors.muted,
+                                                      color:
+                                                          YaaroColors.mutedFor(
+                                                              context),
                                                       height: 1.25,
                                                     ),
                                                   ),
@@ -5076,9 +5159,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                     style: TextStyle(
                                                       fontSize: 11,
                                                       color: read
-                                                          ? YaaroColors.muted
+                                                          ? YaaroColors
+                                                                  .mutedFor(
+                                                                      context)
                                                               .withOpacity(0.6)
-                                                          : YaaroColors.muted,
+                                                          : YaaroColors
+                                                              .mutedFor(
+                                                                  context),
                                                     ),
                                                   ),
                                                 ],
@@ -5170,13 +5257,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.arrow_back),
+                      color: YaaroColors.textFor(context),
                       tooltip: 'Back',
                     ),
                     const SizedBox(width: 6),
-                    const Text(
+                    Text(
                       'App Settings',
-                      style:
-                          TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                      style: TextStyle(
+                          color: YaaroColors.textFor(context),
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900),
                     ),
                   ],
                 ),
@@ -5199,10 +5289,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Choose how Yaaro0 looks on your device.',
                                   style: TextStyle(
-                                    color: YaaroColors.muted,
+                                    color: YaaroColors.mutedFor(context),
                                     fontSize: 13,
                                   ),
                                 ),
@@ -5265,8 +5355,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       _pushEnabled,
                                       (v) => setState(() => _pushEnabled = v)),
                                 ),
-                                const Divider(
-                                    color: YaaroColors.line, height: 1),
+                                Divider(
+                                    color: YaaroColors.lineFor(context),
+                                    height: 1),
                                 // Sub toggles are disabled if push is disabled for premium UX detailing!
                                 AnimatedOpacity(
                                   duration: const Duration(milliseconds: 200),
@@ -5287,8 +5378,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                               (v) => setState(
                                                   () => _dmsEnabled = v)),
                                         ),
-                                        const Divider(
-                                            color: YaaroColors.line, height: 1),
+                                        Divider(
+                                            color: YaaroColors.lineFor(context),
+                                            height: 1),
                                         _buildSwitchTile(
                                           icon: Icons.flash_on,
                                           title: 'New Matches',
@@ -5301,8 +5393,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                               (v) => setState(
                                                   () => _matchesEnabled = v)),
                                         ),
-                                        const Divider(
-                                            color: YaaroColors.line, height: 1),
+                                        Divider(
+                                            color: YaaroColors.lineFor(context),
+                                            height: 1),
                                         _buildSwitchTile(
                                           icon: Icons.favorite_border,
                                           title: 'Likes Received',
@@ -5319,8 +5412,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     ),
                                   ),
                                 ),
-                                const Divider(
-                                    color: YaaroColors.line, height: 1),
+                                Divider(
+                                    color: YaaroColors.lineFor(context),
+                                    height: 1),
                                 _buildSwitchTile(
                                   icon: Icons.alternate_email,
                                   title: 'Email Digests',
@@ -5380,13 +5474,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           decoration: BoxDecoration(
             color: isActive
                 ? YaaroColors.rose.withOpacity(0.08)
-                : (isDark ? YaaroColors.surfaceAlt : Colors.grey.shade100),
+                : YaaroColors.surfaceAltFor(context),
             border: Border.all(
-              color: isActive
-                  ? YaaroColors.rose
-                  : (isDark
-                      ? YaaroColors.line
-                      : Colors.black.withOpacity(0.06)),
+              color: isActive ? YaaroColors.rose : YaaroColors.lineFor(context),
               width: isActive ? 1.6 : 1.0,
             ),
             borderRadius: BorderRadius.circular(12),
@@ -5431,11 +5521,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         secondary: Icon(icon, color: YaaroColors.teal, size: 22),
         title: Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+          style: TextStyle(
+              color: YaaroColors.textFor(context),
+              fontWeight: FontWeight.w800,
+              fontSize: 15),
         ),
         subtitle: Text(
           subtitle,
-          style: const TextStyle(color: YaaroColors.muted, fontSize: 12),
+          style: TextStyle(color: YaaroColors.mutedFor(context), fontSize: 12),
         ),
         value: value,
         onChanged: onChanged,
@@ -5659,7 +5752,7 @@ class _ExploreCategoryDetailScreenState
               else if (_filteredProfiles.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(24),
-                  decoration: panelDecoration(),
+                  decoration: panelDecoration(context),
                   child: const Center(
                     child: Text(
                       'No profiles in this lane yet.',
@@ -5685,7 +5778,7 @@ class _ExploreCategoryDetailScreenState
               if (_vibeQuestion != null)
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: panelDecoration(),
+                  decoration: panelDecoration(context),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -5730,7 +5823,7 @@ class _ExploreCategoryDetailScreenState
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: panelDecoration(),
+                decoration: panelDecoration(context),
                 child: const Text(
                   '30-second text dates are warming up. This speed chat lane is coming soon.',
                   style: TextStyle(color: YaaroColors.muted, height: 1.35),
