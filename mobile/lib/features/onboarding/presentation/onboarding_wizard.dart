@@ -7,7 +7,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import '../../../core/api_client.dart' show ApiException;
-import '../../../main.dart' show YaaroScope, YaaroColors, AppTextField;
+import '../../../main.dart' show YaaroScope, YaaroColors, AppTextField, webBaseUrl;
+import 'package:url_launcher/url_launcher.dart';
 
 class _ValidationResult {
   _ValidationResult({
@@ -47,6 +48,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   final _imagePicker = ImagePicker();
   double? _latitude;
   double? _longitude;
+  String? _oauthProvider;
+  String? _userId;
 
   // Validation focus nodes & error highlight flags
   final FocusNode _displayNameFocus = FocusNode();
@@ -196,6 +199,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     final api = YaaroScope.of(context);
     try {
       final payload = await api.getProfileMe();
+      final userMap = payload['user'] as Map<String, dynamic>? ?? {};
       final profile = payload['profile'] as Map<String, dynamic>? ?? {};
       final prefs = payload['preferences'] as Map<String, dynamic>? ?? {};
       final location = payload['location'] as Map<String, dynamic>? ?? {};
@@ -203,6 +207,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
       setState(() {
         _photos = List<Map<String, dynamic>>.from(photosList);
+        _oauthProvider = userMap['oauthProvider']?.toString() ?? userMap['oauth_provider']?.toString();
+        _userId = userMap['id']?.toString() ?? '';
 
         final existingDisplayName = profile['displayName']?.toString() ?? '';
         _displayName.text = existingDisplayName;
@@ -1211,8 +1217,121 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
             ),
           ),
         ),
+        _buildLinkedAccountsSection(),
       ],
     );
+  }
+
+  Widget _buildLinkedAccountsSection() {
+    final isTiktokLinked = _oauthProvider?.toLowerCase() == 'tiktok';
+    final isFacebookLinked = _oauthProvider?.toLowerCase() == 'facebook';
+    final isGoogleLinked = _oauthProvider?.toLowerCase() == 'google';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 24),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: YaaroColors.surfaceAlt,
+        border: Border.all(color: YaaroColors.line),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Linked Social Accounts',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _buildSocialRow(
+            icon: Icons.music_note,
+            iconColor: Colors.white,
+            providerName: 'TikTok',
+            isLinked: isTiktokLinked,
+            onLink: () => _linkSocialAccount('tiktok'),
+          ),
+          const SizedBox(height: 12),
+          _buildSocialRow(
+            icon: Icons.facebook,
+            iconColor: Colors.blueAccent,
+            providerName: 'Facebook',
+            isLinked: isFacebookLinked,
+            onLink: () => _linkSocialAccount('facebook'),
+          ),
+          const SizedBox(height: 12),
+          _buildSocialRow(
+            icon: Icons.g_mobiledata,
+            iconColor: Colors.redAccent,
+            providerName: 'Google',
+            isLinked: isGoogleLinked,
+            onLink: () => _linkSocialAccount('google'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSocialRow({
+    required IconData icon,
+    required Color iconColor,
+    required String providerName,
+    required bool isLinked,
+    required VoidCallback onLink,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, color: iconColor, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            providerName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        if (isLinked)
+          const Row(
+            children: [
+              Icon(Icons.check_circle, color: YaaroColors.teal, size: 16),
+              SizedBox(width: 4),
+              Text('Linked', style: TextStyle(color: YaaroColors.teal, fontWeight: FontWeight.bold)),
+            ],
+          )
+        else
+          TextButton(
+            onPressed: onLink,
+            child: const Text('Link', style: TextStyle(color: YaaroColors.rose, fontWeight: FontWeight.bold)),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _linkSocialAccount(String provider) async {
+    if (_userId == null || _userId!.isEmpty) {
+      _showToast('User profile not fully loaded yet. Please wait.');
+      return;
+    }
+    try {
+      final authUri = Uri.parse(webBaseUrl).replace(
+        path: '/api/auth/$provider',
+        queryParameters: {'mobile': '1', 'link': _userId},
+      );
+      final launched = await launchUrl(
+        authUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        throw Exception('Unable to open browser.');
+      }
+    } catch (_) {
+      _showToast('Failed to launch $provider linking flow. Please try again.');
+    }
   }
 
   Widget _buildPhysicalStep() {

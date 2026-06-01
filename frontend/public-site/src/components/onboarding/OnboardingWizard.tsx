@@ -130,6 +130,8 @@ type ApiPayload = {
     country?: string | null;
   } | null;
   user?: {
+    id?: string | null;
+    oauthProvider?: string | null;
     firstName?: string | null;
     lastName?: string | null;
     registeredProfile?: {
@@ -596,6 +598,8 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
   const [step, setStep] = useState(0);
   const [state, setState] = useState<WizardState>(defaults);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [oauthProvider, setOauthProvider] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -805,6 +809,8 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
         const hasSavedLocation = Boolean(payload.location?.city && payload.location?.country);
         const firstName = payload.user?.firstName || "";
         setRegisteredFirstName(firstName);
+        setOauthProvider(payload.user?.oauthProvider || null);
+        setUserId(payload.user?.id || "");
 
         setState({
           ...nextState,
@@ -1421,6 +1427,224 @@ export function OnboardingWizard({ mode = "onboarding" }: { mode?: "onboarding" 
               Sexual orientation <span className="required-mark">*</span>
             </h3>
             <ChipGroup options={choices.orientation} value={state.sexualOrientation} onChange={(value) => update("sexualOrientation", value)} />
+          </div>
+
+          <div className="wizard-wide" style={{ marginTop: "32px" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: "900", color: "#ffffff", marginBottom: "16px" }}>
+              Linked Social Accounts
+            </h3>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "16px",
+            }}>
+              {/* TikTok Linking Card */}
+              <div style={{
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "12px",
+                padding: "16px 20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backdropFilter: "blur(8px)",
+                transition: "all 0.3s ease",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg, #010101 0%, #25F4EE 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "bold",
+                    color: "#fff",
+                    fontSize: "18px",
+                  }}>
+                    🎵
+                  </div>
+                  <div>
+                    <h4 style={{ margin: 0, fontWeight: "700", color: "#ffffff" }}>TikTok</h4>
+                    <p style={{ margin: 0, fontSize: "12px", color: "rgba(255, 255, 255, 0.5)" }}>
+                      {oauthProvider?.toLowerCase() === "tiktok" ? "Connected" : "Not connected"}
+                    </p>
+                  </div>
+                </div>
+                {oauthProvider?.toLowerCase() === "tiktok" ? (
+                  <span style={{
+                    background: "rgba(20, 184, 166, 0.15)",
+                    color: "#14b8a6",
+                    border: "1px solid rgba(20, 184, 166, 0.3)",
+                    padding: "6px 12px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}>
+                    <Check size={14} /> Linked
+                  </span>
+                ) : (
+                  <a
+                    href={`/api/auth/tiktok?link=${userId}`}
+                    style={{
+                      background: "linear-gradient(135deg, #FE2C55 0%, #25F4EE 100%)",
+                      color: "#ffffff",
+                      padding: "8px 18px",
+                      borderRadius: "20px",
+                      fontSize: "13px",
+                      fontWeight: "bold",
+                      textDecoration: "none",
+                      boxShadow: "0 4px 12px rgba(254, 44, 85, 0.3)",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    Link
+                  </a>
+                )}
+              </div>
+
+              {/* Facebook Linking Card */}
+              <div style={{
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "12px",
+                padding: "16px 20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backdropFilter: "blur(8px)",
+                transition: "all 0.3s ease",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    background: "#1877F2",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "bold",
+                    color: "#fff",
+                    fontSize: "20px",
+                  }}>
+                    f
+                  </div>
+                  <div>
+                    <h4 style={{ margin: 0, fontWeight: "700", color: "#ffffff" }}>Facebook</h4>
+                    <p style={{ margin: 0, fontSize: "12px", color: "rgba(255, 255, 255, 0.5)" }}>
+                      {oauthProvider?.toLowerCase() === "facebook" ? "Connected" : "Not connected"}
+                    </p>
+                  </div>
+                </div>
+                {oauthProvider?.toLowerCase() === "facebook" ? (
+                  <span style={{
+                    background: "rgba(20, 184, 166, 0.15)",
+                    color: "#14b8a6",
+                    border: "1px solid rgba(20, 184, 166, 0.3)",
+                    padding: "6px 12px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}>
+                    <Check size={14} /> Linked
+                  </span>
+                ) : (
+                  <a
+                    href={`/api/auth/facebook?link=${userId}`}
+                    style={{
+                      background: "#1877F2",
+                      color: "#ffffff",
+                      padding: "8px 18px",
+                      borderRadius: "20px",
+                      fontSize: "13px",
+                      fontWeight: "bold",
+                      textDecoration: "none",
+                      boxShadow: "0 4px 12px rgba(24, 119, 242, 0.3)",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    Link
+                  </a>
+                )}
+              </div>
+
+              {/* Google Linking Card */}
+              <div style={{
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "12px",
+                padding: "16px 20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backdropFilter: "blur(8px)",
+                transition: "all 0.3s ease",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    background: "#EA4335",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "bold",
+                    color: "#fff",
+                    fontSize: "18px",
+                  }}>
+                    G
+                  </div>
+                  <div>
+                    <h4 style={{ margin: 0, fontWeight: "700", color: "#ffffff" }}>Google</h4>
+                    <p style={{ margin: 0, fontSize: "12px", color: "rgba(255, 255, 255, 0.5)" }}>
+                      {oauthProvider?.toLowerCase() === "google" ? "Connected" : "Not connected"}
+                    </p>
+                  </div>
+                </div>
+                {oauthProvider?.toLowerCase() === "google" ? (
+                  <span style={{
+                    background: "rgba(20, 184, 166, 0.15)",
+                    color: "#14b8a6",
+                    border: "1px solid rgba(20, 184, 166, 0.3)",
+                    padding: "6px 12px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}>
+                    <Check size={14} /> Linked
+                  </span>
+                ) : (
+                  <a
+                    href={`/api/auth/google?link=${userId}`}
+                    style={{
+                      background: "#EA4335",
+                      color: "#ffffff",
+                      padding: "8px 18px",
+                      borderRadius: "20px",
+                      fontSize: "13px",
+                      fontWeight: "bold",
+                      textDecoration: "none",
+                      boxShadow: "0 4px 12px rgba(234, 67, 53, 0.3)",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    Link
+                  </a>
+                )}
+              </div>
+            </div>
           </div>
         </section>
       );
