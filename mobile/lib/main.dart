@@ -150,6 +150,7 @@ class User {
     required this.lastName,
     required this.emailVerified,
     required this.onboardingCompleted,
+    this.oauthProvider,
   });
 
   final String id;
@@ -158,6 +159,7 @@ class User {
   final String? lastName;
   final bool emailVerified;
   final bool onboardingCompleted;
+  final String? oauthProvider;
 
   String get displayName {
     final parts =
@@ -175,6 +177,7 @@ class User {
           json['emailVerified'] == true || json['email_verified'] == true,
       onboardingCompleted: json['onboardingCompleted'] == true ||
           json['onboarding_completed'] == true,
+      oauthProvider: json['oauthProvider']?.toString() ?? json['oauth_provider']?.toString(),
     );
   }
 
@@ -186,6 +189,7 @@ class User {
       'lastName': lastName,
       'emailVerified': emailVerified,
       'onboardingCompleted': onboardingCompleted,
+      'oauthProvider': oauthProvider,
     };
   }
 
@@ -196,6 +200,7 @@ class User {
     String? lastName,
     bool? emailVerified,
     bool? onboardingCompleted,
+    String? oauthProvider,
   }) {
     return User(
       id: id ?? this.id,
@@ -204,6 +209,7 @@ class User {
       lastName: lastName ?? this.lastName,
       emailVerified: emailVerified ?? this.emailVerified,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      oauthProvider: oauthProvider ?? this.oauthProvider,
     );
   }
 }
@@ -3619,6 +3625,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+            if (user != null) _buildLinkedAccountsSection(context, user),
             // const SizedBox(height: 18),
             // const SectionTitle(title: 'Readiness', trailing: 'Mobile'),
             // const SizedBox(height: 10),
@@ -3636,6 +3643,119 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildLinkedAccountsSection(BuildContext context, User user) {
+    final isTiktokLinked = user.oauthProvider?.toLowerCase() == 'tiktok';
+    final isFacebookLinked = user.oauthProvider?.toLowerCase() == 'facebook';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: YaaroColors.surfaceAlt,
+        border: Border.all(color: YaaroColors.line),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Linked Social Accounts',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // TikTok linked status row
+          Row(
+            children: [
+              const Icon(Icons.music_note, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'TikTok',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (isTiktokLinked)
+                const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: YaaroColors.teal, size: 16),
+                    SizedBox(width: 4),
+                    Text('Linked', style: TextStyle(color: YaaroColors.teal, fontWeight: FontWeight.bold)),
+                  ],
+                )
+              else
+                TextButton(
+                  onPressed: () => _linkSocialAccount(context, 'tiktok', user.id),
+                  child: const Text('Link', style: TextStyle(color: YaaroColors.rose, fontWeight: FontWeight.bold)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Facebook linked status row
+          Row(
+            children: [
+              const Icon(Icons.facebook, color: Colors.blueAccent, size: 20),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Facebook',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (isFacebookLinked)
+                const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: YaaroColors.teal, size: 16),
+                    SizedBox(width: 4),
+                    Text('Linked', style: TextStyle(color: YaaroColors.teal, fontWeight: FontWeight.bold)),
+                  ],
+                )
+              else
+                TextButton(
+                  onPressed: () => _linkSocialAccount(context, 'facebook', user.id),
+                  child: const Text('Link', style: TextStyle(color: YaaroColors.rose, fontWeight: FontWeight.bold)),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _linkSocialAccount(BuildContext context, String provider, String userId) async {
+    try {
+      final authUri = Uri.parse(webBaseUrl).replace(
+        path: '/api/auth/$provider',
+        queryParameters: {'mobile': '1', 'link': userId},
+      );
+      final launched = await launchUrl(
+        authUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        throw Exception('Unable to open browser.');
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to launch $provider linking flow. Please try again.'),
+            backgroundColor: YaaroColors.rose,
+          ),
+        );
+      }
+    }
   }
 }
 

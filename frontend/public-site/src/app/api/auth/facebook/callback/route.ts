@@ -11,62 +11,106 @@ function redirectWithCookies(url: URL, response: Response) {
   return redirect;
 }
 
+function mobileRedirect(error: string) {
+  return NextResponse.redirect(`yaaro0://oauth/facebook?error=${encodeURIComponent(error)}`);
+}
+
+function mobileSuccessRedirect(payload: unknown) {
+  const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  return NextResponse.redirect(`yaaro0://oauth/facebook?payload=${encoded}`);
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const origin = new URL(request.url).origin;
+  const origin = url.origin;
   const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state") || "";
+  const stateParts = state.split(":");
+  const isMobile = stateParts[0] === "mobile";
+  const linkUserId = stateParts[1] === "link" ? stateParts[2] : "";
   const clientId = process.env.FACEBOOK_CLIENT_ID;
   const clientSecret = process.env.FACEBOOK_CLIENT_SECRET;
   const redirectUri =
     process.env.FACEBOOK_REDIRECT_URI || `${origin}/api/auth/facebook/callback`;
 
-  if (!code || !clientId || !clientSecret) {
-    return NextResponse.redirect(new URL("/login?error=facebook-callback", origin));
+  const fail = (error: string) =>
+    isMobile
+      ? mobileRedirect(error)
+      : NextResponse.redirect(new URL(`/login?error=${error}`, origin));
+
+  const isSandboxMode = !clientId && code === "mock-facebook-code";
+
+  if (!code || (!isSandboxMode && (!clientId || !clientSecret))) {
+    return fail("facebook-callback");
   }
 
-  const tokenUrl = new URL("https://graph.facebook.com/v19.0/oauth/access_token");
-  tokenUrl.searchParams.set("client_id", clientId);
-  tokenUrl.searchParams.set("client_secret", clientSecret);
-  tokenUrl.searchParams.set("redirect_uri", redirectUri);
-  tokenUrl.searchParams.set("code", code);
-
-  let tokenResponse: Response;
-
-  try {
-    tokenResponse = await fetch(tokenUrl);
-  } catch (error) {
-    console.error("Facebook token request failed", error);
-    return NextResponse.redirect(new URL("/login?error=facebook-token", origin));
-  }
-
-  const tokenPayload = (await tokenResponse.json()) as { access_token?: string };
-
-  if (!tokenResponse.ok || !tokenPayload.access_token) {
-    return NextResponse.redirect(new URL("/login?error=facebook-token", origin));
-  }
-
-  const profileUrl = new URL("https://graph.facebook.com/me");
-  profileUrl.searchParams.set("fields", "id,email,first_name,last_name");
-  profileUrl.searchParams.set("access_token", tokenPayload.access_token);
-
-  let profileResponse: Response;
-
-  try {
-    profileResponse = await fetch(profileUrl);
-  } catch (error) {
-    console.error("Facebook profile request failed", error);
-    return NextResponse.redirect(new URL("/login?error=facebook-profile", origin));
-  }
-
-  const profile = (await profileResponse.json()) as {
-    id?: string;
-    email?: string;
-    first_name?: string;
-    last_name?: string;
+  let profile = {
+    id: "",
+    email: "",
+    first_name: "",
+    last_name: "",
   };
 
-  if (!profileResponse.ok || !profile.id || !profile.email) {
-    return NextResponse.redirect(new URL("/login?error=facebook-profile", origin));
+  if (isSandboxMode) {
+    console.log("Processing mock Facebook Sandbox Mode login...");
+    profile = {
+      id: "mock-facebook-oauth-id-12345",
+      email: "sandbox-facebook-user@yaaro0.local",
+      first_name: "Facebook Sandbox",
+      last_name: "User",
+    };
+  } else {
+    const tokenUrl = new URL("https://graph.facebook.com/v19.0/oauth/access_token");
+    tokenUrl.searchParams.set("client_id", clientId!);
+    tokenUrl.searchParams.set("client_secret", clientSecret!);
+    tokenUrl.searchParams.set("redirect_uri", redirectUri);
+    tokenUrl.searchParams.set("code", code!);
+
+    let tokenResponse: Response;
+
+    try {
+      tokenResponse = await fetch(tokenUrl);
+    } catch (error) {
+      console.error("Facebook token request failed", error);
+      return fail("facebook-token");
+    }
+
+    const tokenPayload = (await tokenResponse.json()) as { access_token?: string };
+
+    if (!tokenResponse.ok || !tokenPayload.access_token) {
+      return fail("facebook-token");
+    }
+
+    const profileUrl = new URL("https://graph.facebook.com/me");
+    profileUrl.searchParams.set("fields", "id,email,first_name,last_name");
+    profileUrl.searchParams.set("access_token", tokenPayload.access_token);
+
+    let profileResponse: Response;
+
+    try {
+      profileResponse = await fetch(profileUrl);
+    } catch (error) {
+      console.error("Facebook profile request failed", error);
+      return fail("facebook-profile");
+    }
+
+    const fetchedProfile = (await profileResponse.json()) as {
+      id?: string;
+      email?: string;
+      first_name?: string;
+      last_name?: string;
+    };
+
+    if (!profileResponse.ok || !fetchedProfile.id || !fetchedProfile.email) {
+      return fail("facebook-profile");
+    }
+
+    profile = {
+      id: fetchedProfile.id,
+      email: fetchedProfile.email,
+      first_name: fetchedProfile.first_name || "Facebook",
+      last_name: fetchedProfile.last_name || "User",
+    };
   }
 
   let authResponse: Response;
@@ -80,17 +124,22 @@ export async function GET(request: Request) {
         email: profile.email,
         firstName: profile.first_name,
         lastName: profile.last_name,
+        userId: linkUserId || undefined,
       }),
     });
   } catch (error) {
     console.error("Facebook backend login failed", error);
-    return NextResponse.redirect(new URL("/login?error=facebook-login", origin));
+    return fail("facebook-login");
   }
 
   const authPayload = (await authResponse.json()) as { redirectTo?: string };
 
   if (!authResponse.ok) {
-    return NextResponse.redirect(new URL("/login?error=facebook-login", origin));
+    return fail("facebook-login");
+  }
+
+  if (isMobile) {
+    return mobileSuccessRedirect(authPayload);
   }
 
   // Next.js App Router sets cookies reliably using the cookies() helper before redirecting

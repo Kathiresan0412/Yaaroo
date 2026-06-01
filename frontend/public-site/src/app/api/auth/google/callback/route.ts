@@ -25,7 +25,9 @@ export async function GET(request: Request) {
   const origin = url.origin;
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state") || "";
-  const isMobile = state.startsWith("mobile:");
+  const stateParts = state.split(":");
+  const isMobile = stateParts[0] === "mobile";
+  const linkUserId = stateParts[1] === "link" ? stateParts[2] : "";
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const redirectUri =
@@ -129,6 +131,7 @@ export async function GET(request: Request) {
         email: profile.email,
         firstName: profile.given_name,
         lastName: profile.family_name,
+        userId: linkUserId || undefined,
       }),
     });
   } catch (error) {

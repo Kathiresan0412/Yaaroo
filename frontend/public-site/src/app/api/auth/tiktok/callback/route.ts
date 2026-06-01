@@ -25,7 +25,9 @@ export async function GET(request: Request) {
   const origin = url.origin;
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state") || "";
-  const isMobile = state.startsWith("mobile:");
+  const stateParts = state.split(":");
+  const isMobile = stateParts[0] === "mobile";
+  const linkUserId = stateParts[1] === "link" ? stateParts[2] : "";
   const clientKey = process.env.TIKTOK_CLIENT_KEY;
   const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
   const redirectUri =
@@ -125,6 +127,7 @@ export async function GET(request: Request) {
         email: `${profile.open_id}@tiktok.yaaro0.local`,
         firstName: profile.display_name,
         lastName: "",
+        userId: linkUserId || undefined,
       }),
     });
   } catch (error) {
