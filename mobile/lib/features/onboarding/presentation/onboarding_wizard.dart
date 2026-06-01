@@ -582,6 +582,14 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         SnackBar(
           content: Text(message),
           behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(
+            bottom: 92,
+            left: 16,
+            right: 16,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           backgroundColor: isError ? YaaroColors.rose : YaaroColors.surfaceAlt,
           action: actionLabel != null && onAction != null
               ? SnackBarAction(

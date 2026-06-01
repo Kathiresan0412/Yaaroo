@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:app_links/app_links.dart';
@@ -45,37 +46,153 @@ Future<void> main() async {
   runApp(YaaroMobileApp(api: api));
 }
 
+class ThemeScope extends InheritedWidget {
+  const ThemeScope({
+    required this.themeMode,
+    required this.changeTheme,
+    required super.child,
+    super.key,
+  });
+
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> changeTheme;
+
+  static ThemeScope of(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<ThemeScope>();
+    assert(scope != null, 'ThemeScope is missing.');
+    return scope!;
+  }
+
+  @override
+  bool updateShouldNotify(ThemeScope oldWidget) =>
+      themeMode != oldWidget.themeMode;
+}
+
 class YaaroMobileApp extends StatefulWidget {
   const YaaroMobileApp({required this.api, super.key});
 
   final ApiClient api;
 
+  static bool isDark = true;
+
   @override
   State<YaaroMobileApp> createState() => _YaaroMobileAppState();
 }
 
-class _YaaroMobileAppState extends State<YaaroMobileApp> {
+class _YaaroMobileAppState extends State<YaaroMobileApp>
+    with WidgetsBindingObserver {
+  ThemeMode _themeMode = ThemeMode.dark;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadThemeMode();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    if (_themeMode == ThemeMode.system) {
+      setState(() {
+        _updateIsDark(ThemeMode.system);
+      });
+    }
+  }
+
+  Future<void> _loadThemeMode() async {
+    final saved = await SecureStorage.instance.read('theme_mode');
+    if (saved != null) {
+      ThemeMode mode = ThemeMode.dark;
+      if (saved == 'light') {
+        mode = ThemeMode.light;
+      } else if (saved == 'system') {
+        mode = ThemeMode.system;
+      }
+      if (mounted) {
+        setState(() {
+          _themeMode = mode;
+          _updateIsDark(mode);
+        });
+      }
+    } else {
+      _updateIsDark(ThemeMode.dark);
+    }
+  }
+
+  void _updateIsDark(ThemeMode mode) {
+    if (mode == ThemeMode.system) {
+      final brightness = PlatformDispatcher.instance.platformBrightness;
+      YaaroMobileApp.isDark = brightness == Brightness.dark;
+    } else {
+      YaaroMobileApp.isDark = mode == ThemeMode.dark;
+    }
+  }
+
+  Future<void> _changeTheme(ThemeMode mode) async {
+    setState(() {
+      _themeMode = mode;
+      _updateIsDark(mode);
+    });
+    String val = 'dark';
+    if (mode == ThemeMode.light) {
+      val = 'light';
+    } else if (mode == ThemeMode.system) {
+      val = 'system';
+    }
+    await SecureStorage.instance.write('theme_mode', val);
+  }
+
   @override
   Widget build(BuildContext context) {
     return YaaroScope(
       api: widget.api,
-      child: MaterialApp(
-        title: 'Yaaro0',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: YaaroColors.black,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: YaaroColors.rose,
-            brightness: Brightness.dark,
-            primary: YaaroColors.rose,
-            secondary: YaaroColors.teal,
-            surface: YaaroColors.surface,
-          ),
-          fontFamily: 'Roboto',
-          useMaterial3: true,
+      child: ThemeScope(
+        themeMode: _themeMode,
+        changeTheme: _changeTheme,
+        child: Builder(
+          builder: (context) {
+            return MaterialApp(
+              title: 'Yaaro0',
+              debugShowCheckedModeBanner: false,
+              themeMode: _themeMode,
+              theme: ThemeData(
+                brightness: Brightness.light,
+                scaffoldBackgroundColor: const Color(0xFFF9FAFB),
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: YaaroColors.rose,
+                  brightness: Brightness.light,
+                  primary: YaaroColors.rose,
+                  secondary: YaaroColors.teal,
+                  surface: Colors.white,
+                  onSurface: const Color(0xFF111216),
+                ),
+                fontFamily: 'Roboto',
+                useMaterial3: true,
+              ),
+              darkTheme: ThemeData(
+                brightness: Brightness.dark,
+                scaffoldBackgroundColor: YaaroColors.black,
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: YaaroColors.rose,
+                  brightness: Brightness.dark,
+                  primary: YaaroColors.rose,
+                  secondary: YaaroColors.teal,
+                  surface: YaaroColors.surface,
+                  onSurface: Colors.white,
+                ),
+                fontFamily: 'Roboto',
+                useMaterial3: true,
+              ),
+              home: const AppShell(),
+            );
+          },
         ),
-        home: const AppShell(),
       ),
     );
   }
@@ -88,8 +205,16 @@ class YaaroColors {
   static const rose = Color(0xFFFF4F6D);
   static const saffron = Color(0xFFFFB84D);
   static const teal = Color(0xFF31D0B2);
-  static const muted = Color(0xB8FFFFFF);
-  static const line = Color(0x2EFFFFFF);
+
+  static const muted = CupertinoDynamicColor.withBrightness(
+    color: Color(0x99000000),
+    darkColor: Color(0xB8FFFFFF),
+  );
+
+  static const line = CupertinoDynamicColor.withBrightness(
+    color: Color(0x1F000000),
+    darkColor: Color(0x2EFFFFFF),
+  );
 }
 
 Future<void> openMembershipScreen(BuildContext context) async {
@@ -177,7 +302,8 @@ class User {
           json['emailVerified'] == true || json['email_verified'] == true,
       onboardingCompleted: json['onboardingCompleted'] == true ||
           json['onboarding_completed'] == true,
-      oauthProvider: json['oauthProvider']?.toString() ?? json['oauth_provider']?.toString(),
+      oauthProvider: json['oauthProvider']?.toString() ??
+          json['oauth_provider']?.toString(),
     );
   }
 
@@ -3626,19 +3752,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             if (user != null) _buildLinkedAccountsSection(context, user),
-            // const SizedBox(height: 18),
-            // const SectionTitle(title: 'Readiness', trailing: 'Mobile'),
-            // const SizedBox(height: 10),
-            // const SettingsRow(
-            //     icon: Icons.verified_user,
-            //     title: 'Profile review',
-            //     value: 'Ready'),
-            // const SettingsRow(
-            //     icon: Icons.security, title: 'Private by default', value: 'On'),
-            // SettingsRow(
-            //     icon: Icons.cloud_sync,
-            //     title: 'API integration',
-            //     value: apiBaseUrl),
+            const SizedBox(height: 18),
+            const SectionTitle(title: 'App Settings', trailing: 'Options'),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SettingsScreen()),
+                );
+                setState(() {});
+              },
+              child: const SettingsRow(
+                icon: Icons.settings,
+                title: 'Preferences & Theme',
+                value: 'Configure',
+              ),
+            ),
           ],
         ),
       ),
@@ -3688,13 +3819,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Icon(Icons.check_circle, color: YaaroColors.teal, size: 16),
                     SizedBox(width: 4),
-                    Text('Linked', style: TextStyle(color: YaaroColors.teal, fontWeight: FontWeight.bold)),
+                    Text('Linked',
+                        style: TextStyle(
+                            color: YaaroColors.teal,
+                            fontWeight: FontWeight.bold)),
                   ],
                 )
               else
                 TextButton(
-                  onPressed: () => _linkSocialAccount(context, 'tiktok', user.id),
-                  child: const Text('Link', style: TextStyle(color: YaaroColors.rose, fontWeight: FontWeight.bold)),
+                  onPressed: () =>
+                      _linkSocialAccount(context, 'tiktok', user.id),
+                  child: const Text('Link',
+                      style: TextStyle(
+                          color: YaaroColors.rose,
+                          fontWeight: FontWeight.bold)),
                 ),
             ],
           ),
@@ -3718,13 +3856,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Icon(Icons.check_circle, color: YaaroColors.teal, size: 16),
                     SizedBox(width: 4),
-                    Text('Linked', style: TextStyle(color: YaaroColors.teal, fontWeight: FontWeight.bold)),
+                    Text('Linked',
+                        style: TextStyle(
+                            color: YaaroColors.teal,
+                            fontWeight: FontWeight.bold)),
                   ],
                 )
               else
                 TextButton(
-                  onPressed: () => _linkSocialAccount(context, 'facebook', user.id),
-                  child: const Text('Link', style: TextStyle(color: YaaroColors.rose, fontWeight: FontWeight.bold)),
+                  onPressed: () =>
+                      _linkSocialAccount(context, 'facebook', user.id),
+                  child: const Text('Link',
+                      style: TextStyle(
+                          color: YaaroColors.rose,
+                          fontWeight: FontWeight.bold)),
                 ),
             ],
           ),
@@ -3733,7 +3878,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _linkSocialAccount(BuildContext context, String provider, String userId) async {
+  Future<void> _linkSocialAccount(
+      BuildContext context, String provider, String userId) async {
     try {
       final authUri = Uri.parse(webBaseUrl).replace(
         path: '/api/auth/$provider',
@@ -3750,7 +3896,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to launch $provider linking flow. Please try again.'),
+            content: Text(
+                'Failed to launch $provider linking flow. Please try again.'),
             backgroundColor: YaaroColors.rose,
           ),
         );
@@ -4299,20 +4446,27 @@ class AppGradient extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Stack(
       children: [
-        // Base dark purple/indigo vertical gradient
+        // Base vertical gradient
         Positioned.fill(
           child: Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF260D42), // Rich dark purple
-                  Color(0xFF120524), // Deep indigo-violet
-                  Color(0xFF06010B), // Midnight black-purple
-                ],
+                colors: isDark
+                    ? const [
+                        Color(0xFF260D42), // Rich dark purple
+                        Color(0xFF120524), // Deep indigo-violet
+                        Color(0xFF06010B), // Midnight black-purple
+                      ]
+                    : const [
+                        Color(0xFFFFF2F4), // Soft vibrant rose-white
+                        Color(0xFFF3F4F6), // Clean grey-white
+                        Color(0xFFE5E7EB), // Soft grey
+                      ],
               ),
             ),
           ),
@@ -4320,12 +4474,12 @@ class AppGradient extends StatelessWidget {
         // Radial glow overlay at top-right (Magenta)
         Positioned.fill(
           child: Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: RadialGradient(
-                center: Alignment(0.8, -0.8),
+                center: const Alignment(0.8, -0.8),
                 radius: 1.0,
                 colors: [
-                  Color(0x36FF4F6D), // Hot pink glow
+                  isDark ? const Color(0x36FF4F6D) : const Color(0x1CFF4F6D),
                   Colors.transparent,
                 ],
               ),
@@ -4335,12 +4489,12 @@ class AppGradient extends StatelessWidget {
         // Radial glow overlay at bottom-left (Teal/Cyan)
         Positioned.fill(
           child: Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: RadialGradient(
-                center: Alignment(-0.8, 0.8),
+                center: const Alignment(-0.8, 0.8),
                 radius: 1.2,
                 colors: [
-                  Color(0x2231D0B2), // Neon Teal glow
+                  isDark ? const Color(0x2231D0B2) : const Color(0x1431D0B2),
                   Colors.transparent,
                 ],
               ),
@@ -4607,11 +4761,26 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-BoxDecoration panelDecoration() {
+BoxDecoration panelDecoration([BuildContext? context]) {
+  final isDark = context == null
+      ? YaaroMobileApp.isDark
+      : Theme.of(context).brightness == Brightness.dark;
   return BoxDecoration(
-    color: YaaroColors.surface.withOpacity(0.88),
-    border: Border.all(color: YaaroColors.line),
+    color: isDark
+        ? YaaroColors.surface.withOpacity(0.88)
+        : Colors.white.withOpacity(0.92),
+    border: Border.all(
+        color: isDark ? YaaroColors.line : Colors.black.withOpacity(0.08)),
     borderRadius: BorderRadius.circular(8),
+    boxShadow: isDark
+        ? null
+        : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
   );
 }
 
@@ -4926,6 +5095,355 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _loading = true;
+
+  // Notification setting states
+  bool _pushEnabled = true;
+  bool _dmsEnabled = true;
+  bool _matchesEnabled = true;
+  bool _likesEnabled = true;
+  bool _emailsEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final storage = SecureStorage.instance;
+    final push = await storage.read('notif_push_enabled');
+    final dms = await storage.read('notif_dms_enabled');
+    final matches = await storage.read('notif_matches_enabled');
+    final likes = await storage.read('notif_likes_enabled');
+    final emails = await storage.read('notif_emails_enabled');
+
+    if (mounted) {
+      setState(() {
+        _pushEnabled = push != 'false';
+        _dmsEnabled = dms != 'false';
+        _matchesEnabled = matches != 'false';
+        _likesEnabled = likes != 'false';
+        _emailsEnabled = emails != 'false';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _toggleSetting(
+      String key, bool currentValue, ValueChanged<bool> onChanged) async {
+    final newValue = !currentValue;
+    onChanged(newValue);
+    await SecureStorage.instance.write(key, newValue ? 'true' : 'false');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeScope = ThemeScope.of(context);
+    final currentTheme = themeScope.themeMode;
+
+    return Scaffold(
+      body: AppGradient(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Custom elegant header bar
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back),
+                      tooltip: 'Back',
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'App Settings',
+                      style:
+                          TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _loading
+                    ? const Center(
+                        child:
+                            CircularProgressIndicator(color: YaaroColors.rose))
+                    : ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+                        children: [
+                          // ---------------- APPEARANCE SECTION ----------------
+                          const SectionTitle(
+                              title: 'Appearance', trailing: 'Theme'),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: panelDecoration(context),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Choose how Yaaro0 looks on your device.',
+                                  style: TextStyle(
+                                    color: YaaroColors.muted,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+                                Row(
+                                  children: [
+                                    _buildThemeCard(
+                                      context: context,
+                                      mode: ThemeMode.light,
+                                      icon: Icons.light_mode,
+                                      label: 'Light',
+                                      isActive: currentTheme == ThemeMode.light,
+                                      onTap: () => themeScope
+                                          .changeTheme(ThemeMode.light),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    _buildThemeCard(
+                                      context: context,
+                                      mode: ThemeMode.dark,
+                                      icon: Icons.dark_mode,
+                                      label: 'Dark',
+                                      isActive: currentTheme == ThemeMode.dark,
+                                      onTap: () => themeScope
+                                          .changeTheme(ThemeMode.dark),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    _buildThemeCard(
+                                      context: context,
+                                      mode: ThemeMode.system,
+                                      icon: Icons.settings_brightness,
+                                      label: 'System',
+                                      isActive:
+                                          currentTheme == ThemeMode.system,
+                                      onTap: () => themeScope
+                                          .changeTheme(ThemeMode.system),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // ---------------- NOTIFICATIONS SECTION ----------------
+                          const SectionTitle(
+                              title: 'Notifications', trailing: 'Alerts'),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: panelDecoration(context),
+                            child: Column(
+                              children: [
+                                _buildSwitchTile(
+                                  icon: Icons.notifications_active,
+                                  title: 'Push Notifications',
+                                  subtitle: 'Master toggle for all push alerts',
+                                  value: _pushEnabled,
+                                  onChanged: (val) => _toggleSetting(
+                                      'notif_push_enabled',
+                                      _pushEnabled,
+                                      (v) => setState(() => _pushEnabled = v)),
+                                ),
+                                const Divider(
+                                    color: YaaroColors.line, height: 1),
+                                // Sub toggles are disabled if push is disabled for premium UX detailing!
+                                AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: _pushEnabled ? 1.0 : 0.45,
+                                  child: AbsorbPointer(
+                                    absorbing: !_pushEnabled,
+                                    child: Column(
+                                      children: [
+                                        _buildSwitchTile(
+                                          icon: Icons.chat_bubble_outline,
+                                          title: 'Direct Messages',
+                                          subtitle:
+                                              'New chat messages received',
+                                          value: _dmsEnabled,
+                                          onChanged: (val) => _toggleSetting(
+                                              'notif_dms_enabled',
+                                              _dmsEnabled,
+                                              (v) => setState(
+                                                  () => _dmsEnabled = v)),
+                                        ),
+                                        const Divider(
+                                            color: YaaroColors.line, height: 1),
+                                        _buildSwitchTile(
+                                          icon: Icons.flash_on,
+                                          title: 'New Matches',
+                                          subtitle:
+                                              'Get notified when you matching',
+                                          value: _matchesEnabled,
+                                          onChanged: (val) => _toggleSetting(
+                                              'notif_matches_enabled',
+                                              _matchesEnabled,
+                                              (v) => setState(
+                                                  () => _matchesEnabled = v)),
+                                        ),
+                                        const Divider(
+                                            color: YaaroColors.line, height: 1),
+                                        _buildSwitchTile(
+                                          icon: Icons.favorite_border,
+                                          title: 'Likes Received',
+                                          subtitle:
+                                              'Someone swiped right on you',
+                                          value: _likesEnabled,
+                                          onChanged: (val) => _toggleSetting(
+                                              'notif_likes_enabled',
+                                              _likesEnabled,
+                                              (v) => setState(
+                                                  () => _likesEnabled = v)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const Divider(
+                                    color: YaaroColors.line, height: 1),
+                                _buildSwitchTile(
+                                  icon: Icons.alternate_email,
+                                  title: 'Email Digests',
+                                  subtitle:
+                                      'Activity summaries and notifications',
+                                  value: _emailsEnabled,
+                                  onChanged: (val) => _toggleSetting(
+                                      'notif_emails_enabled',
+                                      _emailsEnabled,
+                                      (v) =>
+                                          setState(() => _emailsEnabled = v)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // ---------------- APP DETAILS SECTION ----------------
+                          const SectionTitle(
+                              title: 'App Info', trailing: 'Details'),
+                          const SizedBox(height: 10),
+                          SettingsRow(
+                            icon: Icons.cloud_sync,
+                            title: 'API Server',
+                            value: apiBaseUrl,
+                          ),
+                          const SettingsRow(
+                            icon: Icons.info_outline,
+                            title: 'Version',
+                            value: '1.0.0 (Production)',
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThemeCard({
+    required BuildContext context,
+    required ThemeMode mode,
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isActive
+                ? YaaroColors.rose.withOpacity(0.08)
+                : (isDark ? YaaroColors.surfaceAlt : Colors.grey.shade100),
+            border: Border.all(
+              color: isActive
+                  ? YaaroColors.rose
+                  : (isDark
+                      ? YaaroColors.line
+                      : Colors.black.withOpacity(0.06)),
+              width: isActive ? 1.6 : 1.0,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                size: 24,
+                color: isActive
+                    ? YaaroColors.rose
+                    : (isDark ? Colors.white70 : Colors.black54),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isActive ? FontWeight.w900 : FontWeight.bold,
+                  color: isActive
+                      ? YaaroColors.rose
+                      : (isDark ? Colors.white70 : Colors.black87),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSwitchTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      child: SwitchListTile(
+        secondary: Icon(icon, color: YaaroColors.teal, size: 22),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(color: YaaroColors.muted, fontSize: 12),
+        ),
+        value: value,
+        onChanged: onChanged,
+        activeColor: Colors.white,
+        activeTrackColor: YaaroColors.rose,
+        inactiveThumbColor: Colors.grey.shade400,
+        inactiveTrackColor: Colors.grey.shade700.withOpacity(0.3),
+        contentPadding: EdgeInsets.zero,
       ),
     );
   }
