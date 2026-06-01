@@ -20,7 +20,7 @@ const _dartDefineApiBaseUrl = String.fromEnvironment(
 
 const _dartDefineWebBaseUrl = String.fromEnvironment(
   'YAARO0_WEB_URL',
-  defaultValue: 'http://127.0.0.1:3000',
+  defaultValue: 'https://yaaroo.vercel.app',
 );
 
 String get apiBaseUrl {
