@@ -948,10 +948,11 @@ class LandingScreen extends StatelessWidget {
                               ),
                         ),
                         const SizedBox(height: 10),
-                        const Text(
+                        Text(
                           'Continue to your conversations, profile review, safer matches, and shared-interest discovery.',
-                          style:
-                              TextStyle(color: YaaroColors.muted, height: 1.35),
+                          style: TextStyle(
+                              color: YaaroColors.mutedFor(context),
+                              height: 1.35),
                         ),
                         const SizedBox(height: 18),
                         OutlinedButton.icon(
@@ -981,10 +982,12 @@ class LandingScreen extends StatelessWidget {
                             Expanded(
                                 child: Divider(
                                     color: Colors.white.withOpacity(0.14))),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 10),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 10),
                               child: Text('or use email',
-                                  style: TextStyle(color: YaaroColors.muted)),
+                                  style: TextStyle(
+                                      color: YaaroColors.mutedFor(context))),
                             ),
                             Expanded(
                                 child: Divider(
@@ -1065,7 +1068,8 @@ class _LandingPreviewCard extends StatelessWidget {
                     const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
             const SizedBox(height: 4),
             Text(subtitle,
-                style: const TextStyle(color: YaaroColors.muted, fontSize: 12)),
+                style: TextStyle(
+                    color: YaaroColors.mutedFor(context), fontSize: 12)),
           ],
         ),
       ),
@@ -1332,8 +1336,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       ? 'You can start chatting now.'
                       : 'We will let you know when they choose you back.',
                   textAlign: TextAlign.center,
-                  style:
-                      const TextStyle(color: YaaroColors.muted, height: 1.35),
+                  style: TextStyle(
+                      color: YaaroColors.mutedFor(context), height: 1.35),
                 ),
                 const SizedBox(height: 18),
                 Row(
@@ -1509,9 +1513,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Browse shared interests, intent, nearby profiles, daily Vibes, and quick Hot Takes.',
-              style: TextStyle(color: YaaroColors.muted, height: 1.35),
+              style:
+                  TextStyle(color: YaaroColors.mutedFor(context), height: 1.35),
             ),
             if (_message.isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -1540,8 +1545,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   _categoriesMessage.isEmpty
                       ? 'No interest categories are active in the database yet.'
                       : _categoriesMessage,
-                  style:
-                      const TextStyle(color: YaaroColors.muted, height: 1.35),
+                  style: TextStyle(
+                      color: YaaroColors.mutedFor(context), height: 1.35),
                 ),
               )
             else
@@ -1682,9 +1687,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ),
             ] else if (_vibeQuestion?.answer != null) ...[
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'Your answer is saved. Matching Vibes will appear here as more people answer.',
-                style: TextStyle(color: YaaroColors.muted, height: 1.35),
+                style: TextStyle(
+                    color: YaaroColors.mutedFor(context), height: 1.35),
               ),
             ],
             const SizedBox(height: 24),
@@ -1693,15 +1699,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: panelDecoration(context),
-              child: const Row(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.timer_outlined, color: YaaroColors.saffron),
-                  SizedBox(width: 12),
+                  const Icon(Icons.timer_outlined, color: YaaroColors.saffron),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       '30-second text dates are warming up. This speed chat lane is coming soon.',
-                      style: TextStyle(color: YaaroColors.muted, height: 1.35),
+                      style: TextStyle(
+                          color: YaaroColors.mutedFor(context), height: 1.35),
                     ),
                   ),
                 ],
@@ -2390,7 +2397,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                                         ? 'Nearby'
                                                         : '$distanceKm km away'),
                                                 style: const TextStyle(
-                                                    color: YaaroColors.muted,
+                                                    color: Color(0xB8FFFFFF),
                                                     fontSize: 14),
                                               ),
                                             ],
@@ -2675,7 +2682,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
             flex: 4,
             child: Text(
               row.key,
-              style: const TextStyle(color: YaaroColors.muted, fontSize: 13),
+              style:
+                  TextStyle(color: YaaroColors.mutedFor(context), fontSize: 13),
             ),
           ),
           const SizedBox(width: 12),
@@ -2899,10 +2907,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
       return Container(
         height: 100,
         decoration: panelDecoration(context),
-        child: const Center(
+        child: Center(
           child: Text(
             'No likes yet. Keep swiping!',
-            style: TextStyle(color: YaaroColors.muted),
+            style: TextStyle(color: YaaroColors.mutedFor(context)),
           ),
         ),
       );
@@ -2932,9 +2940,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       child: like.photoUrl != null
                           ? Image.network(like.photoUrl!, fit: BoxFit.cover)
                           : Container(
-                              color: YaaroColors.surfaceAlt,
-                              child: const Icon(Icons.person,
-                                  color: Colors.white38),
+                              color: YaaroColors.surfaceAltFor(context),
+                              child: Icon(Icons.person,
+                                  color: YaaroColors.mutedFor(context)),
                             ),
                     ),
                   ),
@@ -2992,10 +3000,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
             height: 92,
             width: double.infinity,
             decoration: panelDecoration(context),
-            child: const Center(
+            child: Center(
               child: Text(
                 'No new matches yet.',
-                style: TextStyle(color: YaaroColors.muted),
+                style: TextStyle(color: YaaroColors.mutedFor(context)),
               ),
             ),
           )
@@ -3014,7 +3022,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     children: [
                       CircleAvatar(
                         radius: 28,
-                        backgroundColor: YaaroColors.surfaceAlt,
+                        backgroundColor: YaaroColors.surfaceAltFor(context),
                         backgroundImage: match.photoUrl != null
                             ? NetworkImage(match.photoUrl!)
                             : null,
@@ -3036,8 +3044,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       const SizedBox(height: 6),
                       Text(
                         match.name,
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w900),
+                        style: TextStyle(
+                            color: YaaroColors.textFor(context),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900),
                       ),
                     ],
                   ),
@@ -3087,10 +3097,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
                         });
                       },
                       style: const TextStyle(fontSize: 14),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         icon: Icon(Icons.search,
-                            color: YaaroColors.muted, size: 20),
+                            color: YaaroColors.mutedFor(context), size: 20),
                         hintText: 'Search matches',
+                        hintStyle:
+                            TextStyle(color: YaaroColors.mutedFor(context)),
                         border: InputBorder.none,
                       ),
                     ),
@@ -3243,10 +3255,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 child: TextField(
                   onChanged: (value) => setState(() => _query = value),
                   style: const TextStyle(fontSize: 14),
-                  decoration: const InputDecoration(
-                    icon:
-                        Icon(Icons.search, color: YaaroColors.muted, size: 20),
+                  decoration: InputDecoration(
+                    icon: Icon(Icons.search,
+                        color: YaaroColors.mutedFor(context), size: 20),
                     hintText: 'Search chats',
+                    hintStyle: TextStyle(color: YaaroColors.mutedFor(context)),
                     border: InputBorder.none,
                   ),
                 ),
@@ -3261,19 +3274,22 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: panelDecoration(context),
-                  child: const Column(
+                  child: Column(
                     children: [
                       Icon(Icons.chat_bubble_outline,
-                          size: 36, color: YaaroColors.muted),
-                      SizedBox(height: 8),
+                          size: 36, color: YaaroColors.mutedFor(context)),
+                      const SizedBox(height: 8),
                       Text('No chats yet',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16)),
-                      SizedBox(height: 4),
+                              color: YaaroColors.textFor(context),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
+                      const SizedBox(height: 4),
                       Text('Your chat history will appear here.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              color: YaaroColors.muted, fontSize: 13)),
+                              color: YaaroColors.mutedFor(context),
+                              fontSize: 13)),
                     ],
                   ),
                 )
@@ -3504,10 +3520,10 @@ class _MembershipScreenState extends State<MembershipScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Current plan',
                       style: TextStyle(
-                          color: YaaroColors.muted,
+                          color: YaaroColors.mutedFor(context),
                           fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
@@ -3547,13 +3563,14 @@ class _MembershipScreenState extends State<MembershipScreen> {
                         status!.cancelAtPeriodEnd
                             ? 'Cancels after ${status.endsAt!.toLocal().toString().split(' ').first}'
                             : 'Renews ${status.endsAt!.toLocal().toString().split(' ').first}',
-                        style: const TextStyle(color: YaaroColors.muted),
+                        style: TextStyle(color: YaaroColors.mutedFor(context)),
                       ),
                     ],
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Trial availability is controlled in Stripe or the app stores. Configure the trial there, then these plans can advertise and start it.',
-                      style: TextStyle(color: YaaroColors.muted, height: 1.35),
+                      style: TextStyle(
+                          color: YaaroColors.mutedFor(context), height: 1.35),
                     ),
                   ],
                 ),
@@ -3567,17 +3584,22 @@ class _MembershipScreenState extends State<MembershipScreen> {
                 final current = status?.tier == plan.tier ||
                     (status == null && plan.tier == 'free');
                 final busy = _busyTier == plan.tier;
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                final cardColor = isDark
+                    ? YaaroColors.surface.withOpacity(0.94)
+                    : Colors.white.withOpacity(0.94);
+                final cardBorderColor = plan.highlighted
+                    ? YaaroColors.rose
+                    : YaaroColors.lineFor(context);
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: YaaroColors.surface.withOpacity(0.94),
+                      color: cardColor,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: plan.highlighted
-                            ? YaaroColors.rose
-                            : YaaroColors.line,
+                        color: cardBorderColor,
                         width: plan.highlighted ? 1.4 : 1,
                       ),
                     ),
@@ -3607,7 +3629,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(plan.summary,
-                            style: const TextStyle(color: YaaroColors.muted)),
+                            style: TextStyle(
+                                color: YaaroColors.mutedFor(context))),
                         const SizedBox(height: 12),
                         ...plan.features.map(
                           (feature) => Padding(
@@ -3632,8 +3655,11 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                 ? YaaroColors.rose
                                 : YaaroColors.teal,
                             foregroundColor: Colors.white,
-                            disabledBackgroundColor:
-                                Colors.white.withOpacity(0.10),
+                            disabledBackgroundColor: isDark
+                                ? Colors.white.withOpacity(0.10)
+                                : Colors.black.withOpacity(0.06),
+                            disabledForegroundColor:
+                                YaaroColors.mutedFor(context),
                             minimumSize: const Size.fromHeight(48),
                           ),
                           child: busy
@@ -3733,8 +3759,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Text(
                     user?.email ??
                         'Add photos, intent, interests, and safety preferences from the connected API.',
-                    style:
-                        const TextStyle(color: YaaroColors.muted, height: 1.35),
+                    style: TextStyle(
+                        color: YaaroColors.mutedFor(context), height: 1.35),
                   ),
                   const SizedBox(height: 16),
                   if (user == null)
@@ -4014,7 +4040,7 @@ class ProfileCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(profile.location,
-                      style: const TextStyle(color: YaaroColors.muted)),
+                      style: TextStyle(color: YaaroColors.mutedFor(context))),
                   const SizedBox(height: 8),
                   Text(profile.headline,
                       style: const TextStyle(fontSize: 16, height: 1.3)),
@@ -4083,7 +4109,7 @@ class CompactProfileTile extends StatelessWidget {
                   profile.headline,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: YaaroColors.muted),
+                  style: TextStyle(color: YaaroColors.mutedFor(context)),
                 ),
                 const SizedBox(height: 8),
                 Text('${profile.compatibilityScore}% compatibility'),
@@ -4214,7 +4240,7 @@ class MatchTile extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 28,
-                      backgroundColor: YaaroColors.surfaceAlt,
+                      backgroundColor: YaaroColors.surfaceAltFor(context),
                       backgroundImage: match.photoUrl == null ||
                               match.photoUrl!.isEmpty
                           ? const NetworkImage(
@@ -4290,8 +4316,8 @@ class MatchTile extends StatelessWidget {
                       match.preview,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: YaaroColors.muted, fontSize: 13),
+                      style: TextStyle(
+                          color: YaaroColors.mutedFor(context), fontSize: 13),
                     ),
                   ],
                 ),
@@ -4314,8 +4340,8 @@ class MatchTile extends StatelessWidget {
                     ),
                   ),
                 IconButton(
-                  icon: const Icon(Icons.more_vert,
-                      color: YaaroColors.muted, size: 20),
+                  icon: Icon(Icons.more_vert,
+                      color: YaaroColors.mutedFor(context), size: 20),
                   onPressed: onUnmatchTap,
                 ),
               ],
@@ -4351,7 +4377,7 @@ class ChatListTile extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 30,
-                  backgroundColor: YaaroColors.surfaceAlt,
+                  backgroundColor: YaaroColors.surfaceAltFor(context),
                   backgroundImage: match.photoUrl == null ||
                           match.photoUrl!.isEmpty
                       ? const NetworkImage(
@@ -5679,8 +5705,8 @@ class _ExploreCategoryDetailScreenState
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new,
-                        color: YaaroColors.muted, size: 20),
+                    icon: Icon(Icons.arrow_back_ios_new,
+                        color: YaaroColors.mutedFor(context), size: 20),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const Text(
@@ -5707,9 +5733,10 @@ class _ExploreCategoryDetailScreenState
                 ],
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Browse shared interests, intent, nearby profiles, daily Vibes, and quick Hot Takes.',
-                style: TextStyle(color: YaaroColors.muted, height: 1.35),
+                style: TextStyle(
+                    color: YaaroColors.mutedFor(context), height: 1.35),
               ),
               if (_message.isNotEmpty) ...[
                 const SizedBox(height: 14),
@@ -5753,10 +5780,10 @@ class _ExploreCategoryDetailScreenState
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: panelDecoration(context),
-                  child: const Center(
+                  child: Center(
                     child: Text(
                       'No profiles in this lane yet.',
-                      style: TextStyle(color: YaaroColors.muted),
+                      style: TextStyle(color: YaaroColors.mutedFor(context)),
                     ),
                   ),
                 )
@@ -5824,9 +5851,10 @@ class _ExploreCategoryDetailScreenState
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: panelDecoration(context),
-                child: const Text(
+                child: Text(
                   '30-second text dates are warming up. This speed chat lane is coming soon.',
-                  style: TextStyle(color: YaaroColors.muted, height: 1.35),
+                  style: TextStyle(
+                      color: YaaroColors.mutedFor(context), height: 1.35),
                 ),
               ),
             ],
