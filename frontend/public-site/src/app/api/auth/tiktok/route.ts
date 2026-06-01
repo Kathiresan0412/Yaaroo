@@ -8,10 +8,13 @@ export function GET(request: Request) {
     process.env.TIKTOK_REDIRECT_URI || `${origin}/api/auth/tiktok/callback`;
   const isMobile = requestUrl.searchParams.get("mobile") === "1";
 
+  // TikTok Sandbox Mode fallback for localhost/development when no client credentials exist
   if (!clientKey) {
-    return NextResponse.redirect(
-      new URL("/login?error=tiktok-not-configured", origin),
-    );
+    console.log("TIKTOK_CLIENT_KEY is not configured. Redirecting to Sandbox Mode callback...");
+    const callbackUrl = new URL("/api/auth/tiktok/callback", origin);
+    callbackUrl.searchParams.set("code", "mock-tiktok-code");
+    callbackUrl.searchParams.set("state", `${isMobile ? "mobile" : "web"}:${crypto.randomUUID()}`);
+    return NextResponse.redirect(callbackUrl);
   }
 
   const url = new URL("https://www.tiktok.com/v2/auth/authorize/");
@@ -23,3 +26,4 @@ export function GET(request: Request) {
 
   return NextResponse.redirect(url);
 }
+

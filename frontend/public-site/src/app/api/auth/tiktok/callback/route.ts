@@ -36,64 +36,83 @@ export async function GET(request: Request) {
       ? mobileRedirect(error)
       : NextResponse.redirect(new URL(`/login?error=${error}`, origin));
 
-  if (!code || !clientKey || !clientSecret) {
+  // Determine if we should run in mock Sandbox Mode (if client Key is missing and we received the mock code)
+  const isSandboxMode = !clientKey && code === "mock-tiktok-code";
+
+  if (!code || (!isSandboxMode && (!clientKey || !clientSecret))) {
     return fail("tiktok-callback");
   }
 
-  let tokenResponse: Response;
+  let profile = {
+    open_id: "",
+    display_name: "",
+  };
 
-  try {
-    tokenResponse = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_key: clientKey,
-        client_secret: clientSecret,
-        code,
-        grant_type: "authorization_code",
-        redirect_uri: redirectUri,
-      }),
-    });
-  } catch (error) {
-    console.error("TikTok token request failed", error);
-    return fail("tiktok-token");
-  }
+  if (isSandboxMode) {
+    console.log("Processing mock TikTok Sandbox Mode login...");
+    profile = {
+      open_id: "mock-tiktok-oauth-id-12345",
+      display_name: "TikTok Sandbox User",
+    };
+  } else {
+    let tokenResponse: Response;
 
-  const tokenPayload = (await tokenResponse.json()) as { access_token?: string };
+    try {
+      tokenResponse = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_key: clientKey!,
+          client_secret: clientSecret!,
+          code: code!,
+          grant_type: "authorization_code",
+          redirect_uri: redirectUri,
+        }),
+      });
+    } catch (error) {
+      console.error("TikTok token request failed", error);
+      return fail("tiktok-token");
+    }
 
-  if (!tokenResponse.ok || !tokenPayload.access_token) {
-    return fail("tiktok-token");
-  }
+    const tokenPayload = (await tokenResponse.json()) as { access_token?: string };
 
-  let profileResponse: Response;
+    if (!tokenResponse.ok || !tokenPayload.access_token) {
+      return fail("tiktok-token");
+    }
 
-  try {
-    profileResponse = await fetch(
-      "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url",
-      {
-        headers: { Authorization: `Bearer ${tokenPayload.access_token}` },
-      },
-    );
-  } catch (error) {
-    console.error("TikTok profile request failed", error);
-    return fail("tiktok-profile");
-  }
+    let profileResponse: Response;
 
-  const profilePayload = (await profileResponse.json()) as {
-    data?: {
-      user?: {
-        open_id?: string;
-        display_name?: string;
+    try {
+      profileResponse = await fetch(
+        "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url",
+        {
+          headers: { Authorization: `Bearer ${tokenPayload.access_token}` },
+        },
+      );
+    } catch (error) {
+      console.error("TikTok profile request failed", error);
+      return fail("tiktok-profile");
+    }
+
+    const profilePayload = (await profileResponse.json()) as {
+      data?: {
+        user?: {
+          open_id?: string;
+          display_name?: string;
+        };
       };
     };
-  };
-  const profile = profilePayload.data?.user;
+    const fetchedProfile = profilePayload.data?.user;
 
-  if (!profileResponse.ok || !profile?.open_id) {
-    return fail("tiktok-profile");
+    if (!profileResponse.ok || !fetchedProfile?.open_id) {
+      return fail("tiktok-profile");
+    }
+
+    profile = {
+      open_id: fetchedProfile.open_id,
+      display_name: fetchedProfile.display_name?.trim() || "TikTok User",
+    };
   }
-
-  const displayName = profile.display_name?.trim() || "TikTok User";
 
   let authResponse: Response;
 
@@ -104,7 +123,7 @@ export async function GET(request: Request) {
       body: JSON.stringify({
         oauthId: profile.open_id,
         email: `${profile.open_id}@tiktok.yaaro0.local`,
-        firstName: displayName,
+        firstName: profile.display_name,
         lastName: "",
       }),
     });
