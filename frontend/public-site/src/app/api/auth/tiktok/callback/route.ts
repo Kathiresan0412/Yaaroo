@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { appendSetCookieHeaders } from "../../backend";
+import { cookies } from "next/headers";
 
 const backendUrl = process.env.YAARO0_API_URL || "http://127.0.0.1:8000";
 
@@ -122,5 +123,35 @@ export async function GET(request: Request) {
     return mobileSuccessRedirect(authPayload);
   }
 
-  return redirectWithCookies(new URL(authPayload.redirectTo || "/onboarding", origin), authResponse);
+  // Next.js App Router sets cookies reliably using the cookies() helper before redirecting
+  const cookieStore = await cookies();
+  const rawCookies = authResponse.headers.getSetCookie?.() || [];
+  for (const cookieStr of rawCookies) {
+    const parts = cookieStr.split(";").map((p) => p.trim());
+    const [nameValue, ...directives] = parts;
+    const eqIdx = nameValue.indexOf("=");
+    if (eqIdx !== -1) {
+      const name = nameValue.substring(0, eqIdx);
+      const value = decodeURIComponent(nameValue.substring(eqIdx + 1));
+
+      const options: any = { path: "/" };
+      for (const dir of directives) {
+        const lowerDir = dir.toLowerCase();
+        if (lowerDir.startsWith("max-age=")) {
+          options.maxAge = parseInt(dir.substring(8), 10);
+        } else if (lowerDir.startsWith("path=")) {
+          options.path = dir.substring(5);
+        } else if (lowerDir === "httponly") {
+          options.httpOnly = true;
+        } else if (lowerDir === "secure") {
+          options.secure = true;
+        } else if (lowerDir.startsWith("samesite=")) {
+          options.sameSite = dir.substring(9).toLowerCase();
+        }
+      }
+      cookieStore.set(name, value, options);
+    }
+  }
+
+  return NextResponse.redirect(new URL(authPayload.redirectTo || "/onboarding", origin));
 }
