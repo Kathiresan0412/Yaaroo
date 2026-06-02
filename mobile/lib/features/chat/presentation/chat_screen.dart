@@ -46,6 +46,9 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isRecording = false;
   int _recordSeconds = 0;
   Timer? _recordTimer;
+  Timer? _typingStopTimer;
+  bool _hasSentTypingStart = false;
+  bool _isOtherTyping = false;
 
   // Active audio playback simulations
   final Map<String, double> _audioPlaybackPosition =
@@ -67,6 +70,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _matchNameState = widget.matchName;
     _matchPhotoState = widget.matchPhotoUrl;
     _scrollController.addListener(_onScroll);
+    _textController.addListener(_handleTypingChanged);
     Future.delayed(Duration.zero, _initializeChat);
   }
 
@@ -80,6 +84,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _typingStopTimer?.cancel();
     _textController.dispose();
     _recordTimer?.cancel();
     for (var timer in _audioPlaybackTimers.values) {
@@ -102,6 +107,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _leaveAndDisconnectSocket() {
     if (_socket != null) {
       try {
+        _emitTypingStop();
         _socket!.emit('leave_match', {'matchId': widget.matchId});
         _socket!.clearListeners();
         _socket!.disconnect();
@@ -176,6 +182,18 @@ class _ChatScreenState extends State<ChatScreen> {
       map[m.id] = m;
     }
     for (var m in incoming) {
+      if (m.isMine) {
+        String? pendingId;
+        for (final entry in map.entries) {
+          if (entry.value.isPendingMatchFor(m)) {
+            pendingId = entry.key;
+            break;
+          }
+        }
+        if (pendingId != null) {
+          map.remove(pendingId);
+        }
+      }
       map[m.id] = m;
     }
 
@@ -187,6 +205,46 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages.clear();
       _messages.addAll(sorted);
     });
+  }
+
+  void _replaceMessage(String oldId, ChatMessage next) {
+    final index = _messages.indexWhere((message) => message.id == oldId);
+    if (index == -1) {
+      _mergeAndSortMessages([next]);
+      return;
+    }
+
+    setState(() {
+      _messages[index] = next;
+      _messages.sort((a, b) =>
+          DateTime.parse(b.createdAt).compareTo(DateTime.parse(a.createdAt)));
+    });
+  }
+
+  void _handleTypingChanged() {
+    if (_socket == null ||
+        !_socket!.connected ||
+        _textController.text.isEmpty) {
+      _emitTypingStop();
+      return;
+    }
+
+    if (!_hasSentTypingStart) {
+      _hasSentTypingStart = true;
+      _socket!.emit('typing_start', {'matchId': widget.matchId});
+    }
+
+    _typingStopTimer?.cancel();
+    _typingStopTimer =
+        Timer(const Duration(milliseconds: 500), _emitTypingStop);
+  }
+
+  void _emitTypingStop() {
+    _typingStopTimer?.cancel();
+    if (_hasSentTypingStart && _socket != null && _socket!.connected) {
+      _socket!.emit('typing_stop', {'matchId': widget.matchId});
+    }
+    _hasSentTypingStart = false;
   }
 
   Future<void> _loadMoreMessages() async {
@@ -249,9 +307,12 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() => _notice = 'Live chat is reconnecting.');
     });
 
-    _socket!.on('new_message', (data) {
-      if (data is Map<String, dynamic>) {
-        final msg = ChatMessage.fromJson(data, _currentUserId ?? '');
+    void handleIncomingMessage(dynamic data) {
+      if (data is Map) {
+        final msg = ChatMessage.fromJson(
+          Map<String, dynamic>.from(data),
+          _currentUserId ?? '',
+        );
         if (msg.matchId == widget.matchId) {
           _mergeAndSortMessages([msg]);
           // Mark immediately read
@@ -259,6 +320,22 @@ class _ChatScreenState extends State<ChatScreen> {
               'mark_read', {'matchId': widget.matchId, 'messageId': msg.id});
           _apiClient.markMessageRead(msg.id).catchError((_) {});
         }
+      }
+    }
+
+    _socket!.on('new_message', handleIncomingMessage);
+    _socket!.on('receive_message', handleIncomingMessage);
+
+    _socket!.on('message_delivered', (data) {
+      if (data is Map && data['matchId']?.toString() == widget.matchId) {
+        final messageId = data['messageId']?.toString();
+        setState(() {
+          for (var i = 0; i < _messages.length; i++) {
+            if (_messages[i].id == messageId && _messages[i].isMine) {
+              _messages[i] = _messages[i].copyWith(deliveryStatus: 'delivered');
+            }
+          }
+        });
       }
     });
 
@@ -302,6 +379,18 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     });
 
+    _socket!.on('typing_start', (data) {
+      if (data is Map && data['matchId']?.toString() == widget.matchId) {
+        setState(() => _isOtherTyping = true);
+      }
+    });
+
+    _socket!.on('typing_stop', (data) {
+      if (data is Map && data['matchId']?.toString() == widget.matchId) {
+        setState(() => _isOtherTyping = false);
+      }
+    });
+
     _socket!.connect();
   }
 
@@ -310,6 +399,23 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty) return;
 
     _textController.clear();
+    _emitTypingStop();
+
+    final tempId = 'local-${DateTime.now().microsecondsSinceEpoch}';
+    final pendingMessage = ChatMessage(
+      id: tempId,
+      matchId: widget.matchId,
+      senderId: _currentUserId ?? '',
+      type: 'text',
+      content: text,
+      reactions: const [],
+      isMine: true,
+      isRead: false,
+      isDeleted: false,
+      createdAt: DateTime.now().toIso8601String(),
+      deliveryStatus: 'sending',
+    );
+    _mergeAndSortMessages([pendingMessage]);
 
     // Check socket connectivity
     if (_socket != null && _socket!.connected) {
@@ -318,35 +424,63 @@ class _ChatScreenState extends State<ChatScreen> {
         {'matchId': widget.matchId, 'content': text, 'type': 'text'},
         ack: (ack) {
           if (ack is Map && ack['success'] == true) {
-            // Socket message is sent, wait for 'new_message' socket event or load from REST
+            if (ack['message'] is Map) {
+              final newMsg = ChatMessage.fromJson(
+                Map<String, dynamic>.from(ack['message'] as Map),
+                _currentUserId ?? '',
+              ).copyWith(deliveryStatus: 'sent');
+              _replaceMessage(tempId, newMsg);
+            } else {
+              _replaceMessage(
+                tempId,
+                pendingMessage.copyWith(deliveryStatus: 'sent'),
+              );
+            }
           } else if (ack is Map && ack['status'] == 402) {
             setState(() {
               _notice = ack['message']?.toString() ??
                   'Free members can send 2 messages per day.';
             });
+            _replaceMessage(
+              tempId,
+              pendingMessage.copyWith(deliveryStatus: 'failed'),
+            );
           } else {
             setState(() {
               _notice = 'WebSocket delivery failure, trying REST...';
             });
-            _fallbackSendTextREST(text);
+            _fallbackSendTextREST(text, tempId: tempId);
           }
         },
       );
     } else {
-      await _fallbackSendTextREST(text);
+      await _fallbackSendTextREST(text, tempId: tempId);
     }
   }
 
-  Future<void> _fallbackSendTextREST(String text) async {
+  Future<void> _fallbackSendTextREST(String text, {String? tempId}) async {
     try {
       final res = await _apiClient.sendMessage(widget.matchId, text, 'text');
       if (res['success'] == true && res['message'] is Map<String, dynamic>) {
         final newMsg =
             ChatMessage.fromJson(res['message'], _currentUserId ?? '');
-        _mergeAndSortMessages([newMsg]);
+        if (tempId != null) {
+          _replaceMessage(tempId, newMsg.copyWith(deliveryStatus: 'sent'));
+        } else {
+          _mergeAndSortMessages([newMsg]);
+        }
       }
     } catch (e) {
       setState(() => _notice = e.toString());
+      if (tempId != null) {
+        final index = _messages.indexWhere((message) => message.id == tempId);
+        if (index != -1) {
+          _replaceMessage(
+            tempId,
+            _messages[index].copyWith(deliveryStatus: 'failed'),
+          );
+        }
+      }
     }
   }
 
@@ -561,9 +695,15 @@ class _ChatScreenState extends State<ChatScreen> {
                       fontWeight: FontWeight.w900, fontSize: 16),
                 ),
                 Text(
-                  _isOnline ? 'Online now' : 'Reconnecting when active',
+                  _isOtherTyping
+                      ? 'Typing...'
+                      : _isOnline
+                          ? 'Online now'
+                          : 'Reconnecting when active',
                   style: TextStyle(
-                    color: _isOnline ? YaaroColors.teal : Colors.white38,
+                    color: _isOtherTyping || _isOnline
+                        ? YaaroColors.teal
+                        : Colors.white38,
                     fontSize: 11,
                   ),
                 ),
@@ -754,8 +894,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 if (!message.isDeleted) ...[
                   const SizedBox(width: 6),
-                  const Icon(Icons.sentiment_satisfied,
-                      size: 12, color: Colors.white38),
+                  if (message.isMine) _buildDeliveryTick(message),
                 ],
               ],
             ),
@@ -776,6 +915,33 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildDeliveryTick(ChatMessage message) {
+    if (message.deliveryStatus == 'failed') {
+      return const Icon(Icons.error_outline, size: 13, color: Colors.white70);
+    }
+
+    if (message.deliveryStatus == 'sending') {
+      return const SizedBox(
+        width: 12,
+        height: 12,
+        child: CircularProgressIndicator(
+          strokeWidth: 1.4,
+          color: Colors.white54,
+        ),
+      );
+    }
+
+    if (message.isRead || message.deliveryStatus == 'read') {
+      return const Icon(Icons.done_all, size: 14, color: YaaroColors.teal);
+    }
+
+    if (message.deliveryStatus == 'delivered') {
+      return const Icon(Icons.done_all, size: 14, color: Colors.white54);
+    }
+
+    return const Icon(Icons.check, size: 14, color: Colors.white54);
   }
 
   Widget _buildVoicePlayer(ChatMessage message) {
@@ -991,6 +1157,7 @@ class ChatMessage {
   final String? readAt;
   final bool isDeleted;
   final String createdAt;
+  final String deliveryStatus;
 
   ChatMessage({
     required this.id,
@@ -1006,6 +1173,7 @@ class ChatMessage {
     this.readAt,
     required this.isDeleted,
     required this.createdAt,
+    this.deliveryStatus = 'sent',
   });
 
   factory ChatMessage.fromJson(
@@ -1032,7 +1200,18 @@ class ChatMessage {
       isDeleted: json['isDeleted'] == true,
       createdAt:
           json['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
+      deliveryStatus: json['isRead'] == true ? 'read' : 'sent',
     );
+  }
+
+  bool isPendingMatchFor(ChatMessage other) {
+    if (!id.startsWith('local-') || deliveryStatus == 'failed') return false;
+    return isMine &&
+        other.isMine &&
+        matchId == other.matchId &&
+        type == other.type &&
+        (content ?? '') == (other.content ?? '') &&
+        (mediaUrl ?? '') == (other.mediaUrl ?? '');
   }
 
   ChatMessage copyWith({
@@ -1041,6 +1220,7 @@ class ChatMessage {
     bool? isDeleted,
     String? content,
     String? mediaUrl,
+    String? deliveryStatus,
   }) {
     return ChatMessage(
       id: id,
@@ -1056,6 +1236,7 @@ class ChatMessage {
       readAt: readAt ?? this.readAt,
       isDeleted: isDeleted ?? this.isDeleted,
       createdAt: createdAt,
+      deliveryStatus: deliveryStatus ?? this.deliveryStatus,
     );
   }
 }
