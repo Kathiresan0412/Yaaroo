@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/api_client.dart';
-import '../../../main.dart' show YaaroColors, YaaroScope;
+import '../../../main.dart'
+    show YaaroColors, YaaroScope, isBackendNumericId, socketBaseUrl;
 import 'webrtc_call_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -119,6 +120,15 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _initializeChat() async {
     _apiClient = YaaroScope.of(context);
     _currentUserId = _apiClient.user?.id;
+
+    if (!isBackendNumericId(widget.matchId)) {
+      setState(() {
+        _isLoading = false;
+        _notice =
+            'Invalid match ID. Refresh your matches or log in again to clear old chat data.';
+      });
+      return;
+    }
 
     // Load matches to extract updated details if available
     _fetchMatchDetails();
@@ -268,17 +278,10 @@ class _ChatScreenState extends State<ChatScreen> {
     final token = _apiClient.accessToken;
     if (token == null) return;
 
-    final String apiHost =
-        '${_apiClient.baseUri.scheme}://${_apiClient.baseUri.authority}';
-    final String socketUrl =
-        const String.fromEnvironment('YAARO0_SOCKET_URL').isNotEmpty
-            ? const String.fromEnvironment('YAARO0_SOCKET_URL')
-            : apiHost;
-
     _socket = io.io(
-      socketUrl,
+      socketBaseUrl,
       io.OptionBuilder()
-          .setTransports(['websocket', 'polling'])
+          .setTransports(['polling', 'websocket'])
           .setAuth({'token': token})
           .disableAutoConnect()
           .build(),
@@ -297,14 +300,26 @@ class _ChatScreenState extends State<ChatScreen> {
                 _isOnline = ackData['isOnline'] == true;
                 _otherUserId = ackData['otherUserId']?.toString();
               });
+            } else {
+              final message = ackData['message']?.toString();
+              setState(() {
+                _notice = message?.isNotEmpty == true
+                    ? message!
+                    : 'Unable to join this chat.';
+              });
             }
+          } else {
+            setState(() => _notice = 'Unable to join this chat.');
           }
         },
       );
     });
 
-    _socket!.onConnectError((_) {
-      setState(() => _notice = 'Live chat is reconnecting.');
+    _socket!.onConnectError((error) {
+      final detail = _socketErrorDetail(error);
+      setState(() => _notice = detail == null
+          ? 'Live chat is reconnecting.'
+          : 'Live chat is reconnecting: $detail');
     });
 
     void handleIncomingMessage(dynamic data) {
@@ -392,6 +407,19 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     _socket!.connect();
+  }
+
+  String? _socketErrorDetail(dynamic error) {
+    if (error == null) return null;
+
+    if (error is Map) {
+      final message =
+          error['message'] ?? error['error'] ?? error['description'];
+      return message?.toString();
+    }
+
+    final message = error.toString().trim();
+    return message.isEmpty ? null : message;
   }
 
   Future<void> _sendText() async {

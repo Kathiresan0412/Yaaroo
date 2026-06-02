@@ -24,6 +24,11 @@ const _dartDefineWebBaseUrl = String.fromEnvironment(
   defaultValue: 'https://yaaroo.vercel.app',
 );
 
+const _dartDefineSocketBaseUrl = String.fromEnvironment(
+  'YAARO0_SOCKET_URL',
+  defaultValue: '',
+);
+
 String get apiBaseUrl {
   final envApiBaseUrl = dotenv.env['YAARO0_API_URL']?.trim();
   return envApiBaseUrl?.isNotEmpty == true
@@ -36,6 +41,17 @@ String get webBaseUrl {
   return envWebBaseUrl?.isNotEmpty == true
       ? envWebBaseUrl!
       : _dartDefineWebBaseUrl;
+}
+
+String get socketBaseUrl {
+  final envSocketBaseUrl = dotenv.env['YAARO0_SOCKET_URL']?.trim();
+  if (envSocketBaseUrl?.isNotEmpty == true) {
+    return envSocketBaseUrl!;
+  }
+  if (_dartDefineSocketBaseUrl.isNotEmpty) {
+    return _dartDefineSocketBaseUrl;
+  }
+  return apiBaseUrl;
 }
 
 Future<void> main() async {
@@ -589,6 +605,31 @@ class LikeItem {
       isVerified: user['isVerified'] == true,
     );
   }
+}
+
+bool isBackendNumericId(String value) => RegExp(r'^\d+$').hasMatch(value);
+
+void openChatForMatch(BuildContext context, MatchItem match) {
+  if (!isBackendNumericId(match.id)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+            'This chat uses an old match id. Refresh matches or log in again.'),
+      ),
+    );
+    return;
+  }
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ChatScreen(
+        matchId: match.id,
+        matchName: match.name,
+        matchPhotoUrl: match.photoUrl,
+      ),
+    ),
+  );
 }
 
 class AppShell extends StatefulWidget {
@@ -1353,6 +1394,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       Expanded(
                         child: FilledButton.icon(
                           onPressed: () {
+                            if (!isBackendNumericId(result.matchId!)) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'This match came from an old session. Refresh matches or log in again.',
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
                             Navigator.pop(context);
                             Navigator.push(
                               context,
@@ -2026,16 +2078,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
     final token = api.accessToken;
     if (token == null) return;
 
-    final String apiHost = '${api.baseUri.scheme}://${api.baseUri.authority}';
-    final String socketUrl =
-        const String.fromEnvironment('YAARO0_SOCKET_URL').isNotEmpty
-            ? const String.fromEnvironment('YAARO0_SOCKET_URL')
-            : apiHost;
-
     _socket = io.io(
-      socketUrl,
+      socketBaseUrl,
       io.OptionBuilder()
-          .setTransports(['websocket', 'polling'])
+          .setTransports(['polling', 'websocket'])
           .setAuth({'token': token})
           .disableAutoConnect()
           .build(),
@@ -2531,6 +2577,19 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                       ),
                                       onPressed: matchId.isNotEmpty
                                           ? () {
+                                              if (!isBackendNumericId(
+                                                  matchId)) {
+                                                Navigator.pop(context);
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'This chat uses an old match id. Refresh matches or log in again.',
+                                                    ),
+                                                  ),
+                                                );
+                                                return;
+                                              }
                                               Navigator.pop(context);
                                               Navigator.push(
                                                 context,
@@ -3211,16 +3270,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 
   void _openChat(MatchItem match) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ChatScreen(
-          matchId: match.id,
-          matchName: match.name,
-          matchPhotoUrl: match.photoUrl,
-        ),
-      ),
-    );
+    openChatForMatch(context, match);
   }
 
   @override
@@ -4276,18 +4326,7 @@ class MatchTile extends StatelessWidget {
           // Middle: Interactive Row Body Tap -> Chat
           Expanded(
             child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ChatScreen(
-                      matchId: match.id,
-                      matchName: match.name,
-                      matchPhotoUrl: match.photoUrl,
-                    ),
-                  ),
-                );
-              },
+              onTap: () => openChatForMatch(context, match),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Column(
