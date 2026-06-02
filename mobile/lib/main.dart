@@ -16,7 +16,7 @@ import 'features/chat/presentation/chat_screen.dart';
 
 const _dartDefineApiBaseUrl = String.fromEnvironment(
   'YAARO0_API_URL',
-  defaultValue: 'https://yaaro-backend.vercel.app',
+  defaultValue: 'https://yaaro-backend-production-fb61.up.railway.app',
 );
 
 const _dartDefineWebBaseUrl = String.fromEnvironment(

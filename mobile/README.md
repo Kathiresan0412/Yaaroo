@@ -5,7 +5,7 @@ Flutter workspace for the iOS and Android app.
 The app reads the backend URL from `mobile/.env`:
 
 ```env
-YAARO0_API_URL=https://yaaro-backend.vercel.app
+YAARO0_API_URL=https://yaaro-backend-production-fb61.up.railway.app
 ```
 
 Use `mobile/.env.example` as the template. The real `mobile/.env` file is local-only and ignored by git.
