@@ -6,8 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import '../../../core/api_client.dart' show ApiException;
-import '../../../main.dart' show YaaroScope, YaaroColors, AppTextField, webBaseUrl;
+import '../../../main.dart'
+    show YaaroScope, YaaroColors, AppTextField, webBaseUrl;
 import 'package:url_launcher/url_launcher.dart';
 
 class _ValidationResult {
@@ -50,12 +52,17 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   double? _longitude;
   String? _oauthProvider;
   String? _userId;
+  DateTime? _dateOfBirth;
+  String? _gender;
+  bool _coreProfileMissing = false;
 
   // Validation focus nodes & error highlight flags
   final FocusNode _displayNameFocus = FocusNode();
+  final FocusNode _coreProfileFocus = FocusNode();
   final FocusNode _bioFocus = FocusNode();
   final FocusNode _cityFocus = FocusNode();
   bool _displayNameHasError = false;
+  bool _coreProfileHasError = false;
   bool _bioHasError = false;
   bool _cityHasError = false;
   bool _photosHasError = false;
@@ -107,31 +114,159 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
   // Options matching the Web UI
   final _options = {
-    'orientation': ['Straight', 'Gay', 'Lesbian', 'Bisexual', 'Asexual', 'Queer', 'Questioning'],
-    'body': ['Slim', 'Athletic', 'Average', 'Curvy', 'Muscular', 'Prefer not to say'],
-    'ethnicity': ['Tamil', 'Sinhalese', 'Muslim', 'Burgher', 'Indian Tamil', 'South Asian', 'Mixed'],
+    'orientation': [
+      'Straight',
+      'Gay',
+      'Lesbian',
+      'Bisexual',
+      'Asexual',
+      'Queer',
+      'Questioning'
+    ],
+    'body': [
+      'Slim',
+      'Athletic',
+      'Average',
+      'Curvy',
+      'Muscular',
+      'Prefer not to say'
+    ],
+    'ethnicity': [
+      'Tamil',
+      'Sinhalese',
+      'Muslim',
+      'Burgher',
+      'Indian Tamil',
+      'South Asian',
+      'Mixed'
+    ],
     'hair': ['Black', 'Brown', 'Blonde', 'Grey', 'Red', 'Other'],
     'eyes': ['Brown', 'Black', 'Hazel', 'Blue', 'Green', 'Other'],
-    'education': ['High school', 'Diploma', 'Bachelors', 'Masters', 'PhD', 'Other'],
-    'industries': ['Technology', 'Healthcare', 'Education', 'Finance', 'Arts', 'Hospitality', 'Public sector'],
-    'religion': ['Hindu', 'Christian', 'Muslim', 'Buddhist', 'Spiritual', 'Agnostic', 'Other'],
-    'nationality': ['Sri Lankan', 'Indian', 'American', 'British', 'Canadian', 'Australian', 'German', 'French', 'Singaporean', 'Malaysian', 'Other'],
-    'languages': ['Tamil', 'English', 'Sinhala', 'Hindi', 'Malayalam', 'French', 'German'],
+    'education': [
+      'High school',
+      'Diploma',
+      'Bachelors',
+      'Masters',
+      'PhD',
+      'Other'
+    ],
+    'industries': [
+      'Technology',
+      'Healthcare',
+      'Education',
+      'Finance',
+      'Arts',
+      'Hospitality',
+      'Public sector'
+    ],
+    'religion': [
+      'Hindu',
+      'Christian',
+      'Muslim',
+      'Buddhist',
+      'Spiritual',
+      'Agnostic',
+      'Other'
+    ],
+    'nationality': [
+      'Sri Lankan',
+      'Indian',
+      'American',
+      'British',
+      'Canadian',
+      'Australian',
+      'German',
+      'French',
+      'Singaporean',
+      'Malaysian',
+      'Other'
+    ],
+    'languages': [
+      'Tamil',
+      'English',
+      'Sinhala',
+      'Hindi',
+      'Malayalam',
+      'French',
+      'German'
+    ],
     'habits': ['No', 'Occasionally', 'Socially', 'Yes'],
     'exercise': ['Daily', 'Often', 'Sometimes', 'Rarely'],
-    'diet': ['Vegetarian', 'Vegan', 'Non vegetarian', 'Eggetarian', 'Halal', 'Other'],
+    'diet': [
+      'Vegetarian',
+      'Vegan',
+      'Non vegetarian',
+      'Eggetarian',
+      'Halal',
+      'Other'
+    ],
     'sleep': ['Early bird', 'Night owl', 'Flexible'],
     'living': ['Alone', 'With family', 'With roommates', 'With pets'],
     'children': ['No', 'Yes', 'Prefer not to say'],
     'wantsChildren': ['Want someday', 'Open to it', 'Do not want', 'Not sure'],
     'pets': ['Dog', 'Cat', 'Bird', 'Fish', 'Rabbit', 'None'],
-    'colours': ['Pink', 'Red', 'Blue', 'Green', 'Black', 'White', 'Gold', 'Purple'],
-    'foods': ['Kottu', 'Dosa', 'Biryani', 'Rice & curry', 'Sushi', 'Pasta', 'Street food'],
-    'music': ['Tamil pop', 'Kollywood', 'Hip hop', 'R&B', 'EDM', 'Classical', 'Indie'],
-    'movies': ['Romance', 'Comedy', 'Thriller', 'Action', 'Drama', 'Sci-fi', 'Documentary'],
-    'hobbies': ['Travel', 'Cooking', 'Cricket', 'Gym', 'Reading', 'Dancing', 'Gaming', 'Photography', 'Hiking', 'Volunteering'],
-    'love': ['Words of affirmation', 'Quality time', 'Acts of service', 'Gifts', 'Physical touch'],
-    'goals': ['Life partner', 'Long-term relationship', 'New friends', 'Still figuring it out'],
+    'colours': [
+      'Pink',
+      'Red',
+      'Blue',
+      'Green',
+      'Black',
+      'White',
+      'Gold',
+      'Purple'
+    ],
+    'foods': [
+      'Kottu',
+      'Dosa',
+      'Biryani',
+      'Rice & curry',
+      'Sushi',
+      'Pasta',
+      'Street food'
+    ],
+    'music': [
+      'Tamil pop',
+      'Kollywood',
+      'Hip hop',
+      'R&B',
+      'EDM',
+      'Classical',
+      'Indie'
+    ],
+    'movies': [
+      'Romance',
+      'Comedy',
+      'Thriller',
+      'Action',
+      'Drama',
+      'Sci-fi',
+      'Documentary'
+    ],
+    'hobbies': [
+      'Travel',
+      'Cooking',
+      'Cricket',
+      'Gym',
+      'Reading',
+      'Dancing',
+      'Gaming',
+      'Photography',
+      'Hiking',
+      'Volunteering'
+    ],
+    'love': [
+      'Words of affirmation',
+      'Quality time',
+      'Acts of service',
+      'Gifts',
+      'Physical touch'
+    ],
+    'goals': [
+      'Life partner',
+      'Long-term relationship',
+      'New friends',
+      'Still figuring it out'
+    ],
     'genders': ['everyone', 'women', 'men', 'non_binary'],
     'countries': [
       'Sri Lanka',
@@ -181,6 +316,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   @override
   void dispose() {
     _displayNameFocus.dispose();
+    _coreProfileFocus.dispose();
     _bioFocus.dispose();
     _cityFocus.dispose();
     _displayName.dispose();
@@ -207,8 +343,16 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
       setState(() {
         _photos = List<Map<String, dynamic>>.from(photosList);
-        _oauthProvider = userMap['oauthProvider']?.toString() ?? userMap['oauth_provider']?.toString();
+        _oauthProvider = userMap['oauthProvider']?.toString() ??
+            userMap['oauth_provider']?.toString();
         _userId = userMap['id']?.toString() ?? '';
+        final registeredProfile = userMap['registeredProfile'] is Map
+            ? Map<String, dynamic>.from(userMap['registeredProfile'] as Map)
+            : null;
+        _coreProfileMissing = registeredProfile == null;
+        _gender = registeredProfile?['gender']?.toString();
+        _dateOfBirth = DateTime.tryParse(
+            registeredProfile?['dateOfBirth']?.toString() ?? '');
 
         final existingDisplayName = profile['displayName']?.toString() ?? '';
         _displayName.text = existingDisplayName;
@@ -254,7 +398,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         _showGender = prefs['showGender']?.toString() ?? 'everyone';
         _minAge = double.tryParse(prefs['minAge']?.toString() ?? '') ?? 18.0;
         _maxAge = double.tryParse(prefs['maxAge']?.toString() ?? '') ?? 35.0;
-        _maxDistanceKm = double.tryParse(prefs['maxDistanceKm']?.toString() ?? '') ?? 50.0;
+        _maxDistanceKm =
+            double.tryParse(prefs['maxDistanceKm']?.toString() ?? '') ?? 50.0;
 
         _city.text = location['city']?.toString() ?? '';
         _country.text = location['country']?.toString() ?? '';
@@ -292,7 +437,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return countries;
   }
 
-  Future<Map<String, String>> _cityFromCoordinates(double latitude, double longitude) async {
+  Future<Map<String, String>> _cityFromCoordinates(
+      double latitude, double longitude) async {
     final uri = Uri.https(
       'api.bigdatacloud.net',
       '/data/reverse-geocode-client',
@@ -336,7 +482,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        throw ApiException('Turn on location services or enter your city manually.');
+        throw ApiException(
+            'Turn on location services or enter your city manually.');
       }
 
       var permission = await Geolocator.checkPermission();
@@ -344,10 +491,12 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied) {
-        throw ApiException('Location permission was not granted. Enter your city manually.');
+        throw ApiException(
+            'Location permission was not granted. Enter your city manually.');
       }
       if (permission == LocationPermission.deniedForever) {
-        throw ApiException('Location permission is blocked. Enable it in settings or enter your city manually.');
+        throw ApiException(
+            'Location permission is blocked. Enable it in settings or enter your city manually.');
       }
 
       final position = await Geolocator.getCurrentPosition(
@@ -383,7 +532,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       );
     } catch (_) {
       if (!mounted) return;
-      _showToast('Unable to find your city from device location. Please make sure location is enabled.');
+      _showToast(
+          'Unable to find your city from device location. Please make sure location is enabled.');
     } finally {
       if (mounted) {
         setState(() => _locating = false);
@@ -437,7 +587,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         }
       });
       _showToast(
-        uploadCount > 1 ? 'Successfully uploaded $uploadCount photos.' : 'Photo uploaded.',
+        uploadCount > 1
+            ? 'Successfully uploaded $uploadCount photos.'
+            : 'Photo uploaded.',
         isError: false,
       );
     } on ApiException catch (e) {
@@ -529,6 +681,10 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     }
 
     addText('displayName', _displayName);
+    addString('gender', _gender);
+    if (_dateOfBirth != null) {
+      body['dateOfBirth'] = DateFormat('yyyy-MM-dd').format(_dateOfBirth!);
+    }
     addText('pronouns', _pronouns);
     addList('sexualOrientation', _sexualOrientation);
     addText('headline', _headline);
@@ -612,7 +768,17 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   }
 
   _ValidationResult _validateAllRequiredFields() {
-    return _ValidationResult(isValid: true, step: 0, fieldName: '', message: '');
+    if (_coreProfileMissing && (_dateOfBirth == null || _gender == null)) {
+      return _ValidationResult(
+        isValid: false,
+        step: 1,
+        fieldName: 'Core Profile',
+        message: 'Date of birth and gender are required before matching.',
+      );
+    }
+
+    return _ValidationResult(
+        isValid: true, step: 0, fieldName: '', message: '');
   }
 
   void _handleValidationError(_ValidationResult result) {
@@ -628,6 +794,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
             if (result.fieldName == 'Display Name') {
               _displayNameHasError = true;
               _displayNameFocus.requestFocus();
+            } else if (result.fieldName == 'Core Profile') {
+              _coreProfileHasError = true;
+              _coreProfileFocus.requestFocus();
             } else if (result.fieldName == 'Bio') {
               _bioHasError = true;
               _bioFocus.requestFocus();
@@ -648,7 +817,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
     errors.forEach((key, val) {
       errorMsg += "• $val\n";
-      
+
       if (targetStep == null) {
         if (key == 'photos') {
           targetStep = 0;
@@ -659,6 +828,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         } else if (key == 'bio') {
           targetStep = 1;
           targetField = 'bio';
+        } else if (key == 'dateOfBirth' || key == 'gender') {
+          targetStep = 1;
+          targetField = 'coreProfile';
         } else if (key == 'location') {
           targetStep = 7;
           targetField = 'location';
@@ -681,6 +853,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
             } else if (targetField == 'bio') {
               _bioHasError = true;
               _bioFocus.requestFocus();
+            } else if (targetField == 'coreProfile') {
+              _coreProfileHasError = true;
+              _coreProfileFocus.requestFocus();
             } else if (targetField == 'location') {
               _cityHasError = true;
               _cityFocus.requestFocus();
@@ -738,10 +913,14 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           final profileBody = _buildProfileBody();
           if (profileBody.isNotEmpty) {
             await api.updateProfileMe(profileBody);
+            if (_dateOfBirth != null && _gender != null) {
+              _coreProfileMissing = false;
+            }
           }
 
           if (_city.text.trim().isNotEmpty && _country.text.trim().isNotEmpty) {
-            await api.updateLocation(_latitude, _longitude, _city.text.trim(), _country.text.trim());
+            await api.updateLocation(
+                _latitude, _longitude, _city.text.trim(), _country.text.trim());
           }
           if (widget.mode == 'onboarding') {
             await api.onboardingComplete();
@@ -755,6 +934,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         final profileBody = _buildProfileBody();
         if (profileBody.isNotEmpty) {
           await api.updateProfileMe(profileBody);
+          if (_dateOfBirth != null && _gender != null) {
+            _coreProfileMissing = false;
+          }
         }
       }
 
@@ -801,6 +983,12 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   }
 
   Future<void> _skipOnboarding() async {
+    final validation = _validateAllRequiredFields();
+    if (!validation.isValid) {
+      _handleValidationError(validation);
+      return;
+    }
+
     setState(() {
       _saving = true;
     });
@@ -808,6 +996,10 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     final api = YaaroScope.of(context);
     try {
       if (widget.mode == 'onboarding') {
+        final profileBody = _buildProfileBody();
+        if (profileBody.isNotEmpty) {
+          await api.updateProfileMe(profileBody);
+        }
         await api.updatePreferences({
           'showGender': _showGender,
           'minAge': _minAge.toInt(),
@@ -863,7 +1055,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                   )
                 : null,
             title: Text(
-              widget.mode == 'edit' ? 'Edit Profile' : 'Onboarding: Step ${_currentStep + 1}/${_steps.length}',
+              widget.mode == 'edit'
+                  ? 'Edit Profile'
+                  : 'Onboarding: Step ${_currentStep + 1}/${_steps.length}',
               style: const TextStyle(fontWeight: FontWeight.w900),
             ),
             actions: [
@@ -897,11 +1091,13 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                 ),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                   child: Row(
                     children: List.generate(_steps.length, (index) {
                       final bool isCurrent = index == _currentStep;
-                      final bool isEnabled = widget.mode == 'edit' || index <= _currentStep;
+                      final bool isEnabled =
+                          widget.mode == 'edit' || index <= _currentStep;
 
                       return Padding(
                         padding: const EdgeInsets.only(right: 8.0),
@@ -1060,7 +1256,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
               width: _photosHasError ? 2.0 : 0.0,
             ),
             borderRadius: BorderRadius.circular(12),
-            color: _photosHasError ? Colors.red.withOpacity(0.06) : Colors.transparent,
+            color: _photosHasError
+                ? Colors.red.withOpacity(0.06)
+                : Colors.transparent,
           ),
           child: GridView.builder(
             shrinkWrap: true,
@@ -1090,7 +1288,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                         left: 6,
                         top: 6,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 4),
                           decoration: BoxDecoration(
                             color: YaaroColors.teal,
                             borderRadius: BorderRadius.circular(4),
@@ -1105,7 +1304,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.push_pin, size: 10, color: Colors.white),
+                              Icon(Icons.push_pin,
+                                  size: 10, color: Colors.white),
                               SizedBox(width: 3),
                               Text(
                                 'PRIMARY',
@@ -1124,7 +1324,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                         left: 6,
                         top: 6,
                         child: IconButton(
-                          icon: const Icon(Icons.push_pin_outlined, color: Colors.white70, size: 14),
+                          icon: const Icon(Icons.push_pin_outlined,
+                              color: Colors.white70, size: 14),
                           style: IconButton.styleFrom(
                             backgroundColor: Colors.black54,
                             padding: const EdgeInsets.all(6),
@@ -1140,7 +1341,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                       bottom: 4,
                       child: IconButton(
                         icon: const Icon(Icons.delete, color: Colors.white),
-                        style: IconButton.styleFrom(backgroundColor: Colors.black54),
+                        style: IconButton.styleFrom(
+                            backgroundColor: Colors.black54),
                         onPressed: () => _deletePhoto(index),
                       ),
                     ),
@@ -1157,7 +1359,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Center(
-                      child: Icon(Icons.add_a_photo, color: YaaroColors.muted, size: 28),
+                      child: Icon(Icons.add_a_photo,
+                          color: YaaroColors.muted, size: 28),
                     ),
                   ),
                 );
@@ -1173,7 +1376,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Introduce yourself', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const Text('Introduce yourself',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const SizedBox(height: 14),
         AppTextField(
           controller: _displayName,
@@ -1186,14 +1390,23 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
             }
           },
         ),
+        if (_coreProfileMissing || _dateOfBirth == null || _gender == null) ...[
+          const SizedBox(height: 12),
+          _buildCoreProfileFields(),
+        ],
         const SizedBox(height: 12),
-        AppTextField(controller: _pronouns, label: 'Pronouns (e.g. He/Him, She/Her)'),
+        AppTextField(
+            controller: _pronouns, label: 'Pronouns (e.g. He/Him, She/Her)'),
         const SizedBox(height: 16),
-        const Text('Sexual Orientation', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Sexual Orientation',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        _buildChipsSelection('orientation', _sexualOrientation, (list) => setState(() => _sexualOrientation = list)),
+        _buildChipsSelection('orientation', _sexualOrientation,
+            (list) => setState(() => _sexualOrientation = list)),
         const SizedBox(height: 16),
-        AppTextField(controller: _headline, label: 'Headline (e.g. Dosa loyalist, curious traveler)'),
+        AppTextField(
+            controller: _headline,
+            label: 'Headline (e.g. Dosa loyalist, curious traveler)'),
         const SizedBox(height: 12),
         TextField(
           controller: _bio,
@@ -1207,7 +1420,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           decoration: InputDecoration(
             labelText: 'About You (Bio)',
             filled: true,
-            fillColor: _bioHasError ? Colors.red.withOpacity(0.08) : Colors.white.withOpacity(0.06),
+            fillColor: _bioHasError
+                ? Colors.red.withOpacity(0.08)
+                : Colors.white.withOpacity(0.06),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -1219,7 +1434,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(
-                color: _bioHasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.8),
+                color: _bioHasError
+                    ? YaaroColors.rose
+                    : YaaroColors.rose.withOpacity(0.8),
                 width: 2.0,
               ),
             ),
@@ -1283,6 +1500,151 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     );
   }
 
+  Widget _buildCoreProfileFields() {
+    final dobLabel = _dateOfBirth == null
+        ? 'Select date of birth'
+        : DateFormat('yyyy-MM-dd').format(_dateOfBirth!);
+
+    return Focus(
+      focusNode: _coreProfileFocus,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _coreProfileHasError
+              ? Colors.red.withOpacity(0.08)
+              : Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _coreProfileHasError ? YaaroColors.rose : Colors.white12,
+            width: _coreProfileHasError ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Required for matching',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 10),
+            InkWell(
+              onTap: _selectDateOfBirth,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                height: 58,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.06),
+                  border: Border.all(color: Colors.white24),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Date of birth (18+)',
+                            style: TextStyle(
+                                color: YaaroColors.muted, fontSize: 11),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(dobLabel,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 16)),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.calendar_today,
+                        color: Colors.white54, size: 18),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildDropdown(
+              'Gender',
+              _genderLabel(_gender),
+              const ['Female', 'Male', 'Non-binary', 'Other'],
+              (value) {
+                setState(() {
+                  _gender = _genderValue(value);
+                  if (_dateOfBirth != null && _gender != null) {
+                    _coreProfileHasError = false;
+                  }
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectDateOfBirth() async {
+    final now = DateTime.now();
+    final latestAdultDate = DateTime(now.year - 18, now.month, now.day);
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? DateTime(now.year - 25, now.month, now.day),
+      firstDate: DateTime(1900),
+      lastDate: latestAdultDate,
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: YaaroColors.rose,
+              surface: YaaroColors.surface,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (selected != null) {
+      setState(() {
+        _dateOfBirth = selected;
+        if (_dateOfBirth != null && _gender != null) {
+          _coreProfileHasError = false;
+        }
+      });
+    }
+  }
+
+  String? _genderLabel(String? value) {
+    switch (value) {
+      case 'female':
+        return 'Female';
+      case 'male':
+        return 'Male';
+      case 'non_binary':
+        return 'Non-binary';
+      case 'other':
+        return 'Other';
+      default:
+        return null;
+    }
+  }
+
+  String? _genderValue(String? label) {
+    switch (label) {
+      case 'Female':
+        return 'female';
+      case 'Male':
+        return 'male';
+      case 'Non-binary':
+        return 'non_binary';
+      case 'Other':
+        return 'other';
+      default:
+        return null;
+    }
+  }
+
   Widget _buildSocialRow({
     required IconData icon,
     required Color iconColor,
@@ -1308,13 +1670,17 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
             children: [
               Icon(Icons.check_circle, color: YaaroColors.teal, size: 16),
               SizedBox(width: 4),
-              Text('Linked', style: TextStyle(color: YaaroColors.teal, fontWeight: FontWeight.bold)),
+              Text('Linked',
+                  style: TextStyle(
+                      color: YaaroColors.teal, fontWeight: FontWeight.bold)),
             ],
           )
         else
           TextButton(
             onPressed: onLink,
-            child: const Text('Link', style: TextStyle(color: YaaroColors.rose, fontWeight: FontWeight.bold)),
+            child: const Text('Link',
+                style: TextStyle(
+                    color: YaaroColors.rose, fontWeight: FontWeight.bold)),
           ),
       ],
     );
@@ -1346,12 +1712,21 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Physical Attributes', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const Text('Physical Attributes',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const SizedBox(height: 16),
         Row(
           children: [
-            const Text('Height: ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text(_heightCm == null ? 'Not set' : '${_heightCm!.toInt()} cm ($_heightFtLabel)', style: const TextStyle(color: YaaroColors.rose, fontSize: 16, fontWeight: FontWeight.w900)),
+            const Text('Height: ',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+                _heightCm == null
+                    ? 'Not set'
+                    : '${_heightCm!.toInt()} cm ($_heightFtLabel)',
+                style: const TextStyle(
+                    color: YaaroColors.rose,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900)),
           ],
         ),
         Slider(
@@ -1362,15 +1737,19 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           onChanged: (val) => setState(() => _heightCm = val),
         ),
         const SizedBox(height: 12),
-        _buildDropdown('Body Type', _bodyType, _options['body']!, (val) => setState(() => _bodyType = val!)),
+        _buildDropdown('Body Type', _bodyType, _options['body']!,
+            (val) => setState(() => _bodyType = val!)),
         const SizedBox(height: 16),
         const Text('Ethnicity', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        _buildChipsSelection('ethnicity', _ethnicity, (list) => setState(() => _ethnicity = list)),
+        _buildChipsSelection('ethnicity', _ethnicity,
+            (list) => setState(() => _ethnicity = list)),
         const SizedBox(height: 16),
-        _buildDropdown('Hair Colour', _hairColour, _options['hair']!, (val) => setState(() => _hairColour = val!)),
+        _buildDropdown('Hair Colour', _hairColour, _options['hair']!,
+            (val) => setState(() => _hairColour = val!)),
         const SizedBox(height: 12),
-        _buildDropdown('Eye Colour', _eyeColour, _options['eyes']!, (val) => setState(() => _eyeColour = val!)),
+        _buildDropdown('Eye Colour', _eyeColour, _options['eyes']!,
+            (val) => setState(() => _eyeColour = val!)),
       ],
     );
   }
@@ -1379,23 +1758,35 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Your Background', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const Text('Your Background',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const SizedBox(height: 14),
-        _buildDropdown('Education Level', _education, _options['education']!, (val) => setState(() => _education = val!)),
+        _buildDropdown('Education Level', _education, _options['education']!,
+            (val) => setState(() => _education = val!)),
         const SizedBox(height: 12),
         AppTextField(controller: _jobTitle, label: 'Job Title'),
         const SizedBox(height: 12),
         AppTextField(controller: _company, label: 'Company Name'),
         const SizedBox(height: 12),
-        _buildDropdown('Industry', _industry, _options['industries']!, (val) => setState(() => _industry = val!)),
+        _buildDropdown('Industry', _industry, _options['industries']!,
+            (val) => setState(() => _industry = val!)),
         const SizedBox(height: 12),
-        _buildDropdown('Religion', _religion, _options['religion']!, (val) => setState(() => _religion = val!)),
+        _buildDropdown('Religion', _religion, _options['religion']!,
+            (val) => setState(() => _religion = val!)),
         const SizedBox(height: 12),
-        _buildDropdown('Nationality', _nationality.text.trim().isEmpty ? 'Select nationality' : _nationality.text.trim(), _options['nationality']!, (val) => setState(() => _nationality.text = val!)),
+        _buildDropdown(
+            'Nationality',
+            _nationality.text.trim().isEmpty
+                ? 'Select nationality'
+                : _nationality.text.trim(),
+            _options['nationality']!,
+            (val) => setState(() => _nationality.text = val!)),
         const SizedBox(height: 16),
-        const Text('Languages Spoken', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Languages Spoken',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        _buildChipsSelection('languages', _languages, (list) => setState(() => _languages = list)),
+        _buildChipsSelection('languages', _languages,
+            (list) => setState(() => _languages = list)),
       ],
     );
   }
@@ -1404,29 +1795,50 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Lifestyle & Habits', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const Text('Lifestyle & Habits',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const SizedBox(height: 14),
-        _buildDropdown('Do you smoke?', _smoking, _options['habits']!, (val) => setState(() => _smoking = val!)),
+        _buildDropdown('Do you smoke?', _smoking, _options['habits']!,
+            (val) => setState(() => _smoking = val!)),
         const SizedBox(height: 12),
-        _buildDropdown('Do you drink?', _drinking, _options['habits']!, (val) => setState(() => _drinking = val!)),
+        _buildDropdown('Do you drink?', _drinking, _options['habits']!,
+            (val) => setState(() => _drinking = val!)),
         const SizedBox(height: 12),
-        _buildDropdown('Exercise habits', _exercise, _options['exercise']!, (val) => setState(() => _exercise = val!)),
+        _buildDropdown('Exercise habits', _exercise, _options['exercise']!,
+            (val) => setState(() => _exercise = val!)),
         const SizedBox(height: 12),
-        _buildDropdown('Diet preference', _diet, _options['diet']!, (val) => setState(() => _diet = val!)),
+        _buildDropdown('Diet preference', _diet, _options['diet']!,
+            (val) => setState(() => _diet = val!)),
         const SizedBox(height: 12),
-        _buildDropdown('Sleep schedule', _sleepSchedule, _options['sleep']!, (val) => setState(() => _sleepSchedule = val!)),
+        _buildDropdown('Sleep schedule', _sleepSchedule, _options['sleep']!,
+            (val) => setState(() => _sleepSchedule = val!)),
         const SizedBox(height: 12),
-        _buildDropdown('Living situation', _livingSituation, _options['living']!, (val) => setState(() => _livingSituation = val!)),
+        _buildDropdown(
+            'Living situation',
+            _livingSituation,
+            _options['living']!,
+            (val) => setState(() => _livingSituation = val!)),
         const SizedBox(height: 12),
-        _buildDropdown('Do you have kids?', _hasChildren, _options['children']!, (val) => setState(() => _hasChildren = val!)),
+        _buildDropdown('Do you have kids?', _hasChildren, _options['children']!,
+            (val) => setState(() => _hasChildren = val!)),
         const SizedBox(height: 12),
-        _buildDropdown('Do you want kids?', _wantsChildren, _options['wantsChildren']!, (val) => setState(() => _wantsChildren = val!)),
+        _buildDropdown(
+            'Do you want kids?',
+            _wantsChildren,
+            _options['wantsChildren']!,
+            (val) => setState(() => _wantsChildren = val!)),
         const SizedBox(height: 16),
-        const Text('Pets you have', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Pets you have',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        _buildChipsSelection('pets', _hasPets, (list) => setState(() => _hasPets = list)),
+        _buildChipsSelection(
+            'pets', _hasPets, (list) => setState(() => _hasPets = list)),
         const SizedBox(height: 12),
-        _buildDropdown('Do you want pets?', _wantsPets, _options['wantsChildren']!, (val) => setState(() => _wantsPets = val!)),
+        _buildDropdown(
+            'Do you want pets?',
+            _wantsPets,
+            _options['wantsChildren']!,
+            (val) => setState(() => _wantsPets = val!)),
       ],
     );
   }
@@ -1435,27 +1847,41 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Favourites & Hobbies', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const Text('Favourites & Hobbies',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const SizedBox(height: 16),
-        const Text('Favourite Food (Select multiple)', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Favourite Food (Select multiple)',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        _buildChipsSelection('foods', _favFood, (list) => setState(() => _favFood = list)),
+        _buildChipsSelection(
+            'foods', _favFood, (list) => setState(() => _favFood = list)),
         const SizedBox(height: 16),
-        const Text('Music Preference', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Music Preference',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        _buildChipsSelection('music', _favMusic, (list) => setState(() => _favMusic = list)),
+        _buildChipsSelection(
+            'music', _favMusic, (list) => setState(() => _favMusic = list)),
         const SizedBox(height: 16),
-        const Text('Movie Genres', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Movie Genres',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        _buildChipsSelection('movies', _favMovieGenre, (list) => setState(() => _favMovieGenre = list)),
+        _buildChipsSelection('movies', _favMovieGenre,
+            (list) => setState(() => _favMovieGenre = list)),
         const SizedBox(height: 16),
-        const Text('Your Hobbies', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Your Hobbies',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        _buildChipsSelection('hobbies', _hobbies, (list) => setState(() => _hobbies = list)),
+        _buildChipsSelection(
+            'hobbies', _hobbies, (list) => setState(() => _hobbies = list)),
         const SizedBox(height: 16),
-        _buildDropdown('Love Language', _loveLanguage, _options['love']!, (val) => setState(() => _loveLanguage = val!)),
+        _buildDropdown('Love Language', _loveLanguage, _options['love']!,
+            (val) => setState(() => _loveLanguage = val!)),
         const SizedBox(height: 12),
-        _buildDropdown('Relationship Goal', _relationshipGoal, _options['goals']!, (val) => setState(() => _relationshipGoal = val!)),
+        _buildDropdown(
+            'Relationship Goal',
+            _relationshipGoal,
+            _options['goals']!,
+            (val) => setState(() => _relationshipGoal = val!)),
       ],
     );
   }
@@ -1464,15 +1890,23 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Dating Preferences', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const Text('Dating Preferences',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const SizedBox(height: 14),
-        _buildDropdown('Show me', _showGender, _options['genders']!, (val) => setState(() => _showGender = val!)),
+        _buildDropdown('Show me', _showGender, _options['genders']!,
+            (val) => setState(() => _showGender = val!)),
         const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Age Range Filter', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text('${_minAge.clamp(18.0, 60.0).toInt()} - ${_maxAge.clamp(18.0, 60.0).toInt()} years old', style: const TextStyle(color: YaaroColors.rose, fontSize: 16, fontWeight: FontWeight.w900)),
+            const Text('Age Range Filter',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+                '${_minAge.clamp(18.0, 60.0).toInt()} - ${_maxAge.clamp(18.0, 60.0).toInt()} years old',
+                style: const TextStyle(
+                    color: YaaroColors.rose,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900)),
           ],
         ),
         RangeSlider(
@@ -1492,12 +1926,16 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Maximum Distance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text('Maximum Distance',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             Text(
               _maxDistanceKm >= 20000 || _maxDistanceKm > 150
                   ? 'Unlimited (Global)'
                   : '${_maxDistanceKm.toInt()} km',
-              style: const TextStyle(color: YaaroColors.rose, fontSize: 16, fontWeight: FontWeight.w900),
+              style: const TextStyle(
+                  color: YaaroColors.rose,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900),
             ),
           ],
         ),
@@ -1516,11 +1954,19 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Where are you based?', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+        const Text('Where are you based?',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const SizedBox(height: 6),
-        const Text('Select your current city and country to see matches near you.', style: TextStyle(color: YaaroColors.muted, fontSize: 13)),
+        const Text(
+            'Select your current city and country to see matches near you.',
+            style: TextStyle(color: YaaroColors.muted, fontSize: 13)),
         const SizedBox(height: 18),
-        _buildDropdown('Country', _country.text.trim().isEmpty ? 'Select country' : _country.text.trim(), _countryOptions, (val) {
+        _buildDropdown(
+            'Country',
+            _country.text.trim().isEmpty
+                ? 'Select country'
+                : _country.text.trim(),
+            _countryOptions, (val) {
           if (val == null) return;
           setState(() {
             _country.text = val;
@@ -1566,8 +2012,10 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     );
   }
 
-  Widget _buildDropdown(String label, String? value, List<String> items, ValueChanged<String?> onChanged) {
-    final displayValue = value?.trim().isNotEmpty == true ? value!.trim() : 'Not set';
+  Widget _buildDropdown(String label, String? value, List<String> items,
+      ValueChanged<String?> onChanged) {
+    final displayValue =
+        value?.trim().isNotEmpty == true ? value!.trim() : 'Not set';
     return InkWell(
       onTap: () async {
         final selected = await _selectDropdownOption(
@@ -1703,7 +2151,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                                   ),
                                 ),
                                 trailing: selected
-                                    ? const Icon(Icons.check, color: YaaroColors.rose)
+                                    ? const Icon(Icons.check,
+                                        color: YaaroColors.rose)
                                     : null,
                                 onTap: () => Navigator.pop(context, item),
                               );
@@ -1722,7 +2171,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     );
   }
 
-  Widget _buildChipsSelection(String optionKey, List<String> selectedList, ValueChanged<List<String>> onChanged) {
+  Widget _buildChipsSelection(String optionKey, List<String> selectedList,
+      ValueChanged<List<String>> onChanged) {
     final list = _options[optionKey]!;
     return Wrap(
       spacing: 8,
@@ -1780,7 +2230,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
                   )
                 : Text(_currentStep == _steps.length - 1 ? 'Finish' : 'Next'),
           ),
