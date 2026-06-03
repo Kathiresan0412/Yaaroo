@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' as dart_io;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -66,6 +67,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String? _nextCursor;
   bool _isLoading = true;
+  bool _isUploading = false;
   bool _isLoadingMore = false;
   bool _isOnline = false;
   String? _notice;
@@ -503,7 +505,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final ext = file.path.split('.').last.toLowerCase();
       final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
 
-      setState(() => _isLoading = true);
+      setState(() => _isUploading = true);
       final res = await _apiClient.sendMediaMessage(
         widget.matchId,
         bytes,
@@ -520,7 +522,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       setState(() => _notice = 'Failed to send image: $e');
     } finally {
-      setState(() => _isLoading = false);
+      setState(() => _isUploading = false);
     }
   }
 
@@ -593,7 +595,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final picked = result.files.first;
       if (picked.bytes == null) return;
 
-      setState(() => _isLoading = true);
+      setState(() => _isUploading = true);
       final ext = picked.extension?.toLowerCase() ?? 'bin';
       final mime = _mimeForExt(ext);
       final res = await _apiClient.sendMediaMessage(
@@ -611,7 +613,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       setState(() => _notice = 'Failed to send file: $e');
     } finally {
-      setState(() => _isLoading = false);
+      setState(() => _isUploading = false);
     }
   }
 
@@ -667,7 +669,7 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _isRecording = false);
     if (path == null) return;
     try {
-      setState(() => _isLoading = true);
+      setState(() => _isUploading = true);
       final bytes = await dart_io.File(path).readAsBytes();
       final res = await _apiClient.sendVoiceMessage(widget.matchId, bytes);
       if (res['success'] == true && res['message'] is Map<String, dynamic>) {
@@ -677,7 +679,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       setState(() => _notice = 'Failed to send voice: $e');
     } finally {
-      setState(() => _isLoading = false);
+      setState(() => _isUploading = false);
     }
   }
 
@@ -829,43 +831,72 @@ class _ChatScreenState extends State<ChatScreen> {
             child: _isLoading
                 ? const Center(
                     child: CircularProgressIndicator(color: YaaroColors.rose))
-                : _messages.isEmpty
-                    ? Center(
-                        child: Text('Say hello to start the chat.',
-                            style: TextStyle(
-                                color: YaaroColors.mutedFor(context),
-                                fontSize: 15)))
-                    : ListView.builder(
-                        controller: _scrollController,
-                        reverse: true,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final message = _messages[index];
-                          final showSeen = lastMineRead.id.isNotEmpty &&
-                              message.id == lastMineRead.id;
-                          return Column(
-                            crossAxisAlignment: message.isMine
-                                ? CrossAxisAlignment.end
-                                : CrossAxisAlignment.start,
-                            children: [
-                              _buildMessageBubble(message),
-                              if (showSeen && message.readAt != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                      top: 4, right: 8, bottom: 8),
-                                  child: Text(
-                                    'Seen ${DateFormat('jm').format(DateTime.parse(message.readAt!))}',
-                                    style: TextStyle(
-                                        fontSize: 10,
-                                        color: _seenColor(context)),
+                : Stack(
+                    children: [
+                      _messages.isEmpty
+                          ? Center(
+                              child: Text('Say hello to start the chat.',
+                                  style: TextStyle(
+                                      color: YaaroColors.mutedFor(context),
+                                      fontSize: 15)))
+                          : ListView.builder(
+                              controller: _scrollController,
+                              reverse: true,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              itemCount: _messages.length,
+                              itemBuilder: (context, index) {
+                                final message = _messages[index];
+                                final showSeen = lastMineRead.id.isNotEmpty &&
+                                    message.id == lastMineRead.id;
+                                return Column(
+                                  crossAxisAlignment: message.isMine
+                                      ? CrossAxisAlignment.end
+                                      : CrossAxisAlignment.start,
+                                  children: [
+                                    _buildMessageBubble(message),
+                                    if (showSeen && message.readAt != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                            top: 4, right: 8, bottom: 8),
+                                        child: Text(
+                                          'Seen ${DateFormat('jm').format(DateTime.parse(message.readAt!))}',
+                                          style: TextStyle(
+                                              fontSize: 10,
+                                              color: _seenColor(context)),
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
+                            ),
+                      if (_isUploading)
+                        Positioned.fill(
+                          child: ClipRect(
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                              child: Container(
+                                color: Colors.black.withOpacity(0.25),
+                                child: const Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(
+                                          color: YaaroColors.rose),
+                                      SizedBox(height: 12),
+                                      Text('Uploading…',
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13)),
+                                    ],
                                   ),
                                 ),
-                            ],
-                          );
-                        },
-                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
           ),
           if (selectedMsg != null && selectedMsg.id.isNotEmpty)
             _buildReactionPanel(selectedMsg),
