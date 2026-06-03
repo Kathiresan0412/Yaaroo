@@ -625,7 +625,9 @@ class ApiClient {
         ? '/api/messages/$matchId?limit=30&cursor=${Uri.encodeComponent(cursor)}'
         : '/api/messages/$matchId?limit=30';
     final response = await _request('GET', path);
-    return await _decode(response);
+    final result = await _decode(response);
+    print('getMessages ($matchId, cursor: $cursor) returned: $result');
+    return result;
   }
 
   Future<Map<String, dynamic>> sendMessage(
