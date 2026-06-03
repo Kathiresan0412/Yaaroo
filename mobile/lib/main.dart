@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -29,27 +31,40 @@ const _dartDefineSocketBaseUrl = String.fromEnvironment(
   defaultValue: '',
 );
 
+String _resolveLocalhost(String url) {
+  if (kIsWeb) return url;
+  try {
+    final uri = Uri.parse(url);
+    if (Platform.isAndroid && (uri.host == '127.0.0.1' || uri.host == 'localhost')) {
+      return uri.replace(host: '10.0.2.2').toString();
+    }
+  } catch (_) {}
+  return url;
+}
+
 String get apiBaseUrl {
   final envApiBaseUrl = dotenv.env['YAARO0_API_URL']?.trim();
-  return envApiBaseUrl?.isNotEmpty == true
+  final url = envApiBaseUrl?.isNotEmpty == true
       ? envApiBaseUrl!
       : _dartDefineApiBaseUrl;
+  return _resolveLocalhost(url);
 }
 
 String get webBaseUrl {
   final envWebBaseUrl = dotenv.env['YAARO0_WEB_URL']?.trim();
-  return envWebBaseUrl?.isNotEmpty == true
+  final url = envWebBaseUrl?.isNotEmpty == true
       ? envWebBaseUrl!
       : _dartDefineWebBaseUrl;
+  return _resolveLocalhost(url);
 }
 
 String get socketBaseUrl {
   final envSocketBaseUrl = dotenv.env['YAARO0_SOCKET_URL']?.trim();
   if (envSocketBaseUrl?.isNotEmpty == true) {
-    return envSocketBaseUrl!;
+    return _resolveLocalhost(envSocketBaseUrl!);
   }
   if (_dartDefineSocketBaseUrl.isNotEmpty) {
-    return _dartDefineSocketBaseUrl;
+    return _resolveLocalhost(_dartDefineSocketBaseUrl);
   }
   return apiBaseUrl;
 }

@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:math';
+import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'secure_storage.dart';
@@ -87,7 +89,11 @@ class ApiClient {
     if (path.startsWith('http')) {
       return Uri.parse(path);
     }
-    return baseUri.replace(path: path);
+    final relativeUri = Uri.parse(path);
+    return baseUri.replace(
+      path: relativeUri.path,
+      query: relativeUri.hasQuery ? relativeUri.query : null,
+    );
   }
 
   Map<String, String> _headers([Map<String, String>? headers]) {
@@ -562,7 +568,8 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> pinPrimaryPhoto(String id) async {
-    final response = await _request('PUT', '/api/profile/photos/$id/primary', body: {});
+    final response =
+        await _request('PUT', '/api/profile/photos/$id/primary', body: {});
     return await _decode(response);
   }
 
@@ -621,13 +628,31 @@ class ApiClient {
 
   Future<Map<String, dynamic>> getMessages(String matchId,
       {String? cursor}) async {
-    final path = cursor != null
-        ? '/api/messages/$matchId?limit=30&cursor=${Uri.encodeComponent(cursor)}'
-        : '/api/messages/$matchId?limit=30';
-    final response = await _request('GET', path);
-    final result = await _decode(response);
-    print('getMessages ($matchId, cursor: $cursor) returned: $result');
-    return result;
+    print('getMessages called: matchId=$matchId, cursor=$cursor');
+    developer.log('getMessages called: matchId=$matchId, cursor=$cursor');
+    try {
+      final path = cursor != null
+          ? '/api/messages/$matchId?limit=30&cursor=${Uri.encodeComponent(cursor)}'
+          : '/api/messages/$matchId?limit=30';
+      print('getMessages requesting path: $path');
+      developer.log('getMessages requesting path: $path');
+
+      final response = await _request('GET', path);
+      print('getMessages got response. statusCode=${response.statusCode}');
+      developer
+          .log('getMessages got response. statusCode=${response.statusCode}');
+
+      final result = await _decode(response);
+      print('getMessages ($matchId, cursor: $cursor) returned: $result');
+      developer
+          .log('getMessages ($matchId, cursor: $cursor) returned: $result');
+      return result;
+    } catch (e, stack) {
+      print('getMessages failed with error: $e');
+      developer.log('getMessages failed with error: $e',
+          error: e, stackTrace: stack);
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> sendMessage(
@@ -641,6 +666,49 @@ class ApiClient {
     return await _decode(response);
   }
 
+  /// Upload an image/file as a chat message using multipart form.
+  /// [fieldName] – the multipart field name the backend expects ('image', 'file', etc.)
+  /// [type]      – the message type ('photo', 'file', 'audio')
+  Future<Map<String, dynamic>> sendMediaMessage(
+    String matchId,
+    List<int> bytes, {
+    required String filename,
+    required String mimeType,
+    required String fieldName,
+    required String type,
+    String caption = '',
+  }) async {
+    final url = _uri('/api/messages/$matchId/media');
+    final request = http.MultipartRequest('POST', url);
+    request.headers.addAll(_headers());
+    final parts = mimeType.split('/');
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        fieldName,
+        bytes,
+        filename: filename,
+        contentType: MediaType(parts.isNotEmpty ? parts[0] : 'application',
+            parts.length > 1 ? parts[1] : 'octet-stream'),
+      ),
+    );
+    request.fields['type'] = type;
+    if (caption.isNotEmpty) request.fields['content'] = caption;
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    _extractCookies(response);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      Map<String, dynamic> parsed = {};
+      try {
+        parsed = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {}
+      throw ApiException(
+          parsed['message']?.toString() ?? 'Failed to upload media.');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> sendVoiceMessage(
       String matchId, List<int> bytes) async {
     final url = _uri('/api/messages/$matchId/voice');
@@ -650,8 +718,8 @@ class ApiClient {
       http.MultipartFile.fromBytes(
         'voice',
         bytes,
-        filename: 'voice.webm',
-        contentType: MediaType('audio', 'webm'),
+        filename: 'voice.m4a',
+        contentType: MediaType('audio', 'm4a'),
       ),
     );
 
