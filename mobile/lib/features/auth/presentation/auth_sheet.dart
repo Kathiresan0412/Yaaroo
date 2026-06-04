@@ -166,72 +166,97 @@ class _AuthSheetState extends State<AuthSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-          border: Border.all(color: Colors.white.withOpacity(0.12), width: 1.2),
-        ),
-        child: PremiumAuthBackground(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: SafeArea(
-              top: false,
-              child: AnimatedSize(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 42,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.white30,
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      _buildHeader(),
-                      const SizedBox(height: 20),
-                      if (_message != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: _isSuccess
-                                ? YaaroColors.teal.withOpacity(0.12)
-                                : YaaroColors.rose.withOpacity(0.12),
-                            border: Border.all(
-                              color: _isSuccess
-                                  ? YaaroColors.teal
-                                  : YaaroColors.rose,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            _message!,
-                            style: TextStyle(
-                              color: _isSuccess
-                                  ? YaaroColors.teal
-                                  : YaaroColors.rose,
-                              fontWeight: FontWeight.w700,
+    // Force dark theme inside the auth sheet since it always uses
+    // the premium dark background regardless of system theme.
+    final darkTheme = ThemeData(
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: Colors.transparent,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: YaaroColors.rose,
+        brightness: Brightness.dark,
+        primary: YaaroColors.rose,
+        secondary: YaaroColors.teal,
+        surface: YaaroColors.surface,
+        onSurface: Colors.white,
+      ),
+      textTheme: ThemeData.dark().textTheme.apply(
+            bodyColor: Colors.white,
+            displayColor: Colors.white,
+          ),
+      iconTheme: const IconThemeData(color: Colors.white),
+      fontFamily: 'Roboto',
+      useMaterial3: true,
+    );
+    return Theme(
+      data: darkTheme,
+      child: Padding(
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+            border:
+                Border.all(color: Colors.white.withOpacity(0.12), width: 1.2),
+          ),
+          child: PremiumAuthBackground(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: SafeArea(
+                top: false,
+                child: AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 42,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.white30,
+                              borderRadius: BorderRadius.circular(99),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 18),
+                        _buildHeader(),
+                        const SizedBox(height: 20),
+                        if (_message != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _isSuccess
+                                  ? YaaroColors.teal.withOpacity(0.12)
+                                  : YaaroColors.rose.withOpacity(0.12),
+                              border: Border.all(
+                                color: _isSuccess
+                                    ? YaaroColors.teal
+                                    : YaaroColors.rose,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              _message!,
+                              style: TextStyle(
+                                color: _isSuccess
+                                    ? YaaroColors.teal
+                                    : YaaroColors.rose,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        _buildFormFields(),
+                        const SizedBox(height: 22),
+                        _buildActionButtonWithHeart(),
+                        const SizedBox(height: 12),
+                        _buildSwitchLinks(),
                       ],
-                      _buildFormFields(),
-                      const SizedBox(height: 22),
-                      _buildActionButtonWithHeart(),
-                      const SizedBox(height: 12),
-                      _buildSwitchLinks(),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -280,7 +305,7 @@ class _AuthSheetState extends State<AuthSheet> {
             letterSpacing: 0.5,
             shadows: [
               Shadow(
-                color: Color(0x9BFF2D79), // Hot pink neon shadow
+                color: Color(0x9BFF2D79),
                 blurRadius: 10,
                 offset: Offset(0, 0),
               ),
@@ -359,7 +384,7 @@ class _AuthSheetState extends State<AuthSheet> {
                   TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
-            side: const BorderSide(color: YaaroColors.line),
+            side: const BorderSide(color: Color(0x2EFFFFFF)),
             backgroundColor: YaaroColors.surfaceAlt,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -375,7 +400,7 @@ class _AuthSheetState extends State<AuthSheet> {
                   TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
-            side: const BorderSide(color: YaaroColors.line),
+            side: const BorderSide(color: Color(0x2EFFFFFF)),
             backgroundColor: Colors.black,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -388,7 +413,7 @@ class _AuthSheetState extends State<AuthSheet> {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 10),
               child: Text('or use email',
-                  style: TextStyle(color: YaaroColors.muted, fontSize: 12)),
+                  style: TextStyle(color: Colors.white54, fontSize: 12)),
             ),
             Expanded(child: Container(height: 1, color: Colors.white10)),
           ],
@@ -404,7 +429,7 @@ class _AuthSheetState extends State<AuthSheet> {
         return Column(
           children: [
             _buildSocialButtons(),
-            if (_biometricAvailable && _biometricEnabled) ...[
+            if (_biometricAvailable) ...[
               _buildBiometricButton(),
               const SizedBox(height: 12),
               Row(
@@ -413,8 +438,7 @@ class _AuthSheetState extends State<AuthSheet> {
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 10),
                     child: Text('or use email',
-                        style:
-                            TextStyle(color: YaaroColors.muted, fontSize: 12)),
+                        style: TextStyle(color: Colors.white54, fontSize: 12)),
                   ),
                   Expanded(child: Container(height: 1, color: Colors.white10)),
                 ],
@@ -534,7 +558,7 @@ class _AuthSheetState extends State<AuthSheet> {
             const SizedBox(height: 6),
             const Text(
               'Check your email to verify your account. If the app did not open automatically, copy the verification code from your email and enter it above.',
-              style: TextStyle(color: YaaroColors.muted, fontSize: 12),
+              style: TextStyle(color: Colors.white54, fontSize: 12),
             ),
           ],
         );
@@ -558,21 +582,21 @@ class _AuthSheetState extends State<AuthSheet> {
       ),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white54, fontSize: 14),
+        labelStyle: const TextStyle(color: Colors.white60, fontSize: 14),
         floatingLabelStyle: const TextStyle(
           color: YaaroColors.rose,
           fontWeight: FontWeight.bold,
         ),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.045),
+        fillColor: Colors.white.withOpacity(0.08),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide:
-              BorderSide(color: Colors.white.withOpacity(0.12), width: 1.2),
+              BorderSide(color: Colors.white.withOpacity(0.2), width: 1.2),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -645,14 +669,19 @@ class _AuthSheetState extends State<AuthSheet> {
     required VoidCallback onTap,
     bool isDob = false,
   }) {
+    const textColor = Colors.white;
+    const labelColor = Colors.white60;
+    const placeholderColor = Colors.white54;
+    final fillColor = Colors.white.withOpacity(0.045);
+    final borderColor = Colors.white.withOpacity(0.12);
+    const arrowColor = Colors.white60;
+
     final innerWidget = Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.045),
-        border: isDob
-            ? null
-            : Border.all(color: Colors.white.withOpacity(0.12), width: 1.2),
+        color: fillColor,
+        border: isDob ? null : Border.all(color: borderColor, width: 1.2),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -669,8 +698,8 @@ class _AuthSheetState extends State<AuthSheet> {
                 if (hasValue) ...[
                   Text(
                     label,
-                    style: const TextStyle(
-                      color: Colors.white60,
+                    style: TextStyle(
+                      color: labelColor,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -682,7 +711,7 @@ class _AuthSheetState extends State<AuthSheet> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: hasValue ? Colors.white : Colors.white54,
+                    color: hasValue ? textColor : placeholderColor,
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                   ),
@@ -690,8 +719,7 @@ class _AuthSheetState extends State<AuthSheet> {
               ],
             ),
           ),
-          const Icon(Icons.keyboard_arrow_down,
-              color: Colors.white60, size: 20),
+          Icon(Icons.keyboard_arrow_down, color: arrowColor, size: 20),
         ],
       ),
     );
@@ -721,7 +749,7 @@ class _AuthSheetState extends State<AuthSheet> {
           child: Container(
             margin: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF16062A), // Match deep purple bottom sheet
+              color: const Color(0xFF16062A),
               border: Border.all(color: Colors.white.withOpacity(0.12)),
               borderRadius: BorderRadius.circular(22),
             ),
@@ -789,22 +817,26 @@ class _AuthSheetState extends State<AuthSheet> {
   }
 
   Widget _buildPasswordValidationGuide() {
+    const textColor = Colors.white;
+    final fillColor = Colors.white.withOpacity(0.03);
+    final borderColor = Colors.white.withOpacity(0.1);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: fillColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Password Requirements:',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
+              color: textColor,
             ),
           ),
           const SizedBox(height: 10),
@@ -1035,11 +1067,20 @@ class _AuthSheetState extends State<AuthSheet> {
       final enabled = await SecureStorage.instance.isBiometricEnabled();
       if (mounted) {
         setState(() {
-          _biometricAvailable = canCheck && isDeviceSupported;
+          // Show button if device supports ANY form of local auth (biometric OR passcode)
+          _biometricAvailable = canCheck || isDeviceSupported;
           _biometricEnabled = enabled;
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      // If local_auth fails entirely, just don't show the button
+      if (mounted) {
+        setState(() {
+          _biometricAvailable = false;
+          _biometricEnabled = false;
+        });
+      }
+    }
   }
 
   Future<void> _tryBiometricLogin() async {
@@ -1049,6 +1090,17 @@ class _AuthSheetState extends State<AuthSheet> {
       _isSuccess = false;
     });
     try {
+      // Check saved credentials first — if none, guide the user
+      final credentials =
+          await SecureStorage.instance.readBiometricCredentials();
+      if (credentials == null) {
+        setState(() {
+          _loading = false;
+          _message =
+              'Log in with email and password once to enable fingerprint login for next time.';
+        });
+        return;
+      }
       final authenticated = await _localAuth.authenticate(
         localizedReason: 'Use your fingerprint or face to log in to Yaaro0',
         options: const AuthenticationOptions(
@@ -1060,16 +1112,6 @@ class _AuthSheetState extends State<AuthSheet> {
         setState(() {
           _loading = false;
           _message = 'Biometric authentication cancelled.';
-        });
-        return;
-      }
-      final credentials =
-          await SecureStorage.instance.readBiometricCredentials();
-      if (credentials == null) {
-        setState(() {
-          _loading = false;
-          _message =
-              'No saved credentials found. Please log in with your email and password first.';
         });
         return;
       }
@@ -1283,145 +1325,144 @@ class PremiumAuthBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-      child: Stack(
-        children: [
-          // 1. Base vertical purple gradient matching main theme
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFF2E0F4D), // Dark purple/magenta
-                    Color(0xFF16062A), // Deep indigo
-                    Color(0xFF0C021A), // Darkest purple-black
-                  ],
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Stack(
+          children: [
+            // 1. Frosted glass gradient background (translucent rose-purple)
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xCC2E0F4D), // Translucent dark purple
+                      Color(0xDD16062A), // More opaque deep indigo
+                      Color(0xEE0C021A), // Near-opaque base
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // 2. Neon Magenta Ambient Glow in Top-Right
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(0.9, -0.9),
-                  radius: 0.9,
-                  colors: [
-                    Color(0x3BFF2D79), // Translucent hot pink
-                    Colors.transparent,
-                  ],
+            // 2. Rose/Magenta glow at top
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment(0.0, -0.7),
+                    radius: 1.0,
+                    colors: [
+                      Color(0x30FF4F6D), // Translucent rose glow
+                      Colors.transparent,
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // 3. Neon Cyan Ambient Glow in Bottom-Right
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(0.9, 0.9),
-                  radius: 1.1,
-                  colors: [
-                    Color(0x2800FFFF), // Translucent neon cyan
-                    Colors.transparent,
-                  ],
+            // 3. Cyan accent glow bottom-right
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment(0.9, 0.9),
+                    radius: 1.1,
+                    colors: [
+                      Color(0x1800FFFF),
+                      Colors.transparent,
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // 4. Sparkling star at top-right
-          Positioned(
-            top: 24,
-            right: 48,
-            child: CustomPaint(
-              size: const Size(20, 20),
-              painter: SparklePainter(color: Colors.white.withOpacity(0.9)),
+            // 4. Floating Neon Pink Hearts
+            Positioned(
+              top: 28,
+              right: 24,
+              child: Transform.rotate(
+                angle: 0.18,
+                child: CustomPaint(
+                  size: const Size(42, 42),
+                  painter: NeonHeartPainter(
+                    color: const Color(0xFFFF4F6D),
+                    strokeWidth: 1.5,
+                    fill: true,
+                  ),
+                ),
+              ),
             ),
-          ),
-
-          // 5. Sparkling star at bottom-right
-          Positioned(
-            bottom: 32,
-            right: 28,
-            child: CustomPaint(
-              size: const Size(28, 28),
-              painter: SparklePainter(color: const Color(0x99E0F7FA)),
+            Positioned(
+              top: 86,
+              left: -12,
+              child: Transform.rotate(
+                angle: -0.22,
+                child: CustomPaint(
+                  size: const Size(32, 32),
+                  painter: NeonHeartPainter(
+                    color: const Color(0x8BFF4F6D),
+                    strokeWidth: 1.2,
+                  ),
+                ),
+              ),
             ),
-          ),
+            Positioned(
+              bottom: 120,
+              left: -16,
+              child: Transform.rotate(
+                angle: -0.15,
+                child: CustomPaint(
+                  size: const Size(38, 38),
+                  painter: NeonHeartPainter(
+                    color: const Color(0x66FF4F6D),
+                    strokeWidth: 1.2,
+                  ),
+                ),
+              ),
+            ),
 
-          // 6. Floating Neon Pink Hearts (3D/Outlined)
-          Positioned(
-            top: 28,
-            right: 24,
-            child: Transform.rotate(
-              angle: 0.18,
+            // 5. Sparkle accents
+            Positioned(
+              top: 24,
+              right: 48,
               child: CustomPaint(
-                size: const Size(42, 42),
-                painter: NeonHeartPainter(
-                  color: const Color(0xFFFF4F6D),
-                  strokeWidth: 1.5,
-                  fill: true,
-                ),
+                size: const Size(20, 20),
+                painter: SparklePainter(color: Colors.white.withOpacity(0.9)),
               ),
             ),
-          ),
-          Positioned(
-            top: 86,
-            left: -12,
-            child: Transform.rotate(
-              angle: -0.22,
+            Positioned(
+              bottom: 32,
+              right: 28,
               child: CustomPaint(
-                size: const Size(32, 32),
-                painter: NeonHeartPainter(
-                  color: const Color(0x8BFF4F6D),
-                  strokeWidth: 1.2,
-                ),
+                size: const Size(28, 28),
+                painter: SparklePainter(color: const Color(0x99E0F7FA)),
               ),
             ),
-          ),
-          Positioned(
-            bottom: 120,
-            left: -16,
-            child: Transform.rotate(
-              angle: -0.15,
+
+            // 6. Wireframe globe accents
+            Positioned(
+              bottom: -54,
+              left: -54,
               child: CustomPaint(
-                size: const Size(38, 38),
-                painter: NeonHeartPainter(
-                  color: const Color(0x66FF4F6D),
-                  strokeWidth: 1.2,
-                ),
+                size: const Size(128, 128),
+                painter: WireframeGlobePainter(color: const Color(0xFF81C784)),
               ),
             ),
-          ),
-
-          // 7. Neon Green Wireframe Globes
-          // Bottom-left Globe
-          Positioned(
-            bottom: -54,
-            left: -54,
-            child: CustomPaint(
-              size: const Size(128, 128),
-              painter: WireframeGlobePainter(color: const Color(0xFF81C784)),
+            Positioned(
+              top: -46,
+              right: -46,
+              child: CustomPaint(
+                size: const Size(96, 96),
+                painter: WireframeGlobePainter(color: const Color(0xAA81C784)),
+              ),
             ),
-          ),
-          // Top-right Globe
-          Positioned(
-            top: -46,
-            right: -46,
-            child: CustomPaint(
-              size: const Size(96, 96),
-              painter: WireframeGlobePainter(color: const Color(0xAA81C784)),
-            ),
-          ),
 
-          // 8. Content
-          Positioned.fill(child: child),
-        ],
+            // 7. Content
+            Positioned.fill(child: child),
+          ],
+        ),
       ),
     );
   }

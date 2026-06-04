@@ -979,8 +979,6 @@ class LandingScreen extends StatelessWidget {
                         fit: BoxFit.contain,
                       ),
                       const Spacer(),
-                      TextButton(
-                          onPressed: onLogin, child: const Text('Log in')),
                     ],
                   ),
                   SizedBox(height: MediaQuery.of(context).size.height * 0.34),
@@ -1012,65 +1010,23 @@ class LandingScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Log in to Yaaro0',
+                          'Welcome to Yaaro0',
                           style: Theme.of(context)
                               .textTheme
                               .headlineLarge
                               ?.copyWith(
                                 fontWeight: FontWeight.w900,
                                 height: 0.98,
+                                color: Colors.white,
                               ),
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          'Continue to your conversations, profile review, safer matches, and shared-interest discovery.',
-                          style: TextStyle(
-                              color: YaaroColors.mutedFor(context),
-                              height: 1.35),
+                        const Text(
+                          'Conversations, profile review, safer matches, and shared-interest discovery.',
+                          style:
+                              TextStyle(color: Color(0xB8FFFFFF), height: 1.35),
                         ),
-                        const SizedBox(height: 18),
-                        OutlinedButton.icon(
-                          onPressed: onLogin,
-                          icon: const Icon(Icons.g_mobiledata, size: 28),
-                          label: const Text('Continue with Google'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(52),
-                            side:
-                                BorderSide(color: YaaroColors.lineFor(context)),
-                            foregroundColor: YaaroColors.textFor(context),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        OutlinedButton.icon(
-                          onPressed: onLogin,
-                          icon: const Icon(Icons.music_note),
-                          label: const Text('Continue with TikTok'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(52),
-                            side:
-                                BorderSide(color: YaaroColors.lineFor(context)),
-                            foregroundColor: YaaroColors.textFor(context),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                                child: Divider(
-                                    color: YaaroColors.lineFor(context))),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 10),
-                              child: Text('or use email',
-                                  style: TextStyle(
-                                      color: YaaroColors.mutedFor(context))),
-                            ),
-                            Expanded(
-                                child: Divider(
-                                    color: YaaroColors.lineFor(context))),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
                         FilledButton(
                           onPressed: onLogin,
                           style: FilledButton.styleFrom(
@@ -1078,18 +1034,7 @@ class LandingScreen extends StatelessWidget {
                             foregroundColor: Colors.white,
                             minimumSize: const Size.fromHeight(54),
                           ),
-                          child: const Text('Log in'),
-                        ),
-                        const SizedBox(height: 10),
-                        OutlinedButton(
-                          onPressed: onCreateAccount,
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(50),
-                            side:
-                                BorderSide(color: YaaroColors.lineFor(context)),
-                            foregroundColor: YaaroColors.textFor(context),
-                          ),
-                          child: const Text('New to Yaaro0? Create account'),
+                          child: const Text('Start'),
                         ),
                       ],
                     ),

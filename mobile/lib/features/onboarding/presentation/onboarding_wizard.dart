@@ -1086,7 +1086,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                 LinearProgressIndicator(
                   value: (_currentStep + 1) / _steps.length,
                   color: YaaroColors.rose,
-                  backgroundColor: Colors.white10,
+                  backgroundColor: YaaroColors.isDarkFor(context)
+                      ? Colors.white10
+                      : Colors.black12,
                   minHeight: 4,
                 ),
                 SingleChildScrollView(
@@ -1354,13 +1356,15 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.04),
-                      border: Border.all(color: Colors.white10),
+                      color: YaaroColors.isDarkFor(context)
+                          ? Colors.white.withOpacity(0.04)
+                          : Colors.black.withOpacity(0.04),
+                      border: Border.all(color: YaaroColors.lineFor(context)),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Icon(Icons.add_a_photo,
-                          color: YaaroColors.muted, size: 28),
+                          color: YaaroColors.mutedFor(context), size: 28),
                     ),
                   ),
                 );
@@ -1454,25 +1458,25 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       margin: const EdgeInsets.only(top: 24),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: YaaroColors.surfaceAlt,
-        border: Border.all(color: YaaroColors.line),
+        color: YaaroColors.surfaceAltFor(context),
+        border: Border.all(color: YaaroColors.lineFor(context)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Linked Social Accounts',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w900,
-              color: Colors.white,
+              color: YaaroColors.textFor(context),
             ),
           ),
           const SizedBox(height: 14),
           _buildSocialRow(
             icon: Icons.music_note,
-            iconColor: Colors.white,
+            iconColor: YaaroColors.textFor(context),
             providerName: 'TikTok',
             isLinked: isTiktokLinked,
             onLink: () => _linkSocialAccount('tiktok'),
@@ -1533,8 +1537,10 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                 height: 58,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
-                  border: Border.all(color: Colors.white24),
+                  color: YaaroColors.isDarkFor(context)
+                      ? Colors.white.withOpacity(0.06)
+                      : Colors.black.withOpacity(0.04),
+                  border: Border.all(color: YaaroColors.lineFor(context)),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -1544,20 +1550,22 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Date of birth (18+)',
                             style: TextStyle(
-                                color: YaaroColors.muted, fontSize: 11),
+                                color: YaaroColors.mutedFor(context),
+                                fontSize: 11),
                           ),
                           const SizedBox(height: 2),
                           Text(dobLabel,
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 16)),
+                              style: TextStyle(
+                                  color: YaaroColors.textFor(context),
+                                  fontSize: 16)),
                         ],
                       ),
                     ),
-                    const Icon(Icons.calendar_today,
-                        color: Colors.white54, size: 18),
+                    Icon(Icons.calendar_today,
+                        color: YaaroColors.mutedFor(context), size: 18),
                   ],
                 ),
               ),
@@ -1657,8 +1665,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         Expanded(
           child: Text(
             providerName,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: YaaroColors.textFor(context),
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1999,11 +2007,11 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
               : const Icon(Icons.my_location, color: YaaroColors.teal),
           label: Text(
             _locating ? 'Detecting location...' : 'Use my current location',
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: YaaroColors.textFor(context)),
           ),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(50),
-            side: const BorderSide(color: YaaroColors.line),
+            side: BorderSide(color: YaaroColors.lineFor(context)),
           ),
         ),
       ],
@@ -2031,8 +2039,10 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         height: 58,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
-          border: Border.all(color: Colors.white24),
+          color: YaaroColors.isDarkFor(context)
+              ? Colors.white.withOpacity(0.06)
+              : Colors.black.withOpacity(0.04),
+          border: Border.all(color: YaaroColors.lineFor(context)),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -2044,8 +2054,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
-                      color: YaaroColors.muted,
+                    style: TextStyle(
+                      color: YaaroColors.mutedFor(context),
                       fontSize: 11,
                     ),
                   ),
@@ -2054,12 +2064,14 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                     displayValue,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(
+                        color: YaaroColors.textFor(context), fontSize: 16),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.keyboard_arrow_down, color: Colors.white54),
+            Icon(Icons.keyboard_arrow_down,
+                color: YaaroColors.mutedFor(context)),
           ],
         ),
       ),
@@ -2078,6 +2090,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       barrierColor: Colors.black.withOpacity(0.35),
       transitionDuration: const Duration(milliseconds: 180),
       pageBuilder: (context, animation, secondaryAnimation) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Stack(
           children: [
             Positioned.fill(
@@ -2097,8 +2110,11 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                     margin: const EdgeInsets.all(12),
                     constraints: const BoxConstraints(maxHeight: 420),
                     decoration: BoxDecoration(
-                      color: YaaroColors.surface,
-                      border: Border.all(color: YaaroColors.line),
+                      color: isDark ? YaaroColors.surface : Colors.white,
+                      border: Border.all(
+                          color: isDark
+                              ? const Color(0x2EFFFFFF)
+                              : const Color(0x1F000000)),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Column(
@@ -2109,7 +2125,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                           width: 42,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: Colors.white24,
+                            color: isDark ? Colors.white24 : Colors.black26,
                             borderRadius: BorderRadius.circular(99),
                           ),
                         ),
@@ -2119,8 +2135,10 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                             alignment: Alignment.centerLeft,
                             child: Text(
                               label,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF111216),
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -2132,9 +2150,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                             shrinkWrap: true,
                             padding: const EdgeInsets.only(bottom: 8),
                             itemCount: items.length,
-                            separatorBuilder: (_, __) => const Divider(
+                            separatorBuilder: (_, __) => Divider(
                               height: 1,
-                              color: Colors.white10,
+                              color: isDark ? Colors.white10 : Colors.black12,
                             ),
                             itemBuilder: (context, index) {
                               final item = items[index];
@@ -2143,8 +2161,10 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                               return ListTile(
                                 title: Text(
                                   item,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF111216),
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -2198,9 +2218,9 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   Widget _buildNavigationRow() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: const BoxDecoration(
-        color: YaaroColors.surface,
-        border: Border(top: BorderSide(color: YaaroColors.line)),
+      decoration: BoxDecoration(
+        color: YaaroColors.panelFor(context),
+        border: Border(top: BorderSide(color: YaaroColors.lineFor(context))),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2210,8 +2230,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
               onPressed: _saving ? null : () => setState(() => _currentStep--),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(100, 48),
-                side: const BorderSide(color: YaaroColors.line),
-                foregroundColor: Colors.white,
+                side: BorderSide(color: YaaroColors.lineFor(context)),
+                foregroundColor: YaaroColors.textFor(context),
               ),
               child: const Text('Back'),
             )
