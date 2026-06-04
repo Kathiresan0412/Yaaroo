@@ -195,7 +195,7 @@ class _YaaroMobileAppState extends State<YaaroMobileApp>
         child: Builder(
           builder: (context) {
             return MaterialApp(
-              title: 'Yaaro0',
+              title: 'YaaRo0',
               debugShowCheckedModeBanner: false,
               themeMode: _themeMode,
               theme: ThemeData(
@@ -357,7 +357,7 @@ class User {
   String get displayName {
     final parts =
         [firstName, lastName].whereType<String>().where((p) => p.isNotEmpty);
-    return parts.isEmpty ? 'Yaaro0 member' : parts.join(' ');
+    return parts.isEmpty ? 'YaaRo0 member' : parts.join(' ');
   }
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -700,13 +700,11 @@ class _AppShellState extends State<AppShell> {
     _linkSubscription = _appLinks.uriLinkStream.listen((uri) {
       _handleDeepLink(uri);
     }, onError: (err) {
-      debugPrint('Deep Link Error: $err');
+      // Deep link error silenced for production
     });
   }
 
   void _handleDeepLink(Uri uri) {
-    debugPrint('Received deep link: $uri');
-
     final pathSegments = uri.pathSegments;
     final host = uri.host;
     final scheme = uri.scheme;
@@ -758,13 +756,11 @@ class _AppShellState extends State<AppShell> {
   Future<void> _completeOAuthDeepLink(Uri uri) async {
     final error = uri.queryParameters['error'];
     if (error != null) {
-      debugPrint('OAuth deep link failed: $error');
       return;
     }
 
     final payload = uri.queryParameters['payload'];
     if (payload == null || payload.isEmpty) {
-      debugPrint('OAuth deep link is missing payload.');
       return;
     }
 
@@ -784,8 +780,8 @@ class _AppShellState extends State<AppShell> {
           _showLanding = false;
         });
       }
-    } catch (error) {
-      debugPrint('OAuth deep link parse failed: $error');
+    } catch (_) {
+      // OAuth parse error silenced for production
     }
   }
 
@@ -913,7 +909,7 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-class LandingScreen extends StatelessWidget {
+class LandingScreen extends StatefulWidget {
   const LandingScreen({
     required this.onLogin,
     required this.onCreateAccount,
@@ -924,175 +920,292 @@ class LandingScreen extends StatelessWidget {
   final VoidCallback onCreateAccount;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: AppGradient(
-        child: SafeArea(
-          child: Stack(
-            children: [
-              const Positioned(
-                left: 22,
-                right: 22,
-                top: 92,
-                child: Text(
-                  'Meet with\ntrust, not\nnoise.',
-                  style: TextStyle(
-                    fontSize: 56,
-                    height: 0.92,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0x24FFFFFF),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: -36,
-                top: 86,
-                child: Transform.rotate(
-                  angle: 0.14,
-                  child: const _LandingPreviewCard(
-                    title: 'Verified',
-                    subtitle: 'Profile review',
-                    icon: Icons.verified_user,
-                  ),
-                ),
-              ),
-              Positioned(
-                left: -30,
-                bottom: 156,
-                child: Transform.rotate(
-                  angle: -0.12,
-                  child: const _LandingPreviewCard(
-                    title: 'Private',
-                    subtitle: 'Safer matching',
-                    icon: Icons.lock,
-                  ),
-                ),
-              ),
-              ListView(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
-                children: [
-                  Row(
-                    children: [
-                      Image.asset(
-                        'assets/brand/logo.png',
-                        height: 36,
-                        fit: BoxFit.contain,
-                      ),
-                      const Spacer(),
-                    ],
-                  ),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.34),
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: YaaroColors.surface.withOpacity(0.94),
-                      border: Border.all(color: YaaroColors.line),
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: YaaroColors.rose.withOpacity(0.18),
-                          blurRadius: 52,
-                          offset: const Offset(0, 24),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          'TAMIL DATING, FRIENDSHIP, AND MATRIMONY',
-                          style: TextStyle(
-                            color: YaaroColors.teal,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Welcome to Yaaro0',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineLarge
-                              ?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                height: 0.98,
-                                color: Colors.white,
-                              ),
-                        ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Conversations, profile review, safer matches, and shared-interest discovery.',
-                          style:
-                              TextStyle(color: Color(0xB8FFFFFF), height: 1.35),
-                        ),
-                        const SizedBox(height: 24),
-                        FilledButton(
-                          onPressed: onLogin,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: YaaroColors.rose,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size.fromHeight(54),
-                          ),
-                          child: const Text('Start'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  State<LandingScreen> createState() => _LandingScreenState();
 }
 
-class _LandingPreviewCard extends StatelessWidget {
-  const _LandingPreviewCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
+class _LandingScreenState extends State<LandingScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _fadeController;
+  late final Animation<double> _fadeIn;
+  late final Animation<double> _slideUp;
 
-  final String title;
-  final String subtitle;
-  final IconData icon;
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _fadeIn = CurvedAnimation(
+      parent: _fadeController,
+      curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+    );
+    _slideUp = Tween<double>(begin: 40, end: 0).animate(
+      CurvedAnimation(
+        parent: _fadeController,
+        curve: const Interval(0.1, 0.8, curve: Curves.easeOutCubic),
+      ),
+    );
+    _fadeController.forward();
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: 0.42,
-      child: Container(
-        width: 148,
-        height: 198,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: YaaroColors.surfaceAlt,
-          border: Border.all(color: YaaroColors.line),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.35),
-              blurRadius: 30,
-              offset: const Offset(0, 18),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: YaaroColors.teal, size: 30),
-            const Spacer(),
-            Text(title,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 4),
-            Text(subtitle,
-                style: TextStyle(
-                    color: YaaroColors.mutedFor(context), fontSize: 12)),
-          ],
+    final screenHeight = MediaQuery.of(context).size.height;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    return Scaffold(
+      body: AppGradient(
+        child: AnimatedBuilder(
+          animation: _fadeController,
+          builder: (context, child) {
+            return Stack(
+              children: [
+                // Main centered content
+                Positioned.fill(
+                  child: Column(
+                    children: [
+                      // Top bar with logo
+                      SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 16, 22, 0),
+                          child: Row(
+                            children: [
+                              Image.asset(
+                                'assets/brand/logo.png',
+                                height: 32,
+                                fit: BoxFit.contain,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const Spacer(flex: 2),
+
+                      // Couple image with glowing effect
+                      FadeTransition(
+                        opacity: _fadeIn,
+                        child: Transform.translate(
+                          offset: Offset(0, _slideUp.value),
+                          child: Container(
+                            width: 260,
+                            height: 260,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: YaaroColors.rose.withOpacity(0.25),
+                                  blurRadius: 60,
+                                  spreadRadius: 10,
+                                ),
+                                BoxShadow(
+                                  color: YaaroColors.teal.withOpacity(0.12),
+                                  blurRadius: 80,
+                                  spreadRadius: 20,
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: Image.asset(
+                                'assets/landing/couple.png',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stack) {
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          YaaroColors.rose.withOpacity(0.3),
+                                          YaaroColors.teal.withOpacity(0.2),
+                                        ],
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.favorite,
+                                      color: Colors.white24,
+                                      size: 80,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 36),
+
+                      // Headline and subtext
+                      FadeTransition(
+                        opacity: _fadeIn,
+                        child: Transform.translate(
+                          offset: Offset(0, _slideUp.value),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 32),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Meet with trust,\nnot noise.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 32,
+                                    height: 1.1,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                    letterSpacing: -0.5,
+                                    shadows: [
+                                      Shadow(
+                                        color: Color(0x55FF2D79),
+                                        blurRadius: 24,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(height: 14),
+                                Text(
+                                  'Tamil dating, friendship & matrimony.\nVerified profiles. Real connections.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Color(0xB8FFFFFF),
+                                    fontSize: 14.5,
+                                    height: 1.45,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const Spacer(flex: 3),
+
+                      // Start button centered
+                      FadeTransition(
+                        opacity: _fadeIn,
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                              32, 0, 32, bottomPadding + 32),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFFFF2D79),
+                                      Color(0xFFFF6D3B),
+                                    ],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFFF2D79)
+                                          .withOpacity(0.4),
+                                      blurRadius: 24,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: widget.onLogin,
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: const Center(
+                                      child: Text(
+                                        'Start',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              const Text(
+                                'By continuing you agree to our Terms & Privacy Policy',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0x88FFFFFF),
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Decorative floating hearts
+                Positioned(
+                  top: screenHeight * 0.12,
+                  right: 28,
+                  child: FadeTransition(
+                    opacity: _fadeIn,
+                    child: Transform.rotate(
+                      angle: 0.2,
+                      child: CustomPaint(
+                        size: const Size(28, 28),
+                        painter: NeonHeartPainter(
+                          color: const Color(0x66FF4F6D),
+                          strokeWidth: 1.2,
+                          fill: true,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: screenHeight * 0.22,
+                  left: 18,
+                  child: FadeTransition(
+                    opacity: _fadeIn,
+                    child: Transform.rotate(
+                      angle: -0.15,
+                      child: CustomPaint(
+                        size: const Size(22, 22),
+                        painter: NeonHeartPainter(
+                          color: const Color(0x44FF4F6D),
+                          strokeWidth: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: screenHeight * 0.28,
+                  right: 22,
+                  child: FadeTransition(
+                    opacity: _fadeIn,
+                    child: CustomPaint(
+                      size: const Size(18, 18),
+                      painter:
+                          SparklePainter(color: Colors.white.withOpacity(0.5)),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -1161,7 +1274,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           child: Column(
             children: [
               HeaderBar(
-                title: 'Yaaro0',
+                title: 'YaaRo0',
                 actionLabel: YaaroScope.of(context).user == null ? 'Login' : '',
                 onAction: widget.onOpenAuth,
               ),
@@ -1297,7 +1410,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         _showInterestCelebration(profile, result);
       }
     }).catchError((err) {
-      debugPrint('Swipe failed: $err');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1512,8 +1624,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       }
 
       if (categories.isEmpty && mounted) {
-        debugPrint(
-            'Explore categories are empty. Check auth and YAARO0_API_URL: $apiBaseUrl');
+        // Categories empty — verify API connectivity
       }
     } finally {
       if (mounted) {
@@ -2274,7 +2385,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     snapshot.data!['profile'] as Map<String, dynamic>;
                 final photos = profile['photos'] as List? ?? [];
                 final displayName =
-                    profile['displayName']?.toString() ?? 'Yaaro0 Member';
+                    profile['displayName']?.toString() ?? 'YaaRo0 Member';
                 final age = profile['age']?.toString();
                 final city = profile['city']?.toString();
                 final country = profile['country']?.toString();
@@ -3480,11 +3591,7 @@ class _MembershipScreenState extends State<MembershipScreen>
       _message = '';
     });
     try {
-      debugPrint(
-          '[MembershipScreen] _verifyAndActivate: calling verifySession...');
       final status = await YaaroScope.of(context).verifySession();
-      debugPrint(
-          '[MembershipScreen] _verifyAndActivate: tier=${status.tier} isPaid=${status.isPaid} endsAt=${status.endsAt}');
       if (mounted) {
         setState(() => _status = status);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -3499,7 +3606,6 @@ class _MembershipScreenState extends State<MembershipScreen>
         );
       }
     } catch (e) {
-      debugPrint('[MembershipScreen] _verifyAndActivate ERROR: $e');
       if (mounted) {
         setState(() => _message =
             e is ApiException ? e.message : 'Could not verify payment.');
@@ -3869,7 +3975,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    user?.displayName ?? 'Build your Yaaro0 profile',
+                    user?.displayName ?? 'Build your YaaRo0 profile',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w900,
                         ),
@@ -4609,7 +4715,7 @@ class HeaderBar extends StatelessWidget {
           height: 28,
           fit: BoxFit.contain,
         ),
-        if (title != 'Yaaro0') ...[
+        if (title != 'YaaRo0') ...[
           const SizedBox(width: 10),
           Text(title,
               style:
@@ -5528,7 +5634,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Choose how Yaaro0 looks on your device.',
+                                  'Choose how YaaRo0 looks on your device.',
                                   style: TextStyle(
                                     color: YaaroColors.mutedFor(context),
                                     fontSize: 13,

@@ -277,7 +277,7 @@ class _AuthSheetState extends State<AuthSheet> {
         break;
       case AuthMode.signup:
         titleText = 'Create your account';
-        kicker = 'Join Yaaro0 and start meeting verified members';
+        kicker = 'Join YaaRo0 and start meeting verified members';
         break;
       case AuthMode.forgot:
         titleText = 'Reset password';
@@ -979,7 +979,7 @@ class _AuthSheetState extends State<AuthSheet> {
                 _message = null;
                 _mode = AuthMode.signup;
               }),
-              child: const Text('New to Yaaro0? Create account'),
+              child: const Text('New to YaaRo0? Create account'),
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1102,7 +1102,7 @@ class _AuthSheetState extends State<AuthSheet> {
         return;
       }
       final authenticated = await _localAuth.authenticate(
-        localizedReason: 'Use your fingerprint or face to log in to Yaaro0',
+        localizedReason: 'Use your fingerprint or face to log in to YaaRo0',
         options: const AuthenticationOptions(
           biometricOnly: false,
           stickyAuth: true,

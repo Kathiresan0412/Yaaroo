@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
-import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'secure_storage.dart';
@@ -123,7 +121,7 @@ class ApiClient {
     final parsed = jsonDecode(body);
 
     if (parsed is! Map<String, dynamic>) {
-      throw ApiException('Yaaro0 returned an unexpected response.');
+      throw ApiException('YaaRo0 returned an unexpected response.');
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -574,14 +572,8 @@ class ApiClient {
     }
     // Persist the session id so we can verify after the browser returns.
     _pendingCheckoutSessionId = sessionId;
-    developer.log(
-        '[createCheckout] tier=$tier checkoutUrl=$checkoutUrl sessionId=$sessionId');
     if (sessionId != null) {
       await _secureStorage.write('pending_checkout_session_id', sessionId);
-      developer.log('[createCheckout] sessionId saved to secure storage');
-    } else {
-      developer.log(
-          '[createCheckout] WARNING: sessionId is null — cannot verify later');
     }
     return checkoutUrl;
   }
@@ -594,41 +586,28 @@ class ApiClient {
         await _secureStorage.read('pending_checkout_session_id');
 
     final sessionId = _pendingCheckoutSessionId;
-    developer.log('[verifySession] pendingSessionId=$sessionId');
 
     if (sessionId == null || sessionId.isEmpty) {
-      developer.log(
-          '[verifySession] no sessionId — falling back to subscriptionStatus()');
       return subscriptionStatus();
     }
 
     try {
-      developer.log(
-          '[verifySession] calling POST /api/payments/verify-session with sessionId=$sessionId');
       final response = await _request(
         'POST',
         '/api/payments/verify-session',
         body: {'sessionId': sessionId},
       );
-      developer.log(
-          '[verifySession] response status=${response.statusCode} body=${response.body}');
       final payload = await _decode(response);
-      developer.log('[verifySession] decoded payload=$payload');
 
       // Clean up the stored session id regardless of outcome.
       _pendingCheckoutSessionId = null;
       await _secureStorage.delete('pending_checkout_session_id');
 
       if (payload['success'] == true) {
-        developer.log(
-            '[verifySession] success=true, fetching fresh subscriptionStatus');
         return subscriptionStatus();
       }
-      developer.log(
-          '[verifySession] success!=true pending=${payload['pending']} message=${payload['message']}');
       return subscriptionStatus();
-    } catch (e, stack) {
-      developer.log('[verifySession] ERROR: $e', error: e, stackTrace: stack);
+    } catch (_) {
       return subscriptionStatus();
     }
   }
@@ -747,29 +726,15 @@ class ApiClient {
 
   Future<Map<String, dynamic>> getMessages(String matchId,
       {String? cursor}) async {
-    print('getMessages called: matchId=$matchId, cursor=$cursor');
-    developer.log('getMessages called: matchId=$matchId, cursor=$cursor');
     try {
       final path = cursor != null
           ? '/api/messages/$matchId?limit=30&cursor=${Uri.encodeComponent(cursor)}'
           : '/api/messages/$matchId?limit=30';
-      print('getMessages requesting path: $path');
-      developer.log('getMessages requesting path: $path');
 
       final response = await _request('GET', path);
-      print('getMessages got response. statusCode=${response.statusCode}');
-      developer
-          .log('getMessages got response. statusCode=${response.statusCode}');
-
       final result = await _decode(response);
-      print('getMessages ($matchId, cursor: $cursor) returned: $result');
-      developer
-          .log('getMessages ($matchId, cursor: $cursor) returned: $result');
       return result;
-    } catch (e, stack) {
-      print('getMessages failed with error: $e');
-      developer.log('getMessages failed with error: $e',
-          error: e, stackTrace: stack);
+    } catch (e) {
       rethrow;
     }
   }

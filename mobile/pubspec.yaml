@@ -34,3 +34,4 @@ flutter:
     - .env
     - assets/brand/logo.png
     - assets/brand/logo-mark.png
+    - assets/landing/
