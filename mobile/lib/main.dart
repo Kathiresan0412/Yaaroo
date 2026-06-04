@@ -5873,6 +5873,463 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// String extension
+// ---------------------------------------------------------------------------
+
+extension StringCapitalize on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return '${this[0].toUpperCase()}${substring(1)}';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Password management bottom sheet (set / change password)
+// ---------------------------------------------------------------------------
+
+class _PasswordSheet extends StatefulWidget {
+  const _PasswordSheet({required this.hasPassword, required this.api});
+
+  final bool hasPassword;
+  final ApiClient api;
+
+  @override
+  State<_PasswordSheet> createState() => _PasswordSheetState();
+}
+
+class _PasswordSheetState extends State<_PasswordSheet> {
+  final _currentPassword = TextEditingController();
+  final _newPassword = TextEditingController();
+  final _confirmPassword = TextEditingController();
+
+  bool _loading = false;
+  String? _message;
+  bool _isSuccess = false;
+
+  bool _showCurrent = false;
+  bool _showNew = false;
+  bool _showConfirm = false;
+  bool _showNewRequirements = false;
+
+  // Validation state for new password
+  bool _hasMinLength = false;
+  bool _hasUppercase = false;
+  bool _hasDigit = false;
+  bool _hasSpecial = false;
+
+  bool get _isNewPasswordValid =>
+      _hasMinLength && _hasUppercase && _hasDigit && _hasSpecial;
+
+  @override
+  void initState() {
+    super.initState();
+    _newPassword.addListener(_validateNewPassword);
+  }
+
+  @override
+  void dispose() {
+    _currentPassword.dispose();
+    _newPassword.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
+  void _validateNewPassword() {
+    final text = _newPassword.text;
+    setState(() {
+      _hasMinLength = text.length >= 8;
+      _hasUppercase = text.contains(RegExp(r'[A-Z]'));
+      _hasDigit = text.contains(RegExp(r'[0-9]'));
+      _hasSpecial = text.contains(RegExp(r'[!@#\$&*~•°#%^&*(),.?":{}|<>]'));
+    });
+  }
+
+  Future<void> _submit() async {
+    setState(() {
+      _loading = true;
+      _message = null;
+      _isSuccess = false;
+    });
+    try {
+      if (widget.hasPassword) {
+        if (_currentPassword.text.isEmpty ||
+            _newPassword.text.isEmpty ||
+            _confirmPassword.text.isEmpty) {
+          throw ApiException('All fields are required.');
+        }
+        if (!_isNewPasswordValid) {
+          throw ApiException('New password does not meet all requirements.');
+        }
+        if (_newPassword.text != _confirmPassword.text) {
+          throw ApiException('New passwords do not match.');
+        }
+        await widget.api.changePassword(
+          currentPassword: _currentPassword.text,
+          newPassword: _newPassword.text,
+          confirmPassword: _confirmPassword.text,
+        );
+        setState(() {
+          _isSuccess = true;
+          _message = 'Password changed successfully. Please log in again.';
+        });
+        // Clear stored biometric credentials since password changed
+        await SecureStorage.instance.clearBiometricCredentials();
+        await Future.delayed(const Duration(seconds: 2));
+        if (mounted) Navigator.pop(context);
+      } else {
+        if (_newPassword.text.isEmpty || _confirmPassword.text.isEmpty) {
+          throw ApiException('Please fill in both password fields.');
+        }
+        if (!_isNewPasswordValid) {
+          throw ApiException('Password does not meet all requirements.');
+        }
+        if (_newPassword.text != _confirmPassword.text) {
+          throw ApiException('Passwords do not match.');
+        }
+        await widget.api.setPassword(_newPassword.text, _confirmPassword.text);
+        setState(() {
+          _isSuccess = true;
+          _message = 'Password set successfully.';
+        });
+        await Future.delayed(const Duration(seconds: 2));
+        if (mounted) Navigator.pop(context);
+      }
+    } catch (e) {
+      setState(() => _message = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          border: Border.all(color: Colors.white.withOpacity(0.12), width: 1.2),
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF2E0F4D),
+                  Color(0xFF16062A),
+                  Color(0xFF0C021A),
+                ],
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white30,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF2D79), Color(0xFFFF6D3B)],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.lock,
+                            color: Colors.white, size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        widget.hasPassword ? 'Change Password' : 'Set Password',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.hasPassword
+                        ? 'Enter your current password and choose a new one.'
+                        : 'Create a password so you can log in with email.',
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  if (_message != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _isSuccess
+                            ? YaaroColors.teal.withOpacity(0.12)
+                            : YaaroColors.rose.withOpacity(0.12),
+                        border: Border.all(
+                          color:
+                              _isSuccess ? YaaroColors.teal : YaaroColors.rose,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        _message!,
+                        style: TextStyle(
+                          color:
+                              _isSuccess ? YaaroColors.teal : YaaroColors.rose,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (widget.hasPassword) ...[
+                    _buildPasswordField(
+                      controller: _currentPassword,
+                      label: 'Current Password',
+                      visible: _showCurrent,
+                      onToggle: () =>
+                          setState(() => _showCurrent = !_showCurrent),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  _buildPasswordField(
+                    controller: _newPassword,
+                    label: widget.hasPassword ? 'New Password' : 'Password',
+                    visible: _showNew,
+                    onToggle: () => setState(() => _showNew = !_showNew),
+                    showHelp: true,
+                    onHelp: () => setState(
+                        () => _showNewRequirements = !_showNewRequirements),
+                    showHelpActive: _showNewRequirements,
+                  ),
+                  if (_showNewRequirements) ...[
+                    const SizedBox(height: 8),
+                    _buildPasswordRequirements(),
+                  ],
+                  const SizedBox(height: 12),
+                  _buildPasswordField(
+                    controller: _confirmPassword,
+                    label: widget.hasPassword
+                        ? 'Confirm New Password'
+                        : 'Confirm Password',
+                    visible: _showConfirm,
+                    onToggle: () =>
+                        setState(() => _showConfirm = !_showConfirm),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF2D79), Color(0xFFFF6D3B)],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF2D79).withOpacity(0.35),
+                          blurRadius: 14,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _loading ? null : _submit,
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          height: 52,
+                          alignment: Alignment.center,
+                          child: _loading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  widget.hasPassword
+                                      ? 'Change Password'
+                                      : 'Set Password',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String label,
+    required bool visible,
+    required VoidCallback onToggle,
+    bool showHelp = false,
+    VoidCallback? onHelp,
+    bool showHelpActive = false,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: !visible,
+      style: const TextStyle(
+          color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white54, fontSize: 14),
+        floatingLabelStyle: const TextStyle(
+            color: YaaroColors.rose, fontWeight: FontWeight.bold),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.045),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide:
+              BorderSide(color: Colors.white.withOpacity(0.12), width: 1.2),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: YaaroColors.rose, width: 2.0),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        suffixIcon: Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showHelp && onHelp != null)
+                IconButton(
+                  tooltip: 'Password requirements',
+                  icon: Icon(
+                    Icons.help_outline,
+                    color: showHelpActive
+                        ? const Color(0xFF31D0B2)
+                        : Colors.white60,
+                  ),
+                  onPressed: onHelp,
+                ),
+              IconButton(
+                tooltip: visible ? 'Hide' : 'Show',
+                icon: Icon(
+                  visible ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.white60,
+                ),
+                onPressed: onToggle,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPasswordRequirements() {
+    const activeColor = Color(0xFF31D0B2);
+
+    Widget row(String prefix, String text, bool valid) {
+      final color = valid ? activeColor : Colors.white60;
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 32,
+            child: Text(
+              prefix,
+              style: TextStyle(
+                fontFamily: 'Courier',
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+                color: color,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: color,
+                decoration: valid ? TextDecoration.lineThrough : null,
+              ),
+            ),
+          ),
+          Icon(
+            valid ? Icons.check_circle_rounded : Icons.circle_outlined,
+            color: valid ? activeColor : Colors.white24,
+            size: 14,
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Password Requirements:',
+            style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white),
+          ),
+          const SizedBox(height: 10),
+          row(':=', '8+ characters', _hasMinLength),
+          const SizedBox(height: 6),
+          row('Az', 'At least 1 uppercase letter (A-Z)', _hasUppercase),
+          const SizedBox(height: 6),
+          row('123', 'At least 1 number (0-9)', _hasDigit),
+          const SizedBox(height: 6),
+          row('!@', 'At least 1 special character', _hasSpecial),
+        ],
+      ),
+    );
+  }
+}
+
 class ExploreCategoryDetailScreen extends StatefulWidget {
   const ExploreCategoryDetailScreen({required this.category, super.key});
 
