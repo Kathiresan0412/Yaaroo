@@ -842,12 +842,18 @@ class _AppShellState extends State<AppShell> {
       );
     }
 
+    // Use a key based on user id so that when the user logs in (or switches
+    // accounts), Flutter recreates all screen widgets, resetting _didLoad and
+    // triggering fresh data fetches from the backend.
+    final userKey = user?.id ?? '';
+
     final screens = [
-      DiscoverScreen(onOpenAuth: _openAuth),
-      ExploreScreen(onOpenAuth: _openAuth),
-      MatchesScreen(onOpenAuth: _openAuth),
-      ChatListScreen(onOpenAuth: _openAuth),
+      DiscoverScreen(key: ValueKey('discover_$userKey'), onOpenAuth: _openAuth),
+      ExploreScreen(key: ValueKey('explore_$userKey'), onOpenAuth: _openAuth),
+      MatchesScreen(key: ValueKey('matches_$userKey'), onOpenAuth: _openAuth),
+      ChatListScreen(key: ValueKey('chat_$userKey'), onOpenAuth: _openAuth),
       ProfileScreen(
+        key: ValueKey('profile_$userKey'),
         onOpenAuth: _openAuth,
         onLogout: () async {
           await api.logout();
