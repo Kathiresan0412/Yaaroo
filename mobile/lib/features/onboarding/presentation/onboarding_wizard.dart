@@ -1390,10 +1390,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
             }
           },
         ),
-        if (_coreProfileMissing || _dateOfBirth == null || _gender == null) ...[
-          const SizedBox(height: 12),
-          _buildCoreProfileFields(),
-        ],
+        const SizedBox(height: 12),
+        _buildCoreProfileFields(),
         const SizedBox(height: 12),
         AppTextField(
             controller: _pronouns, label: 'Pronouns (e.g. He/Him, She/Her)'),
