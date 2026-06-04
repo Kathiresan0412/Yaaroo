@@ -1035,8 +1035,9 @@ class LandingScreen extends StatelessWidget {
                           label: const Text('Continue with Google'),
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size.fromHeight(52),
-                            side: const BorderSide(color: YaaroColors.line),
-                            foregroundColor: Colors.white,
+                            side:
+                                BorderSide(color: YaaroColors.lineFor(context)),
+                            foregroundColor: YaaroColors.textFor(context),
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -1046,8 +1047,9 @@ class LandingScreen extends StatelessWidget {
                           label: const Text('Continue with TikTok'),
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size.fromHeight(52),
-                            side: const BorderSide(color: YaaroColors.line),
-                            foregroundColor: Colors.white,
+                            side:
+                                BorderSide(color: YaaroColors.lineFor(context)),
+                            foregroundColor: YaaroColors.textFor(context),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -1055,7 +1057,7 @@ class LandingScreen extends StatelessWidget {
                           children: [
                             Expanded(
                                 child: Divider(
-                                    color: Colors.white.withOpacity(0.14))),
+                                    color: YaaroColors.lineFor(context))),
                             Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 10),
@@ -1065,7 +1067,7 @@ class LandingScreen extends StatelessWidget {
                             ),
                             Expanded(
                                 child: Divider(
-                                    color: Colors.white.withOpacity(0.14))),
+                                    color: YaaroColors.lineFor(context))),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -1083,8 +1085,9 @@ class LandingScreen extends StatelessWidget {
                           onPressed: onCreateAccount,
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size.fromHeight(50),
-                            side: const BorderSide(color: YaaroColors.line),
-                            foregroundColor: Colors.white,
+                            side:
+                                BorderSide(color: YaaroColors.lineFor(context)),
+                            foregroundColor: YaaroColors.textFor(context),
                           ),
                           child: const Text('New to Yaaro0? Create account'),
                         ),
@@ -1304,7 +1307,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       children: [
         RoundAction(
             icon: Icons.close,
-            color: Colors.white,
+            color: YaaroColors.textFor(context),
             onPressed: _swiping ? null : () => _swipe(SwipeAction.pass)),
         const SizedBox(width: 18),
         RoundAction(
@@ -1367,7 +1370,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       barrierDismissible: true,
       builder: (context) {
         return Dialog(
-          backgroundColor: YaaroColors.surface,
+          backgroundColor: YaaroColors.panelFor(context),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
@@ -2700,8 +2703,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
         child: OutlinedButton(
           style: OutlinedButton.styleFrom(
             padding: EdgeInsets.zero,
-            side: const BorderSide(color: YaaroColors.line),
-            foregroundColor: Colors.white,
+            side: BorderSide(color: YaaroColors.lineFor(context)),
+            foregroundColor: YaaroColors.textFor(context),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
@@ -2741,8 +2744,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.035),
-                    border: Border.all(color: Colors.white10),
+                    color: YaaroColors.isDarkFor(context)
+                        ? Colors.white.withOpacity(0.035)
+                        : Colors.black.withOpacity(0.035),
+                    border: Border.all(color: YaaroColors.lineFor(context)),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -2750,7 +2755,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       for (var i = 0; i < rows.length; i++) ...[
                         _profileDetailRow(rows[i]),
                         if (i != rows.length - 1)
-                          const Divider(height: 1, color: Colors.white10),
+                          Divider(
+                              height: 1, color: YaaroColors.lineFor(context)),
                       ],
                     ],
                   ),
@@ -2799,7 +2805,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: YaaroColors.surface,
+          backgroundColor: YaaroColors.panelFor(context),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: const Text('Block Member?',
@@ -2808,8 +2814,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
               'Are you sure you want to block $displayName? They will no longer be able to message you or view your profile.'),
           actions: <Widget>[
             TextButton(
-              child:
-                  const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              child: Text('Cancel',
+                  style: TextStyle(color: YaaroColors.mutedFor(context))),
               onPressed: () => Navigator.pop(context),
             ),
             FilledButton(
@@ -2852,7 +2858,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: YaaroColors.surface,
+          backgroundColor: YaaroColors.panelFor(context),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: Text('Report $displayName',
@@ -2868,7 +2874,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 decoration: InputDecoration(
                   hintText: 'Describe the issue...',
                   filled: true,
-                  fillColor: Colors.white.withOpacity(0.06),
+                  fillColor: YaaroColors.isDarkFor(context)
+                      ? Colors.white.withOpacity(0.06)
+                      : Colors.black.withOpacity(0.04),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8)),
                 ),
@@ -2877,8 +2885,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
           ),
           actions: <Widget>[
             TextButton(
-              child:
-                  const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              child: Text('Cancel',
+                  style: TextStyle(color: YaaroColors.mutedFor(context))),
               onPressed: () => Navigator.pop(context),
             ),
             FilledButton(
@@ -2933,14 +2941,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
                         height: 96,
                         margin: const EdgeInsets.symmetric(vertical: 15),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.04),
+                          color: YaaroColors.isDarkFor(context)
+                              ? Colors.white.withOpacity(0.04)
+                              : Colors.black.withOpacity(0.04),
                           borderRadius: BorderRadius.circular(8),
                           border:
-                              Border.all(color: Colors.white.withOpacity(0.06)),
+                              Border.all(color: YaaroColors.lineFor(context)),
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Icon(Icons.person,
-                              color: Colors.white10, size: 36),
+                              color: YaaroColors.mutedFor(context)
+                                  .withOpacity(0.3),
+                              size: 36),
                         ),
                       )),
             ),
@@ -3847,8 +3859,8 @@ class _MembershipScreenState extends State<MembershipScreen>
                   onPressed: _cancel,
                   icon: const Icon(Icons.cancel_outlined),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: YaaroColors.line),
+                    foregroundColor: YaaroColors.textFor(context),
+                    side: BorderSide(color: YaaroColors.lineFor(context)),
                     minimumSize: const Size.fromHeight(48),
                   ),
                   label: const Text('Cancel renewal'),
@@ -3963,8 +3975,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onPressed: () => openMembershipScreen(context),
                       icon: const Icon(Icons.workspace_premium, size: 18),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: YaaroColors.line),
+                        foregroundColor: YaaroColors.textFor(context),
+                        side: BorderSide(color: YaaroColors.lineFor(context)),
                         minimumSize: const Size.fromHeight(48),
                       ),
                       label: const Text('Upgrade & payments'),
@@ -4006,32 +4018,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
       margin: const EdgeInsets.only(top: 18),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: YaaroColors.surfaceAlt,
-        border: Border.all(color: YaaroColors.line),
+        color: YaaroColors.surfaceAltFor(context),
+        border: Border.all(color: YaaroColors.lineFor(context)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Linked Social Accounts',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w900,
-              color: Colors.white,
+              color: YaaroColors.textFor(context),
             ),
           ),
           const SizedBox(height: 12),
           // TikTok linked status row
           Row(
             children: [
-              const Icon(Icons.music_note, color: Colors.white, size: 20),
+              Icon(Icons.music_note,
+                  color: YaaroColors.textFor(context), size: 20),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'TikTok',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: YaaroColors.textFor(context),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -4064,11 +4077,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               const Icon(Icons.facebook, color: Colors.blueAccent, size: 20),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Facebook',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: YaaroColors.textFor(context),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -4180,9 +4193,14 @@ class ProfileCard extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  StatusPill(text: '${profile.compatibilityScore}% match'),
+                  StatusPill(
+                      text: '${profile.compatibilityScore}% match',
+                      onImage: true),
                   if (profile.isVerified)
-                    const StatusPill(text: 'Verified', color: YaaroColors.teal),
+                    const StatusPill(
+                        text: 'Verified',
+                        color: YaaroColors.teal,
+                        onImage: true),
                 ],
               ),
             ),
@@ -4196,23 +4214,48 @@ class ProfileCard extends StatelessWidget {
                   Text(
                     '${profile.displayName}, ${profile.age}',
                     style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          height: 0.98,
+                      fontWeight: FontWeight.w900,
+                      height: 0.98,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withOpacity(0.7),
+                          blurRadius: 6,
                         ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(profile.location,
-                      style: TextStyle(color: YaaroColors.mutedFor(context))),
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.6),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      )),
                   const SizedBox(height: 8),
                   Text(profile.headline,
-                      style: const TextStyle(fontSize: 16, height: 1.3)),
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 1.3,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.6),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      )),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: profile.sharedInterests
                         .take(3)
-                        .map((tag) => TagChip(label: tag))
+                        .map((tag) => TagChip(label: tag, onImage: true))
                         .toList(),
                   ),
                 ],
@@ -4283,8 +4326,8 @@ class CompactProfileTile extends StatelessWidget {
               IconButton(
                 onPressed: onPass,
                 style: IconButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: YaaroColors.line),
+                  foregroundColor: YaaroColors.textFor(context),
+                  side: BorderSide(color: YaaroColors.lineFor(context)),
                 ),
                 icon: const Icon(Icons.close),
               ),
@@ -4814,13 +4857,40 @@ class AppTextField extends StatelessWidget {
 }
 
 class StatusPill extends StatelessWidget {
-  const StatusPill({required this.text, this.color, super.key});
+  const StatusPill(
+      {required this.text, this.color, this.onImage = false, super.key});
 
   final String text;
   final Color? color;
+  final bool onImage;
 
   @override
   Widget build(BuildContext context) {
+    if (onImage) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(99),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Text(
+              text,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: color ?? Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12),
+            ),
+          ),
+        ),
+      );
+    }
+
     final effectiveColor = color ?? YaaroColors.textFor(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -4875,12 +4945,34 @@ class RoundAction extends StatelessWidget {
 }
 
 class TagChip extends StatelessWidget {
-  const TagChip({required this.label, super.key});
+  const TagChip({required this.label, this.onImage = false, super.key});
 
   final String label;
+  final bool onImage;
 
   @override
   Widget build(BuildContext context) {
+    if (onImage) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(99),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.35),
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Text(label,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12)),
+          ),
+        ),
+      );
+    }
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -5201,7 +5293,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             : RefreshIndicator(
                                 onRefresh: _loadNotifications,
                                 color: YaaroColors.rose,
-                                backgroundColor: YaaroColors.surface,
+                                backgroundColor: YaaroColors.panelFor(context),
                                 child: ListView.separated(
                                   padding: const EdgeInsets.all(16),
                                   itemCount: _notifications.length,
@@ -5706,19 +5798,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const SizedBox(height: 24),
 
                           // ---------------- APP DETAILS SECTION ----------------
-                          const SectionTitle(
-                              title: 'App Info', trailing: 'Details'),
-                          const SizedBox(height: 10),
-                          SettingsRow(
-                            icon: Icons.cloud_sync,
-                            title: 'API Server',
-                            value: apiBaseUrl,
-                          ),
-                          const SettingsRow(
-                            icon: Icons.info_outline,
-                            title: 'Version',
-                            value: '1.0.0 (Production)',
-                          ),
+                          // const SectionTitle(
+                          //     title: 'App Info', trailing: 'Details'),
+                          // const SizedBox(height: 10),
+                          // SettingsRow(
+                          //   icon: Icons.cloud_sync,
+                          //   title: 'API Server',
+                          //   value: apiBaseUrl,
+                          // ),
+                          // const SettingsRow(
+                          //   icon: Icons.info_outline,
+                          //   title: 'Version',
+                          //   value: '1.0.0 (Production)',
+                          // ),
                         ],
                       ),
               ),
