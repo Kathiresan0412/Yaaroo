@@ -35,7 +35,8 @@ String _resolveLocalhost(String url) {
   if (kIsWeb) return url;
   try {
     final uri = Uri.parse(url);
-    if (Platform.isAndroid && (uri.host == '127.0.0.1' || uri.host == 'localhost')) {
+    if (Platform.isAndroid &&
+        (uri.host == '127.0.0.1' || uri.host == 'localhost')) {
       return uri.replace(host: '10.0.2.2').toString();
     }
   } catch (_) {}
@@ -68,6 +69,10 @@ String get socketBaseUrl {
   }
   return apiBaseUrl;
 }
+
+/// Notifies [MembershipScreen] when a Stripe redirect deep link arrives.
+/// Value is 'success', 'cancel', or null (idle).
+final _paymentDeepLink = ValueNotifier<String?>(null);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -721,6 +726,12 @@ class _AppShellState extends State<AppShell> {
             : uri.queryParameters['token'];
       } else if (host == 'oauth') {
         _completeOAuthDeepLink(uri);
+        return;
+      } else if (host == 'payment-success') {
+        _paymentDeepLink.value = 'success';
+        return;
+      } else if (host == 'payment-cancel') {
+        _paymentDeepLink.value = 'cancel';
         return;
       }
     } else if (scheme == 'http' || scheme == 'https') {
@@ -3448,12 +3459,60 @@ class MembershipScreen extends StatefulWidget {
   State<MembershipScreen> createState() => _MembershipScreenState();
 }
 
-class _MembershipScreenState extends State<MembershipScreen> {
+class _MembershipScreenState extends State<MembershipScreen>
+    with WidgetsBindingObserver {
   SubscriptionStatus? _status;
   bool _loading = true;
   String _message = '';
   String? _busyTier;
   bool _didLoad = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _paymentDeepLink.addListener(_onPaymentDeepLink);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _paymentDeepLink.removeListener(_onPaymentDeepLink);
+    super.dispose();
+  }
+
+  /// Called when app returns to foreground (e.g. user came back from browser).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _didLoad) {
+      _loadStatus();
+    }
+  }
+
+  /// Called when yaaro0://payment-success or yaaro0://payment-cancel arrives.
+  void _onPaymentDeepLink() {
+    final result = _paymentDeepLink.value;
+    if (result == null) return;
+    _paymentDeepLink.value = null; // reset so it doesn't re-fire
+
+    if (!mounted) return;
+    if (result == 'success') {
+      _loadStatus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Payment successful! Your plan has been upgraded.'),
+          backgroundColor: YaaroColors.teal,
+        ),
+      );
+    } else if (result == 'cancel') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Checkout cancelled. No charge was made.'),
+          backgroundColor: YaaroColors.mutedFor(context),
+        ),
+      );
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -3507,8 +3566,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content:
-                Text('Complete checkout, then return to refresh your plan.'),
+            content: Text(
+                'Opening checkout — you\'ll be redirected back automatically.'),
             backgroundColor: YaaroColors.teal,
           ),
         );
