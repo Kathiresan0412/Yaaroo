@@ -249,6 +249,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _handleTypingChanged() {
+    // Rebuild so mic/send button toggles correctly
+    setState(() {});
     if (_socket == null ||
         !_socket!.connected ||
         _textController.text.isEmpty) {
@@ -411,6 +413,95 @@ class _ChatScreenState extends State<ChatScreen> {
   // -------------------------------------------------------------------------
   // Send helpers
   // -------------------------------------------------------------------------
+  void _handleKeyboardContentInserted(KeyboardInsertedContent content) {
+    final uri = content.uri;
+    if (uri.isEmpty) return;
+    // If the keyboard provides an HTTP URL (Tenor/Giphy), send as GIF directly
+    if (uri.startsWith('http://') || uri.startsWith('https://')) {
+      _sendGif(uri);
+    } else if (content.hasData && content.data != null) {
+      // Keyboard provided raw bytes — upload as media
+      _sendGifBytes(content.data!, content.mimeType);
+    } else {
+      // Fallback: try to read the content:// URI via file
+      _sendGifFromContentUri(uri);
+    }
+  }
+
+  Future<void> _sendGifBytes(List<int> bytes, String mimeType) async {
+    try {
+      setState(() => _isUploading = true);
+      final ext = mimeType.contains('gif') ? 'gif' : 'png';
+      final res = await _apiClient.sendMediaMessage(
+        widget.matchId,
+        bytes,
+        filename: 'keyboard_image.$ext',
+        mimeType: mimeType,
+        fieldName: 'image',
+        type: mimeType.contains('gif') ? 'gif' : 'photo',
+      );
+      if (res['success'] == true && res['message'] is Map<String, dynamic>) {
+        _mergeAndSortMessages(
+            [ChatMessage.fromJson(res['message'], _currentUserId ?? '')]);
+      }
+    } catch (e) {
+      setState(() => _notice = 'Failed to send image: $e');
+    } finally {
+      setState(() => _isUploading = false);
+    }
+  }
+
+  Future<void> _sendGifFromContentUri(String uri) async {
+    try {
+      final file = dart_io.File(uri.replaceFirst('content://', ''));
+      if (!await file.exists()) {
+        setState(() => _notice = 'Could not access the selected image.');
+        return;
+      }
+      final bytes = await file.readAsBytes();
+      await _sendGifBytes(bytes, 'image/gif');
+    } catch (e) {
+      setState(() => _notice = 'Failed to send GIF: $e');
+    }
+  }
+
+  Future<void> _sendGif(String gifUrl) async {
+    if (gifUrl.isEmpty) return;
+    final tempId = 'local-${DateTime.now().microsecondsSinceEpoch}';
+    final pending = ChatMessage(
+      id: tempId,
+      matchId: widget.matchId,
+      senderId: _currentUserId ?? '',
+      type: 'gif',
+      content: '',
+      mediaUrl: gifUrl,
+      reactions: const [],
+      isMine: true,
+      isRead: false,
+      isDeleted: false,
+      createdAt: DateTime.now().toIso8601String(),
+      deliveryStatus: 'sending',
+    );
+    _mergeAndSortMessages([pending]);
+    try {
+      final res = await _apiClient.sendMessage(
+        widget.matchId,
+        '',
+        'gif',
+        mediaUrl: gifUrl,
+      );
+      if (res['success'] == true && res['message'] is Map<String, dynamic>) {
+        _replaceMessage(
+            tempId,
+            ChatMessage.fromJson(res['message'], _currentUserId ?? '')
+                .copyWith(deliveryStatus: 'sent'));
+      }
+    } catch (e) {
+      setState(() => _notice = 'Failed to send GIF: $e');
+      _replaceMessage(tempId, pending.copyWith(deliveryStatus: 'failed'));
+    }
+  }
+
   Future<void> _sendText() async {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
@@ -1102,6 +1193,16 @@ class _ChatScreenState extends State<ChatScreen> {
               maxLines: 4,
               minLines: 1,
               style: TextStyle(color: YaaroColors.textFor(context)),
+              contentInsertionConfiguration: ContentInsertionConfiguration(
+                allowedMimeTypes: const [
+                  'image/gif',
+                  'image/png',
+                  'image/jpeg'
+                ],
+                onContentInserted: (KeyboardInsertedContent content) {
+                  _handleKeyboardContentInserted(content);
+                },
+              ),
               decoration: InputDecoration(
                 hintText: 'Message…',
                 hintStyle: TextStyle(color: _inputHintColor(context)),

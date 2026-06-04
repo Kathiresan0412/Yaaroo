@@ -1,0 +1,524 @@
+/* ═══════════════════════════════════════════════════
+   YaaroO Premium Mobile Landing — Cinematic Scroll
+   ═══════════════════════════════════════════════════ */
+
+.ml-root {
+  position: relative;
+  width: 100%;
+  overflow-x: hidden;
+  background: #050018;
+}
+
+.ml-scroll-spacer {
+  height: 600vh;
+  pointer-events: none;
+}
+
+/* Fixed viewport that stays in place while scroll drives animation */
+.ml-viewport {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* ─── Background Layers ─── */
+.ml-bg-base {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(165deg, #1B0035 0%, #050018 50%, #0a0020 100%);
+}
+
+.ml-bg-ambient {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(255, 77, 122, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 60%, rgba(55, 230, 212, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(247, 217, 168, 0.06) 0%, transparent 40%);
+  transition: opacity 0.1s linear;
+}
+
+.ml-bg-cafe {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(247, 217, 168, 0.15) 0%, transparent 60%),
+    radial-gradient(ellipse at 40% 70%, rgba(180, 120, 60, 0.1) 0%, transparent 40%),
+    linear-gradient(180deg, rgba(30, 15, 5, 0.5) 0%, rgba(10, 5, 2, 0.8) 100%);
+  transition: opacity 0.1s linear;
+}
+
+/* ─── Header / Logo ─── */
+.ml-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 20px 24px;
+  transition: opacity 0.1s linear;
+}
+
+.ml-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ml-logo img {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+.ml-logo span {
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #fff 30%, rgba(255, 77, 122, 0.9));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Scene 1: Hero Text ─── */
+.ml-hero-text {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  text-align: center;
+  padding: 0 24px;
+  transition: opacity 0.05s linear, transform 0.05s linear;
+}
+
+.ml-hero-text h1 {
+  margin: 0;
+  font-size: clamp(2.4rem, 10vw, 4.2rem);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  background: linear-gradient(180deg, #ffffff 20%, rgba(255, 255, 255, 0.7) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ml-subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.ml-scroll-arrow {
+  color: rgba(255, 255, 255, 0.4);
+  animation: ml-bounce 2s ease-in-out infinite;
+}
+
+@keyframes ml-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
+/* ─── Scene 2 & 3: Characters Stage ─── */
+.ml-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  transition: transform 0.05s linear;
+  will-change: transform;
+}
+
+.ml-silhouette {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: opacity 0.1s linear, transform 0.05s linear;
+  will-change: transform, opacity;
+}
+
+.ml-male {
+  left: 15%;
+}
+
+.ml-female {
+  right: 15%;
+}
+
+.ml-person-svg {
+  width: 60px;
+  height: 150px;
+  color: rgba(255, 255, 255, 0.15);
+  filter: drop-shadow(0 0 20px rgba(255, 77, 122, 0.2));
+}
+
+/* ─── Real People Layer ─── */
+.ml-real-people {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  transition: opacity 0.1s linear;
+}
+
+.ml-couple-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.ml-cafe-scene {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  transition: filter 0.15s linear;
+}
+
+.ml-person-real {
+  position: relative;
+  width: 80px;
+  height: 110px;
+  border-radius: 50% 50% 40% 40%;
+  overflow: hidden;
+}
+
+.ml-person-left {
+  background:
+    linear-gradient(180deg, rgba(45, 30, 20, 0.9), rgba(80, 50, 30, 0.8)),
+    radial-gradient(circle at 50% 30%, rgba(200, 150, 100, 0.6), transparent 70%);
+}
+
+.ml-person-right {
+  background:
+    linear-gradient(180deg, rgba(50, 25, 25, 0.9), rgba(90, 45, 35, 0.8)),
+    radial-gradient(circle at 50% 30%, rgba(210, 160, 110, 0.6), transparent 70%);
+}
+
+.ml-avatar-glow {
+  position: absolute;
+  inset: -10px;
+  border-radius: inherit;
+  background: radial-gradient(circle, rgba(247, 217, 168, 0.15), transparent 70%);
+}
+
+/* Café Table */
+.ml-cafe-table {
+  position: relative;
+  width: 80px;
+  height: 60px;
+  display: grid;
+  place-items: end center;
+}
+
+.ml-table-surface {
+  width: 70px;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(120, 80, 40, 0.6), rgba(160, 100, 50, 0.8), rgba(120, 80, 40, 0.6));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── Tea Cup ─── */
+.ml-tea-cup {
+  position: absolute;
+  bottom: 42%;
+  left: 50%;
+  transform-origin: center center;
+  margin-left: -30px;
+  transition: opacity 0.1s linear, transform 0.05s linear;
+  will-change: transform, opacity;
+}
+
+.ml-cup-body {
+  position: relative;
+  width: 60px;
+  height: 42px;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  background: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 -4px 8px rgba(200, 170, 130, 0.3);
+}
+
+.ml-cup-handle {
+  position: absolute;
+  right: -14px;
+  top: 6px;
+  width: 18px;
+  height: 24px;
+  border: 4px solid #e8ddd0;
+  border-left: 0;
+  border-radius: 0 12px 12px 0;
+}
+
+.ml-cup-saucer {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 76px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ebe5da, #d9d0c2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Steam animation */
+.ml-steam {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+}
+
+.ml-steam span {
+  display: block;
+  width: 3px;
+  height: 20px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  animation: ml-steam-rise 2.2s ease-in-out infinite;
+}
+
+.ml-steam span:nth-child(2) {
+  height: 26px;
+  animation-delay: 0.4s;
+}
+
+.ml-steam span:nth-child(3) {
+  animation-delay: 0.8s;
+}
+
+@keyframes ml-steam-rise {
+  0% {
+    transform: translateY(0) scaleX(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-10px) scaleX(1.5);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translateY(-20px) scaleX(0.5);
+    opacity: 0;
+  }
+}
+
+/* ─── Conversation Hints ─── */
+.ml-conversation-hints {
+  position: absolute;
+  z-index: 6;
+  top: 30%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  padding: 0 20px;
+}
+
+.ml-chat-bubble {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+.ml-bubble-left {
+  border-bottom-left-radius: 4px;
+}
+
+.ml-bubble-right {
+  border-bottom-right-radius: 4px;
+}
+
+.ml-bubble-dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  animation: ml-dot-pulse 1.4s ease-in-out infinite;
+}
+
+.ml-bubble-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.ml-bubble-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes ml-dot-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* ─── Scene 6: CTA ─── */
+.ml-cta-section {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  transition: opacity 0.1s linear, transform 0.05s linear;
+}
+
+.ml-cta-card {
+  width: min(100%, 380px);
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  padding: 40px 28px;
+  text-align: center;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 5, 20, 0.7);
+  backdrop-filter: blur(24px);
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(255, 77, 122, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.ml-cta-card h2 {
+  margin: 0;
+  font-size: clamp(1.4rem, 5.5vw, 2rem);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.ml-cta-card p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+}
+
+.ml-cta-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  padding: 0 32px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #FF4D7A 0%, #ff2d6a 50%, #e8185a 100%);
+  box-shadow:
+    0 12px 36px rgba(255, 77, 122, 0.35),
+    0 4px 12px rgba(255, 77, 122, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ml-cta-button:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 16px 44px rgba(255, 77, 122, 0.45),
+    0 6px 16px rgba(255, 77, 122, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.ml-cta-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* ─── Progress Indicator ─── */
+.ml-progress {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  z-index: 20;
+}
+
+.ml-progress-fill {
+  width: 100%;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #FF4D7A, #37E6D4);
+  transition: height 0.05s linear;
+}
+
+/* ─── Responsive ─── */
+@media (min-width: 768px) {
+  .ml-person-svg {
+    width: 80px;
+    height: 190px;
+  }
+
+  .ml-male {
+    left: 20%;
+  }
+
+  .ml-female {
+    right: 20%;
+  }
+
+  .ml-person-real {
+    width: 110px;
+    height: 150px;
+  }
+
+  .ml-cafe-table {
+    width: 110px;
+  }
+
+  .ml-table-surface {
+    width: 100px;
+  }
+
+  .ml-tea-cup {
+    margin-left: -40px;
+  }
+
+  .ml-cup-body {
+    width: 80px;
+    height: 56px;
+  }
+
+  .ml-cup-saucer {
+    width: 100px;
+    height: 14px;
+  }
+}
+
+/* Reduce motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .ml-scroll-arrow,
+  .ml-steam span,
+  .ml-bubble-dot {
+    animation: none;
+  }
+
+  .ml-scroll-spacer {
+    height: 200vh;
+  }
+}
