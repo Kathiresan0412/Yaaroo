@@ -4660,27 +4660,20 @@ class AppGradient extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Stack(
       children: [
         // Base vertical gradient
         Positioned.fill(
           child: Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: isDark
-                    ? const [
-                        Color(0xFF260D42), // Rich dark purple
-                        Color(0xFF120524), // Deep indigo-violet
-                        Color(0xFF06010B), // Midnight black-purple
-                      ]
-                    : const [
-                        Color(0xFFFFF2F4), // Soft vibrant rose-white
-                        Color(0xFFF3F4F6), // Clean grey-white
-                        Color(0xFFE5E7EB), // Soft grey
-                      ],
+                colors: [
+                  Color(0xFF260D42), // Rich dark purple
+                  Color(0xFF120524), // Deep indigo-violet
+                  Color(0xFF06010B), // Midnight black-purple
+                ],
               ),
             ),
           ),
@@ -4688,12 +4681,12 @@ class AppGradient extends StatelessWidget {
         // Radial glow overlay at top-right (Magenta)
         Positioned.fill(
           child: Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: RadialGradient(
-                center: const Alignment(0.8, -0.8),
+                center: Alignment(0.8, -0.8),
                 radius: 1.0,
                 colors: [
-                  isDark ? const Color(0x36FF4F6D) : const Color(0x1CFF4F6D),
+                  Color(0x36FF4F6D),
                   Colors.transparent,
                 ],
               ),
@@ -4703,12 +4696,12 @@ class AppGradient extends StatelessWidget {
         // Radial glow overlay at bottom-left (Teal/Cyan)
         Positioned.fill(
           child: Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: RadialGradient(
-                center: const Alignment(-0.8, 0.8),
+                center: Alignment(-0.8, 0.8),
                 radius: 1.2,
                 colors: [
-                  isDark ? const Color(0x2231D0B2) : const Color(0x1431D0B2),
+                  Color(0x2231D0B2),
                   Colors.transparent,
                 ],
               ),
