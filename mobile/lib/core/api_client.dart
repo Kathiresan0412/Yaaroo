@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:developer' as developer;
@@ -75,6 +76,9 @@ class ApiClient {
   String? refreshToken;
   User? user;
   String? cookies;
+
+  // Refresh lock to prevent concurrent refresh attempts
+  Completer<bool>? _refreshCompleter;
 
   final SecureStorage _secureStorage = SecureStorage.instance;
 
@@ -188,7 +192,30 @@ class ApiClient {
   }
 
   Future<bool> refreshSession() async {
+    // If a refresh is already in progress, wait for it instead of making
+    // a duplicate request (which would fail due to token rotation).
+    if (_refreshCompleter != null) {
+      return _refreshCompleter!.future;
+    }
+
+    _refreshCompleter = Completer<bool>();
+
     try {
+      final result = await _doRefresh();
+      _refreshCompleter!.complete(result);
+      return result;
+    } catch (e) {
+      _refreshCompleter!.complete(false);
+      return false;
+    } finally {
+      _refreshCompleter = null;
+    }
+  }
+
+  Future<bool> _doRefresh() async {
+    try {
+      if (refreshToken == null || refreshToken!.isEmpty) return false;
+
       final url = _uri('/api/auth/refresh');
       final response = await http.post(
         url,
