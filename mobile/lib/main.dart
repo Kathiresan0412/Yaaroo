@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:app_links/app_links.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -3485,7 +3486,9 @@ class _MembershipScreenState extends State<MembershipScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _didLoad) {
-      _loadStatus();
+      // Always try to verify first — it falls back to a status fetch if
+      // there's no pending session id.
+      _verifyAndActivate();
     }
   }
 
@@ -3497,13 +3500,7 @@ class _MembershipScreenState extends State<MembershipScreen>
 
     if (!mounted) return;
     if (result == 'success') {
-      _loadStatus();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Payment successful! Your plan has been upgraded.'),
-          backgroundColor: YaaroColors.teal,
-        ),
-      );
+      _verifyAndActivate();
     } else if (result == 'cancel') {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -3511,6 +3508,41 @@ class _MembershipScreenState extends State<MembershipScreen>
           backgroundColor: YaaroColors.mutedFor(context),
         ),
       );
+    }
+  }
+
+  Future<void> _verifyAndActivate() async {
+    setState(() {
+      _loading = true;
+      _message = '';
+    });
+    try {
+      debugPrint(
+          '[MembershipScreen] _verifyAndActivate: calling verifySession...');
+      final status = await YaaroScope.of(context).verifySession();
+      debugPrint(
+          '[MembershipScreen] _verifyAndActivate: tier=${status.tier} isPaid=${status.isPaid} endsAt=${status.endsAt}');
+      if (mounted) {
+        setState(() => _status = status);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              status.isPaid
+                  ? 'Payment successful! You are now on ${status.displayName}.'
+                  : 'Payment received — your plan will update shortly.',
+            ),
+            backgroundColor: YaaroColors.teal,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[MembershipScreen] _verifyAndActivate ERROR: $e');
+      if (mounted) {
+        setState(() => _message =
+            e is ApiException ? e.message : 'Could not verify payment.');
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -5343,6 +5375,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _likesEnabled = true;
   bool _emailsEnabled = true;
 
+  // Security / biometric states
+  bool _biometricAvailable = false;
+  bool _biometricEnabled = false;
+  bool _hasPassword = false;
+  String? _oauthProvider;
+
+  final LocalAuthentication _localAuth = LocalAuthentication();
+
   @override
   void initState() {
     super.initState();
@@ -5357,6 +5397,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final likes = await storage.read('notif_likes_enabled');
     final emails = await storage.read('notif_emails_enabled');
 
+    // Load biometric & password status
+    bool bioAvailable = false;
+    bool bioEnabled = false;
+    bool hasPassword = false;
+    String? oauthProvider;
+    try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
+      bioAvailable = canCheck && isSupported;
+      bioEnabled = await storage.isBiometricEnabled();
+    } catch (_) {}
+
+    try {
+      final api = YaaroScope.of(context);
+      final status = await api.getPasswordStatus();
+      hasPassword = status['hasPassword'] == true;
+      oauthProvider = status['oauthProvider']?.toString();
+    } catch (_) {}
+
     if (mounted) {
       setState(() {
         _pushEnabled = push != 'false';
@@ -5364,6 +5423,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _matchesEnabled = matches != 'false';
         _likesEnabled = likes != 'false';
         _emailsEnabled = emails != 'false';
+        _biometricAvailable = bioAvailable;
+        _biometricEnabled = bioEnabled;
+        _hasPassword = hasPassword;
+        _oauthProvider = oauthProvider;
         _loading = false;
       });
     }
@@ -5571,6 +5634,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           const SizedBox(height: 24),
 
+                          // ---------------- SECURITY SECTION ----------------
+                          const SectionTitle(
+                              title: 'Security', trailing: 'Auth'),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: panelDecoration(context),
+                            child: Column(
+                              children: [
+                                if (_biometricAvailable) ...[
+                                  _buildSwitchTile(
+                                    icon: Icons.fingerprint,
+                                    title: 'Fingerprint / Face Login',
+                                    subtitle: _biometricEnabled
+                                        ? 'Tap to disable biometric login'
+                                        : 'Enable quick biometric sign-in',
+                                    value: _biometricEnabled,
+                                    onChanged: (_) => _toggleBiometric(),
+                                  ),
+                                  Divider(
+                                      color: YaaroColors.lineFor(context),
+                                      height: 1),
+                                ],
+                                ListTile(
+                                  leading: Icon(
+                                    _hasPassword
+                                        ? Icons.lock_reset
+                                        : Icons.lock_open,
+                                    color: YaaroColors.rose,
+                                    size: 22,
+                                  ),
+                                  title: Text(
+                                    _hasPassword
+                                        ? 'Change Password'
+                                        : 'Set Password',
+                                    style: TextStyle(
+                                      color: YaaroColors.textFor(context),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    _hasPassword
+                                        ? 'Update your current password'
+                                        : _oauthProvider != null
+                                            ? 'Add a password to your ${_oauthProvider!.capitalize()} account'
+                                            : 'Set a password for your account',
+                                    style: TextStyle(
+                                      color: YaaroColors.mutedFor(context),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  trailing: Icon(
+                                    Icons.chevron_right,
+                                    color: YaaroColors.mutedFor(context),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  onTap: () => _openPasswordSheet(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
                           // ---------------- APP DETAILS SECTION ----------------
                           const SectionTitle(
                               title: 'App Info', trailing: 'Details'),
@@ -5593,6 +5721,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _toggleBiometric() async {
+    if (_biometricEnabled) {
+      // Disable — clear saved credentials
+      await SecureStorage.instance.clearBiometricCredentials();
+      setState(() => _biometricEnabled = false);
+    } else {
+      // Enable — authenticate first
+      try {
+        final authenticated = await _localAuth.authenticate(
+          localizedReason: 'Confirm your identity to enable biometric login',
+          options: const AuthenticationOptions(
+            biometricOnly: false,
+            stickyAuth: true,
+          ),
+        );
+        if (!authenticated) return;
+        // Credentials are saved automatically on next email/password login.
+        // If they already exist from a previous login, just re-enable.
+        final existing =
+            await SecureStorage.instance.readBiometricCredentials();
+        if (existing == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Log out and sign in with email + password once to save credentials for biometric login.',
+                ),
+                backgroundColor: Color(0xFFFF2D79),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+          return;
+        }
+        await SecureStorage.instance.setBiometricEnabled(true);
+        setState(() => _biometricEnabled = true);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _openPasswordSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (_) => _PasswordSheet(
+        hasPassword: _hasPassword,
+        api: YaaroScope.of(context),
+      ),
+    );
+    // Refresh password status after sheet closes
+    try {
+      final api = YaaroScope.of(context);
+      final status = await api.getPasswordStatus();
+      if (mounted) {
+        setState(() {
+          _hasPassword = status['hasPassword'] == true;
+          _oauthProvider = status['oauthProvider']?.toString();
+        });
+      }
+    } catch (_) {}
   }
 
   Widget _buildThemeCard({

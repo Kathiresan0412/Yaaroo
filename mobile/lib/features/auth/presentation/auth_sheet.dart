@@ -3,8 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/api_client.dart';
+import '../../../core/secure_storage.dart';
 import '../../../main.dart'
     show YaaroScope, YaaroColors, AppTextField, webBaseUrl;
 
@@ -44,6 +46,10 @@ class _AuthSheetState extends State<AuthSheet> {
   bool _showPassword = false;
   bool _showConfirmPassword = false;
   bool _showPasswordRequirements = false;
+  bool _biometricAvailable = false;
+  bool _biometricEnabled = false;
+
+  final LocalAuthentication _localAuth = LocalAuthentication();
 
   // Password Validation States
   bool _hasMinLength = false;
@@ -68,6 +74,7 @@ class _AuthSheetState extends State<AuthSheet> {
       _mode = widget.initialSignup ? AuthMode.signup : AuthMode.login;
     }
     _password.addListener(_validatePassword);
+    _checkBiometricAvailability();
   }
 
   @override
@@ -160,7 +167,8 @@ class _AuthSheetState extends State<AuthSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
@@ -200,14 +208,18 @@ class _AuthSheetState extends State<AuthSheet> {
                                 ? YaaroColors.teal.withOpacity(0.12)
                                 : YaaroColors.rose.withOpacity(0.12),
                             border: Border.all(
-                              color: _isSuccess ? YaaroColors.teal : YaaroColors.rose,
+                              color: _isSuccess
+                                  ? YaaroColors.teal
+                                  : YaaroColors.rose,
                             ),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             _message!,
                             style: TextStyle(
-                              color: _isSuccess ? YaaroColors.teal : YaaroColors.rose,
+                              color: _isSuccess
+                                  ? YaaroColors.teal
+                                  : YaaroColors.rose,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -293,38 +305,80 @@ class _AuthSheetState extends State<AuthSheet> {
     );
   }
 
+  Widget _buildBiometricButton() {
+    return GestureDetector(
+      onTap: _loading ? null : _tryBiometricLogin,
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF2D79), Color(0xFFFF6D3B)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child:
+                  const Icon(Icons.fingerprint, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Log in with Fingerprint',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSocialButtons() {
     return Column(
       children: [
         // Google Button
         OutlinedButton.icon(
-          onPressed: _loading
-              ? null
-              : _startGoogleLogin,
+          onPressed: _loading ? null : _startGoogleLogin,
           icon: const Icon(Icons.g_mobiledata, color: Colors.white, size: 28),
           label: const Text('Continue with Google',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
             side: const BorderSide(color: YaaroColors.line),
             backgroundColor: YaaroColors.surfaceAlt,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
         const SizedBox(height: 10),
         // TikTok Button
         OutlinedButton.icon(
-          onPressed: _loading
-              ? null
-              : _startTikTokLogin,
+          onPressed: _loading ? null : _startTikTokLogin,
           icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
           label: const Text('Continue with TikTok',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
             side: const BorderSide(color: YaaroColors.line),
             backgroundColor: Colors.black,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
         const SizedBox(height: 12),
@@ -333,7 +387,8 @@ class _AuthSheetState extends State<AuthSheet> {
             Expanded(child: Container(height: 1, color: Colors.white10)),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 10),
-              child: Text('or use email', style: TextStyle(color: YaaroColors.muted, fontSize: 12)),
+              child: Text('or use email',
+                  style: TextStyle(color: YaaroColors.muted, fontSize: 12)),
             ),
             Expanded(child: Container(height: 1, color: Colors.white10)),
           ],
@@ -349,6 +404,23 @@ class _AuthSheetState extends State<AuthSheet> {
         return Column(
           children: [
             _buildSocialButtons(),
+            if (_biometricAvailable && _biometricEnabled) ...[
+              _buildBiometricButton(),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: Container(height: 1, color: Colors.white10)),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: Text('or use email',
+                        style:
+                            TextStyle(color: YaaroColors.muted, fontSize: 12)),
+                  ),
+                  Expanded(child: Container(height: 1, color: Colors.white10)),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             AppTextField(
               controller: _email,
               label: 'Email address',
@@ -499,13 +571,15 @@ class _AuthSheetState extends State<AuthSheet> {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.12), width: 1.2),
+          borderSide:
+              BorderSide(color: Colors.white.withOpacity(0.12), width: 1.2),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: YaaroColors.rose, width: 2.0),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         suffixIcon: Padding(
           padding: const EdgeInsets.only(right: 8),
           child: Row(
@@ -516,9 +590,12 @@ class _AuthSheetState extends State<AuthSheet> {
                   tooltip: 'Password requirements',
                   icon: Icon(
                     Icons.help_outline,
-                    color: _showPasswordRequirements ? const Color(0xFF31D0B2) : Colors.white60,
+                    color: _showPasswordRequirements
+                        ? const Color(0xFF31D0B2)
+                        : Colors.white60,
                   ),
-                  onPressed: () => setState(() => _showPasswordRequirements = !_showPasswordRequirements),
+                  onPressed: () => setState(() =>
+                      _showPasswordRequirements = !_showPasswordRequirements),
                 ),
               IconButton(
                 tooltip: visible ? 'Hide password' : 'Show password',
@@ -573,12 +650,16 @@ class _AuthSheetState extends State<AuthSheet> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.045),
-        border: isDob ? null : Border.all(color: Colors.white.withOpacity(0.12), width: 1.2),
+        border: isDob
+            ? null
+            : Border.all(color: Colors.white.withOpacity(0.12), width: 1.2),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
-          Icon(icon, color: isDob ? const Color(0xFFFF2D79) : YaaroColors.rose, size: 20),
+          Icon(icon,
+              color: isDob ? const Color(0xFFFF2D79) : YaaroColors.rose,
+              size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -609,7 +690,8 @@ class _AuthSheetState extends State<AuthSheet> {
               ],
             ),
           ),
-          const Icon(Icons.keyboard_arrow_down, color: Colors.white60, size: 20),
+          const Icon(Icons.keyboard_arrow_down,
+              color: Colors.white60, size: 20),
         ],
       ),
     );
@@ -726,13 +808,17 @@ class _AuthSheetState extends State<AuthSheet> {
             ),
           ),
           const SizedBox(height: 10),
-          _buildValidatorRow(':=', '8+ characters (more for safety)', _hasMinLength),
+          _buildValidatorRow(
+              ':=', '8+ characters (more for safety)', _hasMinLength),
           const SizedBox(height: 6),
-          _buildValidatorRow('Az', 'At least 1 Uppercase letter (A-Z)', _hasUppercase),
+          _buildValidatorRow(
+              'Az', 'At least 1 Uppercase letter (A-Z)', _hasUppercase),
           const SizedBox(height: 6),
-          _buildValidatorRow('123', 'At least 1 Numeric digit (0-9)', _hasDigit),
+          _buildValidatorRow(
+              '123', 'At least 1 Numeric digit (0-9)', _hasDigit),
           const SizedBox(height: 6),
-          _buildValidatorRow('!@', 'At least 1 Special character (!@#\$%&*^)', _hasSpecial),
+          _buildValidatorRow(
+              '!@', 'At least 1 Special character (!@#\$%&*^)', _hasSpecial),
         ],
       ),
     );
@@ -764,7 +850,9 @@ class _AuthSheetState extends State<AuthSheet> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: valid ? activeColor.withOpacity(0.9) : inactiveColor.withOpacity(0.8),
+              color: valid
+                  ? activeColor.withOpacity(0.9)
+                  : inactiveColor.withOpacity(0.8),
               decoration: valid ? TextDecoration.lineThrough : null,
             ),
           ),
@@ -829,7 +917,8 @@ class _AuthSheetState extends State<AuthSheet> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.5, color: Colors.white),
                   )
                 : Text(
                     label,
@@ -939,6 +1028,64 @@ class _AuthSheetState extends State<AuthSheet> {
     }
   }
 
+  Future<void> _checkBiometricAvailability() async {
+    try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isDeviceSupported = await _localAuth.isDeviceSupported();
+      final enabled = await SecureStorage.instance.isBiometricEnabled();
+      if (mounted) {
+        setState(() {
+          _biometricAvailable = canCheck && isDeviceSupported;
+          _biometricEnabled = enabled;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _tryBiometricLogin() async {
+    setState(() {
+      _loading = true;
+      _message = null;
+      _isSuccess = false;
+    });
+    try {
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'Use your fingerprint or face to log in to Yaaro0',
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
+        ),
+      );
+      if (!authenticated) {
+        setState(() {
+          _loading = false;
+          _message = 'Biometric authentication cancelled.';
+        });
+        return;
+      }
+      final credentials =
+          await SecureStorage.instance.readBiometricCredentials();
+      if (credentials == null) {
+        setState(() {
+          _loading = false;
+          _message =
+              'No saved credentials found. Please log in with your email and password first.';
+        });
+        return;
+      }
+      final api = YaaroScope.of(context);
+      await api.login(credentials['email']!, credentials['password']!);
+      if (mounted) Navigator.pop(context);
+    } on ApiException catch (e) {
+      setState(() => _message = e.message);
+    } catch (_) {
+      setState(() =>
+          _message = 'Biometric login failed. Please use email and password.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   Future<void> _submit() async {
     setState(() {
       _loading = true;
@@ -953,6 +1100,14 @@ class _AuthSheetState extends State<AuthSheet> {
           throw ApiException('Please fill in all fields.');
         }
         await api.login(_email.text.trim(), _password.text);
+        // Offer to save credentials for biometric login
+        if (_biometricAvailable && !_biometricEnabled) {
+          await SecureStorage.instance.saveBiometricCredentials(
+            _email.text.trim(),
+            _password.text,
+          );
+          await SecureStorage.instance.setBiometricEnabled(true);
+        }
         if (mounted) {
           Navigator.pop(context);
         }
@@ -967,7 +1122,8 @@ class _AuthSheetState extends State<AuthSheet> {
         }
 
         if (!_isPasswordValid) {
-          throw ApiException('Your password does not satisfy all validation criteria.');
+          throw ApiException(
+              'Your password does not satisfy all validation criteria.');
         }
 
         if (_password.text != _confirmPassword.text) {
@@ -986,7 +1142,8 @@ class _AuthSheetState extends State<AuthSheet> {
 
         setState(() {
           _isSuccess = true;
-          _message = 'Account request created! Check your email to verify your account.';
+          _message =
+              'Account request created! Check your email to verify your account.';
           _mode = AuthMode.verify;
         });
       } else if (_mode == AuthMode.forgot) {
@@ -1004,7 +1161,8 @@ class _AuthSheetState extends State<AuthSheet> {
           throw ApiException('All fields are required.');
         }
         if (!_isPasswordValid) {
-          throw ApiException('Your password does not satisfy all validation criteria.');
+          throw ApiException(
+              'Your password does not satisfy all validation criteria.');
         }
         if (_password.text != _confirmPassword.text) {
           throw ApiException('Passwords do not match.');
@@ -1031,7 +1189,8 @@ class _AuthSheetState extends State<AuthSheet> {
           if (errStr.contains('invalid') || errStr.contains('expired')) {
             setState(() {
               _isSuccess = true;
-              _message = 'This link may have already been verified! Please try logging in.';
+              _message =
+                  'This link may have already been verified! Please try logging in.';
               _mode = AuthMode.login;
             });
           } else {
@@ -1342,14 +1501,20 @@ class NeonHeartPainter extends CustomPainter {
     // Standard Heart Parametric Path
     path.moveTo(width / 2, height * 0.3);
     path.cubicTo(
-      width * 0.15, height * 0.02,
-      -width * 0.05, height * 0.45,
-      width / 2, height * 0.88,
+      width * 0.15,
+      height * 0.02,
+      -width * 0.05,
+      height * 0.45,
+      width / 2,
+      height * 0.88,
     );
     path.cubicTo(
-      width * 1.05, height * 0.45,
-      width * 0.85, height * 0.02,
-      width / 2, height * 0.3,
+      width * 1.05,
+      height * 0.45,
+      width * 0.85,
+      height * 0.02,
+      width / 2,
+      height * 0.3,
     );
     path.close();
 
@@ -1396,7 +1561,8 @@ class SparklePainter extends CustomPainter {
       ..color = color.withOpacity(0.25)
       ..style = PaintingStyle.fill
       ..imageFilter = ImageFilter.blur(sigmaX: 4, sigmaY: 4);
-    canvas.drawCircle(Offset(size.width / 2, size.height / 2), size.width / 4, glowPaint);
+    canvas.drawCircle(
+        Offset(size.width / 2, size.height / 2), size.width / 4, glowPaint);
 
     final path = Path();
     final cx = size.width / 2;

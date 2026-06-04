@@ -342,6 +342,35 @@ class ApiClient {
     await _decode(response);
   }
 
+  /// Returns whether the authenticated user has a password set.
+  Future<Map<String, dynamic>> getPasswordStatus() async {
+    final response = await _request('GET', '/api/auth/password-status');
+    return await _decode(response);
+  }
+
+  /// For OAuth users with no password — sets a brand new password.
+  Future<void> setPassword(String password, String confirmPassword) async {
+    final response = await _request('POST', '/api/auth/set-password', body: {
+      'password': password,
+      'confirmPassword': confirmPassword,
+    });
+    await _decode(response);
+  }
+
+  /// For users who already have a password — changes it (requires current password).
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final response = await _request('POST', '/api/auth/change-password', body: {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+      'confirmPassword': confirmPassword,
+    });
+    await _decode(response);
+  }
+
   Future<void> logout() async {
     try {
       await http.post(_uri('/api/auth/logout'),
@@ -500,6 +529,10 @@ class ApiClient {
     return SubscriptionStatus.fromJson(await _decode(response));
   }
 
+  /// The Stripe checkout session id from the last [createCheckout] call.
+  /// Used by [verifySession] after the user returns from the browser.
+  String? _pendingCheckoutSessionId;
+
   Future<String> createCheckout(String tier) async {
     final response = await _request(
       'POST',
@@ -508,10 +541,69 @@ class ApiClient {
     );
     final payload = await _decode(response);
     final checkoutUrl = payload['checkoutUrl']?.toString();
+    final sessionId = payload['sessionId']?.toString();
     if (checkoutUrl == null || checkoutUrl.isEmpty) {
       throw ApiException('Checkout is not available right now.');
     }
+    // Persist the session id so we can verify after the browser returns.
+    _pendingCheckoutSessionId = sessionId;
+    developer.log(
+        '[createCheckout] tier=$tier checkoutUrl=$checkoutUrl sessionId=$sessionId');
+    if (sessionId != null) {
+      await _secureStorage.write('pending_checkout_session_id', sessionId);
+      developer.log('[createCheckout] sessionId saved to secure storage');
+    } else {
+      developer.log(
+          '[createCheckout] WARNING: sessionId is null — cannot verify later');
+    }
     return checkoutUrl;
+  }
+
+  /// Calls the backend to confirm whether the Stripe session was paid and
+  /// activates the subscription if so. Returns the updated [SubscriptionStatus].
+  Future<SubscriptionStatus> verifySession() async {
+    // Prefer the in-memory value; fall back to what was persisted across restarts.
+    _pendingCheckoutSessionId ??=
+        await _secureStorage.read('pending_checkout_session_id');
+
+    final sessionId = _pendingCheckoutSessionId;
+    developer.log('[verifySession] pendingSessionId=$sessionId');
+
+    if (sessionId == null || sessionId.isEmpty) {
+      developer.log(
+          '[verifySession] no sessionId — falling back to subscriptionStatus()');
+      return subscriptionStatus();
+    }
+
+    try {
+      developer.log(
+          '[verifySession] calling POST /api/payments/verify-session with sessionId=$sessionId');
+      final response = await _request(
+        'POST',
+        '/api/payments/verify-session',
+        body: {'sessionId': sessionId},
+      );
+      developer.log(
+          '[verifySession] response status=${response.statusCode} body=${response.body}');
+      final payload = await _decode(response);
+      developer.log('[verifySession] decoded payload=$payload');
+
+      // Clean up the stored session id regardless of outcome.
+      _pendingCheckoutSessionId = null;
+      await _secureStorage.delete('pending_checkout_session_id');
+
+      if (payload['success'] == true) {
+        developer.log(
+            '[verifySession] success=true, fetching fresh subscriptionStatus');
+        return subscriptionStatus();
+      }
+      developer.log(
+          '[verifySession] success!=true pending=${payload['pending']} message=${payload['message']}');
+      return subscriptionStatus();
+    } catch (e, stack) {
+      developer.log('[verifySession] ERROR: $e', error: e, stackTrace: stack);
+      return subscriptionStatus();
+    }
   }
 
   Future<SubscriptionStatus> cancelSubscription() async {

@@ -12,6 +12,9 @@ class SecureStorage {
   static const _cookiesKey = 'cookies';
   static const _userKey = 'user';
   static const _refreshTokenKey = 'refreshToken';
+  static const _biometricEnabledKey = 'biometric_enabled';
+  static const _biometricEmailKey = 'biometric_email';
+  static const _biometricPasswordKey = 'biometric_password';
 
   Future<void> writeAccessToken(String token) async {
     await _storage.write(key: _accessTokenKey, value: token);
@@ -84,6 +87,35 @@ class SecureStorage {
     await _storage.delete(key: _cookiesKey);
     await _storage.delete(key: _userKey);
     await _storage.delete(key: _refreshTokenKey);
+  }
+
+  // --- Biometric helpers ---
+
+  Future<void> setBiometricEnabled(bool enabled) async {
+    await _storage.write(
+        key: _biometricEnabledKey, value: enabled ? 'true' : 'false');
+  }
+
+  Future<bool> isBiometricEnabled() async {
+    return await _storage.read(key: _biometricEnabledKey) == 'true';
+  }
+
+  Future<void> saveBiometricCredentials(String email, String password) async {
+    await _storage.write(key: _biometricEmailKey, value: email);
+    await _storage.write(key: _biometricPasswordKey, value: password);
+  }
+
+  Future<Map<String, String>?> readBiometricCredentials() async {
+    final email = await _storage.read(key: _biometricEmailKey);
+    final password = await _storage.read(key: _biometricPasswordKey);
+    if (email == null || password == null) return null;
+    return {'email': email, 'password': password};
+  }
+
+  Future<void> clearBiometricCredentials() async {
+    await _storage.delete(key: _biometricEnabledKey);
+    await _storage.delete(key: _biometricEmailKey);
+    await _storage.delete(key: _biometricPasswordKey);
   }
 
   Future<void> write(String key, String value) async {
