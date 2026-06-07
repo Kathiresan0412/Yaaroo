@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/api_client.dart';
+import '../../../core/services/chat_repository.dart';
 import '../../../main.dart'
     show YaaroColors, YaaroScope, isBackendNumericId, socketBaseUrl;
 import 'webrtc_call_screen.dart';
@@ -168,8 +169,57 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
     _fetchMatchDetails();
-    await _loadMessages(null);
+    // Load from local cache first for instant display
+    await _loadCachedMessages();
+    // Then sync from server in background
+    _syncMessagesFromServer();
     _setupSocket();
+  }
+
+  Future<void> _loadCachedMessages() async {
+    setState(() => _isLoading = true);
+    try {
+      final cached =
+          await ChatRepository.instance.loadCachedMessages(widget.matchId);
+      if (cached.isNotEmpty) {
+        final incoming = cached
+            .map((json) => ChatMessage.fromJson(json, _currentUserId ?? ''))
+            .toList();
+        _mergeAndSortMessages(incoming);
+      }
+    } catch (_) {
+      // Cache miss is fine — will load from server
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _syncMessagesFromServer() async {
+    try {
+      final payload =
+          await _apiClient.getMessages(widget.matchId, cursor: null);
+      final rawMessages = payload['messages'] as List? ?? [];
+      final messages = rawMessages.whereType<Map<String, dynamic>>().toList();
+
+      if (messages.isNotEmpty) {
+        // Cache to local DB
+        for (final msg in messages) {
+          await ChatRepository.instance.cacheMessage(msg);
+        }
+        // Update UI
+        final incoming = messages
+            .map((json) => ChatMessage.fromJson(json, _currentUserId ?? ''))
+            .toList();
+        _mergeAndSortMessages(incoming);
+      }
+      _nextCursor = payload['nextCursor']?.toString();
+      _markUnreadAsRead();
+    } catch (e) {
+      // If server sync fails but we have cached data, user still sees messages
+      if (_messages.isEmpty) {
+        setState(() => _notice = e.toString());
+      }
+    }
   }
 
   Future<void> _fetchMatchDetails() async {
@@ -193,10 +243,12 @@ class _ChatScreenState extends State<ChatScreen> {
       final payload =
           await _apiClient.getMessages(widget.matchId, cursor: cursor);
       final rawMessages = payload['messages'] as List? ?? [];
-      final incoming = rawMessages
-          .whereType<Map<String, dynamic>>()
-          .map((json) => ChatMessage.fromJson(json, _currentUserId ?? ''))
-          .toList();
+      final incoming =
+          rawMessages.whereType<Map<String, dynamic>>().map((json) {
+        // Cache each message to local storage
+        ChatRepository.instance.cacheMessage(json);
+        return ChatMessage.fromJson(json, _currentUserId ?? '');
+      }).toList();
       _mergeAndSortMessages(incoming);
       _nextCursor = payload['nextCursor']?.toString();
       if (cursor == null) _markUnreadAsRead();
@@ -345,9 +397,11 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     void handleMsg(dynamic data) {
       if (data is Map) {
-        final msg = ChatMessage.fromJson(
-            Map<String, dynamic>.from(data), _currentUserId ?? '');
+        final jsonData = Map<String, dynamic>.from(data);
+        final msg = ChatMessage.fromJson(jsonData, _currentUserId ?? '');
         if (msg.matchId == widget.matchId) {
+          // Cache to local storage
+          ChatRepository.instance.cacheMessage(jsonData);
           _mergeAndSortMessages([msg]);
           _socket!.emit(
               'mark_read', {'matchId': widget.matchId, 'messageId': msg.id});

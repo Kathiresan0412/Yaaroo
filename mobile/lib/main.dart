@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'core/api_client.dart';
 import 'core/secure_storage.dart';
+import 'core/services/chat_repository.dart';
 import 'features/auth/presentation/auth_sheet.dart';
 import 'features/landing/presentation/cinematic_landing_screen.dart';
 import 'features/onboarding/presentation/onboarding_wizard.dart';
@@ -831,6 +832,7 @@ class _AppShellState extends State<AppShell> {
         },
         onLogout: () async {
           await api.logout();
+          await ChatRepository.instance.clearAll();
           setState(() {
             _showLanding = true;
             _tab = 0;
@@ -854,6 +856,7 @@ class _AppShellState extends State<AppShell> {
         onOpenAuth: _openAuth,
         onLogout: () async {
           await api.logout();
+          await ChatRepository.instance.clearAll();
           setState(() {
             _showLanding = true;
             _tab = 0;
