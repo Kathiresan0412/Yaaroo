@@ -110,7 +110,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   String _showGender = 'everyone';
   double _minAge = 18.0;
   double _maxAge = 35.0;
-  double _maxDistanceKm = 50.0;
+  double _maxDistanceKm = 150.0;
 
   // Options matching the Web UI
   final _options = {
