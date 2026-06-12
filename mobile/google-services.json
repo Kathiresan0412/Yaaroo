@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "859294608296",
+    "project_id": "yaaro0",
+    "storage_bucket": "yaaro0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:859294608296:android:5a5158b54afad4aba38b9d",
+        "android_client_info": {
+          "package_name": "com.yaaro0.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyByl92rvbFYFcVCNWGIRhbKRJ3ZeWDGMnQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

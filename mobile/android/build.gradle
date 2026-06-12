@@ -15,9 +15,9 @@ subprojects {
 subprojects {
     if (project.name != 'app') {
         ext.flutter = [
-            compileSdkVersion: 34,
-            minSdkVersion: 21,
-            targetSdkVersion: 34,
+            compileSdkVersion: 36,
+            minSdkVersion: 23,
+            targetSdkVersion: 36,
             ndkVersion: "26.1.10909125",
             versionCode: 1,
             versionName: "0.1.0"

@@ -335,12 +335,12 @@ class _CinematicLandingScreenState extends State<CinematicLandingScreen>
                     children: [
                       Transform.translate(
                         offset: Offset(maleX, 0),
-                        child: _Silhouette(isMale: true),
+                        child: const _Silhouette(isMale: true),
                       ),
                       const SizedBox(width: 60),
                       Transform.translate(
                         offset: Offset(femaleX, 0),
-                        child: _Silhouette(isMale: false),
+                        child: const _Silhouette(isMale: false),
                       ),
                     ],
                   ),
@@ -579,8 +579,8 @@ class _SilhouettePainter extends CustomPainter {
     canvas.drawRRect(bodyRect, paint);
 
     // Legs
-    final legWidth = 12.0;
-    final legHeight = 44.0;
+    const legWidth = 12.0;
+    const legHeight = 44.0;
     final legTop = size.height * 0.62;
 
     canvas.drawRRect(

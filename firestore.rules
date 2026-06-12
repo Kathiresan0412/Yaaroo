@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // User documents
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == uid
+                   && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'createdAt']);
+    }
+
+    // Like/dislike documents
+    match /likes/{uid}/{action}/{targetUid} {
+      allow create: if request.auth.uid == uid;
+      allow read: if request.auth.uid == uid;
+      allow update, delete: if false;
+    }
+
+    // Match documents
+    match /matches/{matchId} {
+      allow read: if request.auth.uid in resource.data.users;
+      allow write: if false; // Only Cloud Functions write matches
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+        allow create: if request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users
+                      && request.resource.data.senderId == request.auth.uid;
+      }
+    }
+
+    // Favorites subcollection
+    match /users/{uid}/favorites/{targetUid} {
+      allow read, write: if request.auth.uid == uid;
+    }
+  }
+}
