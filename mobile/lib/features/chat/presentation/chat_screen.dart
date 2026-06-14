@@ -12,7 +12,7 @@ import '../../../core/api_client.dart';
 import '../../../core/services/chat_repository.dart';
 import '../../../main.dart'
     show MatchItem, YaaroColors, YaaroScope, isBackendNumericId, socketBaseUrl;
-import 'webrtc_call_screen.dart';
+import 'zego_call_screen.dart';
 
 // ---------------------------------------------------------------------------
 // Theme helpers
@@ -894,22 +894,13 @@ class _ChatScreenState extends State<ChatScreen> {
   // Calls
   // -------------------------------------------------------------------------
   void _startCall({required bool isVideo}) {
-    if (_socket == null || !_socket!.connected || _otherUserId == null) {
-      setState(
-          () => _notice = 'Waiting for connection. Please try again shortly.');
-      return;
-    }
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) => WebRTCCallScreen(
-                  socket: _socket!,
-                  matchId: widget.matchId,
-                  otherUserId: _otherUserId!,
-                  otherUserName: _matchNameState,
-                  otherUserPhotoUrl: _matchPhotoState,
-                  isVideo: isVideo,
-                )));
+    startZegoCall(
+      context,
+      matchId: widget.matchId,
+      otherUserName: _matchNameState,
+      otherUserPhotoUrl: _matchPhotoState,
+      isVideo: isVideo,
+    );
   }
 
   // -------------------------------------------------------------------------

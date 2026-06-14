@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:ui' as ui;
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 
 import '../../../main.dart';
 
@@ -76,17 +77,19 @@ class PeopleMapScreen extends StatefulWidget {
 }
 
 class _PeopleMapScreenState extends State<PeopleMapScreen> {
-  GoogleMapController? _mapController;
+  final MapController _mapController = MapController();
   LatLng _center = const LatLng(0, 0);
   bool _loading = true;
   String? _error;
-  Set<Marker> _markers = {};
   List<MapPerson> _people = [];
   MapPerson? _selectedPerson;
   String _searchQuery = '';
 
-  // Marker bitmap cache
-  final Map<String, BitmapDescriptor> _markerBitmaps = {};
+  // Place search
+  final TextEditingController _searchController = TextEditingController();
+  List<_PlaceResult> _placeResults = [];
+  bool _showPlaceResults = false;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -132,7 +135,10 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
             const LocationSettings(accuracy: LocationAccuracy.high),
       );
 
-      setState(() => _center = LatLng(position.latitude, position.longitude));
+      setState(() {
+        _center = LatLng(position.latitude, position.longitude);
+        _loading = false;
+      });
       await _loadNearbyPeople();
     } catch (e) {
       setState(() {
@@ -152,201 +158,14 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
         lng: _center.longitude,
       );
 
-      _people = results.map((json) => MapPerson.fromJson(json)).toList();
-      await _buildMarkers();
+      if (mounted) {
+        setState(() {
+          _people = results.map((json) => MapPerson.fromJson(json)).toList();
+        });
+      }
     } catch (e) {
       debugPrint('[Map] Failed to load nearby people: $e');
-    } finally {
-      if (mounted) setState(() => _loading = false);
     }
-  }
-
-  // ---------- Custom photo markers ----------
-
-  Future<void> _buildMarkers() async {
-    final markers = <Marker>{};
-
-    // Current user marker (blue dot)
-    markers.add(
-      Marker(
-        markerId: const MarkerId('current_user'),
-        position: _center,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        zIndex: 999,
-      ),
-    );
-
-    // Build photo markers for each person
-    for (final person in _people) {
-      BitmapDescriptor icon;
-      if (_markerBitmaps.containsKey(person.id)) {
-        icon = _markerBitmaps[person.id]!;
-      } else {
-        icon = await _createPhotoMarker(person);
-        _markerBitmaps[person.id] = icon;
-      }
-
-      markers.add(
-        Marker(
-          markerId: MarkerId(person.id),
-          position: LatLng(person.latitude, person.longitude),
-          icon: icon,
-          zIndex: 1,
-          onTap: () => setState(() => _selectedPerson = person),
-        ),
-      );
-    }
-
-    if (mounted) setState(() => _markers = markers);
-  }
-
-  /// Creates a circular photo marker bitmap from the user's photo URL.
-  Future<BitmapDescriptor> _createPhotoMarker(MapPerson person) async {
-    const double size = 96;
-    const double borderWidth = 4;
-
-    try {
-      if (person.photoUrl != null && person.photoUrl!.isNotEmpty) {
-        // Download image
-        final file = await DefaultCacheManager()
-            .getSingleFile(person.photoUrl!)
-            .timeout(const Duration(seconds: 5));
-        final bytes = await file.readAsBytes();
-        final codec = await ui.instantiateImageCodec(
-          bytes,
-          targetWidth: size.toInt(),
-          targetHeight: size.toInt(),
-        );
-        final frame = await codec.getNextFrame();
-        final image = frame.image;
-
-        // Draw circular avatar with border
-        final pictureRecorder = ui.PictureRecorder();
-        final canvas = Canvas(pictureRecorder);
-        final totalSize = size + borderWidth * 2;
-
-        // White circle border
-        final borderPaint = Paint()..color = Colors.white;
-        canvas.drawCircle(
-          Offset(totalSize / 2, totalSize / 2),
-          totalSize / 2,
-          borderPaint,
-        );
-
-        // Clip to circle and draw image
-        final clipPath = Path()
-          ..addOval(Rect.fromCircle(
-            center: Offset(totalSize / 2, totalSize / 2),
-            radius: size / 2,
-          ));
-        canvas.clipPath(clipPath);
-        canvas.drawImageRect(
-          image,
-          Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
-          Rect.fromLTWH(borderWidth, borderWidth, size, size),
-          Paint(),
-        );
-
-        // Verified badge (small teal dot at bottom right)
-        if (person.isVerified) {
-          canvas.restore();
-          final badgePaint = Paint()..color = const Color(0xFF00BFA5);
-          canvas.drawCircle(
-            Offset(totalSize - 12, totalSize - 12),
-            8,
-            badgePaint,
-          );
-          final checkPaint = Paint()
-            ..color = Colors.white
-            ..strokeWidth = 2
-            ..style = PaintingStyle.stroke;
-          canvas.drawLine(
-            Offset(totalSize - 15, totalSize - 12),
-            Offset(totalSize - 12, totalSize - 9),
-            checkPaint,
-          );
-          canvas.drawLine(
-            Offset(totalSize - 12, totalSize - 9),
-            Offset(totalSize - 8, totalSize - 15),
-            checkPaint,
-          );
-        }
-
-        final picture = pictureRecorder.endRecording();
-        final markerImage = await picture.toImage(
-          totalSize.toInt(),
-          totalSize.toInt(),
-        );
-        final byteData =
-            await markerImage.toByteData(format: ui.ImageByteFormat.png);
-
-        if (byteData != null) {
-          return BitmapDescriptor.bytes(byteData.buffer.asUint8List());
-        }
-      }
-    } catch (e) {
-      debugPrint('[Map] Failed to create photo marker for ${person.id}: $e');
-    }
-
-    // Fallback: colored initial marker
-    return await _createInitialMarker(person);
-  }
-
-  /// Creates a circular marker with the user's initial letter as fallback.
-  Future<BitmapDescriptor> _createInitialMarker(MapPerson person) async {
-    const double size = 96;
-    const double borderWidth = 4;
-    final totalSize = size + borderWidth * 2;
-
-    final pictureRecorder = ui.PictureRecorder();
-    final canvas = Canvas(pictureRecorder);
-
-    // White border
-    canvas.drawCircle(
-      Offset(totalSize / 2, totalSize / 2),
-      totalSize / 2,
-      Paint()..color = Colors.white,
-    );
-
-    // Rose background
-    canvas.drawCircle(
-      Offset(totalSize / 2, totalSize / 2),
-      size / 2,
-      Paint()..color = const Color(0xFFFF4F6D),
-    );
-
-    // Letter
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: person.displayName.isNotEmpty
-            ? person.displayName[0].toUpperCase()
-            : '?',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 38,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(
-        (totalSize - textPainter.width) / 2,
-        (totalSize - textPainter.height) / 2,
-      ),
-    );
-
-    final picture = pictureRecorder.endRecording();
-    final image = await picture.toImage(totalSize.toInt(), totalSize.toInt());
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-
-    if (byteData != null) {
-      return BitmapDescriptor.bytes(byteData.buffer.asUint8List());
-    }
-
-    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRose);
   }
 
   // ---------- Filtered list ----------
@@ -361,11 +180,85 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
         .toList();
   }
 
+  // ---------- Place search (Nominatim - free) ----------
+
+  void _onSearchChanged(String query) {
+    setState(() => _searchQuery = query);
+
+    _debounce?.cancel();
+    if (query.trim().length < 2) {
+      setState(() {
+        _placeResults = [];
+        _showPlaceResults = false;
+      });
+      return;
+    }
+
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _searchPlaces(query.trim());
+    });
+  }
+
+  Future<void> _searchPlaces(String query) async {
+    try {
+      final uri = Uri.parse(
+        'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(query)}&format=json&limit=5',
+      );
+      final response = await http.get(uri, headers: {
+        'User-Agent': 'YaaRo0-Mobile/1.0',
+      });
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _placeResults = data
+                .map((item) => _PlaceResult(
+                      displayName: item['display_name']?.toString() ?? '',
+                      lat: double.tryParse(item['lat']?.toString() ?? '') ?? 0,
+                      lon: double.tryParse(item['lon']?.toString() ?? '') ?? 0,
+                    ))
+                .toList();
+            _showPlaceResults = _placeResults.isNotEmpty;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('[Map] Place search failed: $e');
+    }
+  }
+
+  void _selectPlace(_PlaceResult place) {
+    final target = LatLng(place.lat, place.lon);
+    _mapController.move(target, 14);
+    setState(() {
+      _showPlaceResults = false;
+      _placeResults = [];
+      _searchController.text = place.shortName;
+    });
+    // Dismiss keyboard
+    FocusScope.of(context).unfocus();
+  }
+
+  // ---------- Zoom ----------
+
+  void _zoomIn() {
+    final currentZoom = _mapController.camera.zoom;
+    _mapController.move(_mapController.camera.center, currentZoom + 1);
+  }
+
+  void _zoomOut() {
+    final currentZoom = _mapController.camera.zoom;
+    _mapController.move(_mapController.camera.center, currentZoom - 1);
+  }
+
   // ---------- UI ----------
 
   @override
   void dispose() {
-    _mapController?.dispose();
+    _mapController.dispose();
+    _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -424,20 +317,61 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
   Widget _buildMap(bool isDark) {
     return Stack(
       children: [
-        // Google Map
-        GoogleMap(
-          initialCameraPosition: CameraPosition(target: _center, zoom: 14),
-          markers: _markers,
-          myLocationEnabled: true,
-          myLocationButtonEnabled: false,
-          zoomControlsEnabled: false,
-          mapToolbarEnabled: false,
-          compassEnabled: false,
-          onMapCreated: (controller) {
-            _mapController = controller;
-            if (isDark) _setDarkMapStyle(controller);
-          },
-          onTap: (_) => setState(() => _selectedPerson = null),
+        // Flutter Map with OpenStreetMap tiles
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: _center,
+            initialZoom: 14,
+            onTap: (_, __) => setState(() {
+              _selectedPerson = null;
+              _showPlaceResults = false;
+            }),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: isDark
+                  ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+                  : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              subdomains: isDark ? const ['a', 'b', 'c', 'd'] : const [],
+              userAgentPackageName: 'com.yaaro0.mobile',
+            ),
+            // Markers layer
+            MarkerLayer(
+              markers: [
+                // Current user marker (blue dot)
+                Marker(
+                  point: _center,
+                  width: 24,
+                  height: 24,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withOpacity(0.4),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // People markers
+                ..._filteredPeople.map((person) => Marker(
+                      point: LatLng(person.latitude, person.longitude),
+                      width: 52,
+                      height: 52,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedPerson = person),
+                        child: _PersonMarker(person: person),
+                      ),
+                    )),
+              ],
+            ),
+          ],
         ),
 
         // Top overlay: search bar + filter chips
@@ -488,49 +422,123 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
                         ],
                       ),
                       child: TextField(
-                        onChanged: (v) => setState(() => _searchQuery = v),
+                        controller: _searchController,
+                        onChanged: _onSearchChanged,
                         style:
                             const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: const InputDecoration(
-                          hintText: 'Search people...',
-                          hintStyle: TextStyle(color: Colors.white54),
-                          prefixIcon: Icon(Icons.search,
+                        decoration: InputDecoration(
+                          hintText: 'Search places or people...',
+                          hintStyle: const TextStyle(color: Colors.white54),
+                          prefixIcon: const Icon(Icons.search,
                               color: Colors.white54, size: 20),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? GestureDetector(
+                                  onTap: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _searchQuery = '';
+                                      _placeResults = [];
+                                      _showPlaceResults = false;
+                                    });
+                                  },
+                                  child: const Icon(Icons.close,
+                                      color: Colors.white54, size: 18),
+                                )
+                              : null,
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 12),
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              // Filter chips
-              SizedBox(
-                height: 36,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    _FilterChip(
-                      icon: Icons.location_on,
-                      label: 'All People',
-                      isActive: true,
+              // Place search results dropdown
+              if (_showPlaceResults) ...[
+                const SizedBox(height: 4),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E2130) : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: _placeResults.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      color: isDark ? Colors.white12 : Colors.black12,
                     ),
-                    const SizedBox(width: 8),
-                    _FilterChip(
-                      icon: Icons.verified,
-                      label: 'Verified',
-                      isActive: false,
-                    ),
-                    const SizedBox(width: 8),
-                    _FilterChip(
-                      icon: Icons.people,
-                      label: '${_people.length} Nearby',
-                      isActive: false,
-                    ),
-                  ],
+                    itemBuilder: (_, index) {
+                      final place = _placeResults[index];
+                      return ListTile(
+                        dense: true,
+                        leading: Icon(Icons.place,
+                            size: 18,
+                            color: isDark ? Colors.white54 : YaaroColors.rose),
+                        title: Text(
+                          place.shortName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                isDark ? Colors.white : const Color(0xFF111216),
+                          ),
+                        ),
+                        subtitle: Text(
+                          place.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? Colors.white38 : Colors.black45,
+                          ),
+                        ),
+                        onTap: () => _selectPlace(place),
+                      );
+                    },
+                  ),
                 ),
-              ),
+              ],
+              if (!_showPlaceResults) ...[
+                const SizedBox(height: 10),
+                // Filter chips
+                SizedBox(
+                  height: 36,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      const _FilterChip(
+                        icon: Icons.location_on,
+                        label: 'All People',
+                        isActive: true,
+                      ),
+                      const SizedBox(width: 8),
+                      const _FilterChip(
+                        icon: Icons.verified,
+                        label: 'Verified',
+                        isActive: false,
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        icon: Icons.people,
+                        label: '${_people.length} Nearby',
+                        isActive: false,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -560,51 +568,111 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
               isDark: isDark,
               onPersonTap: (person) {
                 setState(() => _selectedPerson = person);
-                _mapController?.animateCamera(
-                  CameraUpdate.newLatLng(
-                      LatLng(person.latitude, person.longitude)),
+                _mapController.move(
+                  LatLng(person.latitude, person.longitude),
+                  _mapController.camera.zoom,
                 );
               },
             ),
           ),
 
-        // My location button
+        // Right side: Zoom controls + My location
         Positioned(
           bottom: _selectedPerson != null ? 200 : 160,
           right: 16,
-          child: FloatingActionButton.small(
-            heroTag: 'my_location',
-            backgroundColor: isDark ? YaaroColors.surface : Colors.white,
-            onPressed: () {
-              _mapController?.animateCamera(
-                CameraUpdate.newLatLng(_center),
-              );
-            },
-            child: Icon(Icons.my_location,
-                color: isDark ? Colors.white : const Color(0xFF1B2140)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Zoom In
+              _MapButton(
+                icon: Icons.add,
+                isDark: isDark,
+                onTap: _zoomIn,
+                heroTag: 'zoom_in',
+              ),
+              const SizedBox(height: 8),
+              // Zoom Out
+              _MapButton(
+                icon: Icons.remove,
+                isDark: isDark,
+                onTap: _zoomOut,
+                heroTag: 'zoom_out',
+              ),
+              const SizedBox(height: 8),
+              // My location
+              _MapButton(
+                icon: Icons.my_location,
+                isDark: isDark,
+                onTap: () {
+                  _mapController.move(_center, 14);
+                },
+                heroTag: 'my_location',
+              ),
+            ],
           ),
         ),
       ],
     );
   }
+}
 
-  Future<void> _setDarkMapStyle(GoogleMapController controller) async {
-    const darkStyle = '''
-    [
-      {"elementType":"geometry","stylers":[{"color":"#212121"}]},
-      {"elementType":"labels.icon","stylers":[{"visibility":"off"}]},
-      {"elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},
-      {"elementType":"labels.text.stroke","stylers":[{"color":"#212121"}]},
-      {"featureType":"administrative","elementType":"geometry","stylers":[{"color":"#757575"}]},
-      {"featureType":"poi","elementType":"geometry","stylers":[{"color":"#181818"}]},
-      {"featureType":"road","elementType":"geometry.fill","stylers":[{"color":"#2c2c2c"}]},
-      {"featureType":"road","elementType":"labels.text.fill","stylers":[{"color":"#8a8a8a"}]},
-      {"featureType":"water","elementType":"geometry","stylers":[{"color":"#000000"}]}
-    ]
-    ''';
-    // ignore deprecation — mapStyle param on GoogleMap not yet stable
-    // ignore: deprecated_member_use
-    await controller.setMapStyle(darkStyle);
+// ---------------------------------------------------------------------------
+// Person Marker Widget
+// ---------------------------------------------------------------------------
+
+class _PersonMarker extends StatelessWidget {
+  const _PersonMarker({required this.person});
+
+  final MapPerson person;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: person.isVerified ? YaaroColors.teal : Colors.white,
+          width: 3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: person.photoUrl != null && person.photoUrl!.isNotEmpty
+            ? Image.network(
+                person.photoUrl!,
+                fit: BoxFit.cover,
+                width: 46,
+                height: 46,
+                errorBuilder: (_, __, ___) => _buildInitial(),
+              )
+            : _buildInitial(),
+      ),
+    );
+  }
+
+  Widget _buildInitial() {
+    return Container(
+      color: YaaroColors.rose.withOpacity(0.2),
+      child: Center(
+        child: Text(
+          person.displayName.isNotEmpty
+              ? person.displayName[0].toUpperCase()
+              : '?',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: YaaroColors.rose,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1015,5 +1083,74 @@ class _PeopleListPreview extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Map Button (zoom in/out, my location)
+// ---------------------------------------------------------------------------
+
+class _MapButton extends StatelessWidget {
+  const _MapButton({
+    required this.icon,
+    required this.isDark,
+    required this.onTap,
+    required this.heroTag,
+  });
+
+  final IconData icon;
+  final bool isDark;
+  final VoidCallback onTap;
+  final String heroTag;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isDark ? YaaroColors.surface : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 6,
+            ),
+          ],
+        ),
+        child: Icon(
+          icon,
+          size: 20,
+          color: isDark ? Colors.white : const Color(0xFF1B2140),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Place Result model (from Nominatim geocoding)
+// ---------------------------------------------------------------------------
+
+class _PlaceResult {
+  const _PlaceResult({
+    required this.displayName,
+    required this.lat,
+    required this.lon,
+  });
+
+  final String displayName;
+  final double lat;
+  final double lon;
+
+  /// Returns just the first part of the display name (city/town name)
+  String get shortName {
+    final parts = displayName.split(',');
+    if (parts.length >= 2) {
+      return '${parts[0].trim()}, ${parts[1].trim()}';
+    }
+    return parts.first.trim();
   }
 }

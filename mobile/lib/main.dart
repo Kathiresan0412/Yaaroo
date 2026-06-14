@@ -11,10 +11,12 @@ import 'package:local_auth/local_auth.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:app_links/app_links.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:appinio_swiper/appinio_swiper.dart';
 
 import 'firebase_options.dart';
 import 'core/api_client.dart';
 import 'core/secure_storage.dart';
+import 'core/data_prefetcher.dart';
 import 'core/services/chat_repository.dart';
 import 'core/services/push_notification_service.dart';
 import 'features/auth/presentation/auth_sheet.dart';
@@ -708,6 +710,8 @@ class _AppShellState extends State<AppShell> {
         setState(() {
           _showLanding = false;
         });
+        // Prefetch all tab data in parallel on app start (user already logged in)
+        DataPrefetcher.instance.prefetchAll(api);
       }
     });
   }
@@ -811,6 +815,8 @@ class _AppShellState extends State<AppShell> {
         setState(() {
           _showLanding = false;
         });
+        // Prefetch all tab data after OAuth login
+        DataPrefetcher.instance.prefetchAll(YaaroScope.of(context));
       }
     } catch (_) {
       // OAuth parse error silenced for production
@@ -835,6 +841,8 @@ class _AppShellState extends State<AppShell> {
     setState(() {
       if (YaaroScope.of(context).user != null) {
         _showLanding = false;
+        // Prefetch all tab data after deep link auth
+        DataPrefetcher.instance.prefetchAll(YaaroScope.of(context));
       }
     });
   }
@@ -863,6 +871,7 @@ class _AppShellState extends State<AppShell> {
         onLogout: () async {
           await api.logout();
           await ChatRepository.instance.clearAll();
+          DataPrefetcher.instance.clear();
           setState(() {
             _showLanding = true;
             _tab = 0;
@@ -887,6 +896,7 @@ class _AppShellState extends State<AppShell> {
         onLogout: () async {
           await api.logout();
           await ChatRepository.instance.clearAll();
+          DataPrefetcher.instance.clear();
           setState(() {
             _showLanding = true;
             _tab = 0;
@@ -938,6 +948,8 @@ class _AppShellState extends State<AppShell> {
     setState(() {
       if (YaaroScope.of(context).user != null) {
         _showLanding = false;
+        // Prefetch all tab data after login
+        DataPrefetcher.instance.prefetchAll(YaaroScope.of(context));
       }
     });
   }
@@ -976,10 +988,22 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   bool _loading = true;
   bool _swiping = false;
   String _message = '';
-  Offset _drag = Offset.zero;
   bool _didLoad = false;
+  late AppinioSwiperController _swiperController;
 
   DiscoveryProfile? get _top => _profiles.isEmpty ? null : _profiles.first;
+
+  @override
+  void initState() {
+    super.initState();
+    _swiperController = AppinioSwiperController();
+  }
+
+  @override
+  void dispose() {
+    _swiperController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -988,6 +1012,20 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       return;
     }
     _didLoad = true;
+    _loadInitial();
+  }
+
+  void _loadInitial() {
+    // Try prefetched data first (avoids duplicate API call)
+    final prefetched = DataPrefetcher.instance.consumeDiscover();
+    if (prefetched != null) {
+      setState(() {
+        _profiles = prefetched;
+        _message = '';
+        _loading = false;
+      });
+      return;
+    }
     _load();
   }
 
@@ -1060,52 +1098,34 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   Widget _buildCardStack() {
-    final visible = _profiles.take(3).toList().reversed.toList();
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            for (var i = 0; i < visible.length; i++)
-              Transform.translate(
-                offset: Offset(
-                    0,
-                    i == visible.length - 1
-                        ? _drag.dy
-                        : -12.0 * (visible.length - i - 1)),
-                child: Transform.rotate(
-                  angle: i == visible.length - 1 ? _drag.dx / 850 : 0,
-                  child: Transform.scale(
-                    scale: i == visible.length - 1
-                        ? 1.0
-                        : 1.0 - 0.04 * (visible.length - i - 1),
-                    child: GestureDetector(
-                      onPanUpdate: i == visible.length - 1
-                          ? (details) => setState(() => _drag += details.delta)
-                          : null,
-                      onPanEnd: i == visible.length - 1
-                          ? (_) {
-                              final action = _drag.dx > 110
-                                  ? SwipeAction.like
-                                  : _drag.dx < -110
-                                      ? SwipeAction.pass
-                                      : null;
-                              if (action == null) {
-                                setState(() => _drag = Offset.zero);
-                              } else {
-                                _swipe(action);
-                              }
-                            }
-                          : null,
-                      child: ProfileCard(profile: visible[i]),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        );
+    return AppinioSwiper(
+      controller: _swiperController,
+      cardCount: _profiles.length,
+      cardBuilder: (context, index) {
+        return ProfileCard(profile: _profiles[index]);
       },
+      onSwipeEnd: (previousIndex, targetIndex, activity) {
+        if (activity is Swipe) {
+          final direction = activity.direction;
+          if (direction == AxisDirection.right) {
+            _swipe(SwipeAction.like, profileIndex: previousIndex);
+          } else if (direction == AxisDirection.left) {
+            _swipe(SwipeAction.pass, profileIndex: previousIndex);
+          } else if (direction == AxisDirection.up) {
+            _swipe(SwipeAction.superlike, profileIndex: previousIndex);
+          }
+        }
+      },
+      onEnd: () {
+        setState(() => _message = 'No more profiles for now.');
+      },
+      swipeOptions: const SwipeOptions.all(),
+      duration: const Duration(milliseconds: 300),
+      maxAngle: 20,
+      threshold: 80,
+      backgroundCardCount: 2,
+      backgroundCardScale: 0.92,
+      backgroundCardOffset: const Offset(0, -14),
     );
   }
 
@@ -1116,12 +1136,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         RoundAction(
             icon: Icons.close,
             color: YaaroColors.textFor(context),
-            onPressed: _swiping ? null : () => _swipe(SwipeAction.pass)),
+            onPressed: _swiping ? null : () => _swiperController.swipeLeft()),
         const SizedBox(width: 18),
         RoundAction(
             icon: Icons.favorite,
             color: YaaroColors.rose,
-            onPressed: _swiping ? null : () => _swipe(SwipeAction.like)),
+            onPressed: _swiping ? null : () => _swiperController.swipeRight()),
         const SizedBox(width: 18),
         RoundAction(
             icon: Icons.rotate_left,
@@ -1131,16 +1151,15 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     );
   }
 
-  Future<void> _swipe(SwipeAction action) async {
-    final profile = _top;
-    if (profile == null || _swiping) {
+  Future<void> _swipe(SwipeAction action, {int? profileIndex}) async {
+    final index = profileIndex ?? 0;
+    if (index >= _profiles.length || _swiping) {
       return;
     }
+    final profile = _profiles[index];
 
     setState(() {
       _swiping = true;
-      _profiles = _profiles.skip(1).toList();
-      _drag = Offset.zero;
       _message = '';
     });
 
@@ -1322,6 +1341,28 @@ class _ExploreScreenState extends State<ExploreScreen> {
       return;
     }
     _didLoad = true;
+    _loadInitial();
+  }
+
+  void _loadInitial() {
+    // Try prefetched data first (avoids duplicate API call)
+    final prefetched = DataPrefetcher.instance.consumeExplore();
+    if (prefetched != null) {
+      final categories = prefetched.categories ?? const <ExploreCategory>[];
+      final profiles = prefetched.nearby ?? const <DiscoveryProfile>[];
+      setState(() {
+        _categories = categories;
+        _profiles = profiles;
+        _vibeQuestion = prefetched.vibe;
+        _message = '';
+        _categoriesMessage = categories.isEmpty
+            ? 'No interest categories are active in the database yet.'
+            : '';
+        _loading = false;
+        _categoriesLoading = false;
+      });
+      return;
+    }
     _load();
   }
 
@@ -1863,8 +1904,35 @@ class _MatchesScreenState extends State<MatchesScreen> {
       return;
     }
     _didLoad = true;
-    _load();
+    _loadInitial();
     _setupSocket();
+  }
+
+  void _loadInitial() {
+    // Try prefetched data first (avoids duplicate API call)
+    final prefetched = DataPrefetcher.instance.consumeMatches();
+    if (prefetched != null) {
+      final matches = _dedupeMatches(prefetched.matches ?? const []);
+      final likesPayload = prefetched.likesPayload ?? <String, dynamic>{};
+      final rawLikes = likesPayload['likes'];
+      List<LikeItem> likes = [];
+      if (rawLikes is List) {
+        likes = rawLikes
+            .whereType<Map<String, dynamic>>()
+            .map(LikeItem.fromJson)
+            .toList();
+      }
+      setState(() {
+        _matches = matches;
+        _likes = likes;
+        _likesCount = int.tryParse(likesPayload['count']?.toString() ?? '') ??
+            likes.length;
+        _likesBlurred = likesPayload['blurred'] == true;
+        _loading = false;
+      });
+      return;
+    }
+    _load();
   }
 
   @override
@@ -3120,8 +3188,21 @@ class _ChatListScreenState extends State<ChatListScreen>
     }
     _didLoad = true;
     WidgetsBinding.instance.addObserver(this);
-    _load();
+    _loadInitial();
     _setupSocket();
+  }
+
+  void _loadInitial() {
+    // Try prefetched data first (avoids duplicate API call)
+    final prefetched = DataPrefetcher.instance.consumeConversations();
+    if (prefetched != null) {
+      setState(() {
+        _matches = _dedupeMatches(prefetched);
+        _loading = false;
+      });
+      return;
+    }
+    _load();
   }
 
   @override
@@ -3815,6 +3896,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadProfilePhoto() async {
+    // Try prefetched data first (avoids duplicate API call)
+    final prefetched = DataPrefetcher.instance.consumeProfilePhotos();
+    if (prefetched != null && prefetched.isNotEmpty) {
+      final first = prefetched.first;
+      setState(() {
+        _photoUrl = first is Map ? first['url']?.toString() : null;
+        _loadingPhoto = false;
+      });
+      return;
+    }
+
     setState(() => _loadingPhoto = true);
     try {
       final api = YaaroScope.of(context);
