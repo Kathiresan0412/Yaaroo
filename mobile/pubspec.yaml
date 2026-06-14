@@ -33,7 +33,7 @@ dependencies:
   flutter_map: ^7.0.0
   latlong2: ^0.9.1
   # Calls (ZEGOCLOUD prebuilt UI)
-  zego_uikit_prebuilt_call: 4.14.14
+  zego_uikit_prebuilt_call: ^4.16.0
   # Swipe cards
   appinio_swiper: ^2.1.1
 
