@@ -1,6 +1,6 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=/Users/jathusan/development/flutter"
+export "FLUTTER_ROOT=/opt/homebrew/Caskroom/flutter/3.24.3/flutter"
 export "FLUTTER_APPLICATION_PATH=/Users/jathusan/Desktop/Yaaro0/mobile"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_BUILD_DIR=build"
