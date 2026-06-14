@@ -580,6 +580,7 @@ class MatchItem {
     this.isNew = false,
     this.matchedAt = '',
     this.sentAt,
+    this.lastActiveAt,
   });
 
   final String id;
@@ -594,6 +595,7 @@ class MatchItem {
   final bool isNew;
   final String matchedAt;
   final String? sentAt;
+  final String? lastActiveAt;
 
   factory MatchItem.fromJson(Map<String, dynamic> json) {
     final user = json['user'] is Map<String, dynamic>
@@ -617,6 +619,7 @@ class MatchItem {
       isNew: json['isNew'] == true,
       matchedAt: json['matchedAt']?.toString() ?? '',
       sentAt: lastMessage['sentAt']?.toString(),
+      lastActiveAt: user['lastActiveAt']?.toString(),
     );
   }
 }
@@ -659,7 +662,7 @@ class LikeItem {
 
 bool isBackendNumericId(String value) => RegExp(r'^\d+$').hasMatch(value);
 
-void openChatForMatch(BuildContext context, MatchItem match) {
+Future<void> openChatForMatch(BuildContext context, MatchItem match) async {
   if (!isBackendNumericId(match.id)) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -670,7 +673,7 @@ void openChatForMatch(BuildContext context, MatchItem match) {
     return;
   }
 
-  Navigator.push(
+  await Navigator.push(
     context,
     MaterialPageRoute(
       builder: (context) => ChatScreen(
@@ -3100,11 +3103,14 @@ class ChatListScreen extends StatefulWidget {
   State<ChatListScreen> createState() => _ChatListScreenState();
 }
 
-class _ChatListScreenState extends State<ChatListScreen> {
+class _ChatListScreenState extends State<ChatListScreen>
+    with WidgetsBindingObserver {
   List<MatchItem> _matches = const [];
   String _query = '';
   bool _loading = true;
   bool _didLoad = false;
+  io.Socket? _socket;
+  Timer? _refreshDebounce;
 
   @override
   void didChangeDependencies() {
@@ -3113,26 +3119,83 @@ class _ChatListScreenState extends State<ChatListScreen> {
       return;
     }
     _didLoad = true;
+    WidgetsBinding.instance.addObserver(this);
     _load();
+    _setupSocket();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshDebounce?.cancel();
+    _disconnectSocket();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresh conversations when app comes to foreground
+      _load();
+    }
+  }
+
+  void _setupSocket() {
+    final api = YaaroScope.of(context);
+    final token = api.accessToken;
+    if (token == null) return;
+
+    _socket = io.io(
+      socketBaseUrl,
+      io.OptionBuilder()
+          .setTransports(['websocket', 'polling'])
+          .setAuth({'token': token})
+          .disableAutoConnect()
+          .build(),
+    );
+
+    // Refresh conversation list whenever a new message arrives (debounced)
+    _socket!.on('new_message', (_) => _debouncedLoad());
+    _socket!.on('receive_message', (_) => _debouncedLoad());
+    _socket!.on('message_read', (_) => _debouncedLoad());
+
+    _socket!.connect();
+  }
+
+  void _disconnectSocket() {
+    if (_socket != null) {
+      try {
+        _socket!.clearListeners();
+        _socket!.disconnect();
+      } catch (_) {}
+      _socket = null;
+    }
+  }
+
+  /// Debounced reload — waits 500ms after the last event before refreshing,
+  /// so rapid messages don't spam the API.
+  void _debouncedLoad() {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 500), () {
+      _load();
+    });
   }
 
   Future<void> _load() async {
-    if (mounted) {
-      setState(() => _loading = true);
-    }
-
     try {
       final matches = await YaaroScope.of(context).conversations();
       if (mounted) {
-        setState(() => _matches = _dedupeMatches(matches));
+        setState(() {
+          _matches = _dedupeMatches(matches);
+          _loading = false;
+        });
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _matches = const []);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
+        setState(() {
+          _matches = const [];
+          _loading = false;
+        });
       }
     }
   }
@@ -3171,7 +3234,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 
   void _openChat(MatchItem match) {
-    openChatForMatch(context, match);
+    openChatForMatch(context, match).then((_) {
+      // Refresh the conversation list when returning from a chat
+      _load();
+    });
   }
 
   @override
@@ -3216,7 +3282,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              if (_loading) const LinearProgressIndicator(minHeight: 2),
               const SizedBox(height: 18),
               SectionTitle(
                   title: 'Messages', trailing: '${filtered.length} active'),
@@ -3740,6 +3805,33 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  String? _photoUrl;
+  bool _loadingPhoto = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfilePhoto();
+  }
+
+  Future<void> _loadProfilePhoto() async {
+    setState(() => _loadingPhoto = true);
+    try {
+      final api = YaaroScope.of(context);
+      final photos = await api.getProfilePhotos();
+      if (photos.isNotEmpty && mounted) {
+        final first = photos.first;
+        setState(() {
+          _photoUrl = first is Map ? first['url']?.toString() : null;
+        });
+      }
+    } catch (_) {
+      // Photo load failed silently
+    } finally {
+      if (mounted) setState(() => _loadingPhoto = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final api = YaaroScope.of(context);
@@ -3755,109 +3847,197 @@ class _ProfileScreenState extends State<ProfileScreen> {
               actionLabel: user == null ? 'Login' : 'Logout',
               onAction: user == null ? widget.onOpenAuth : widget.onLogout,
             ),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: panelDecoration(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 34,
-                    backgroundColor: YaaroColors.rose,
-                    child: Text(
-                      user == null
-                          ? 'Y0'
-                          : user.displayName.characters.first.toUpperCase(),
-                      style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.w900),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    user?.displayName ?? 'Build your YaaRo0 profile',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    user?.email ??
-                        'Add photos, intent, interests, and safety preferences from the connected API.',
-                    style: TextStyle(
-                        color: YaaroColors.mutedFor(context), height: 1.35),
-                  ),
-                  const SizedBox(height: 16),
-                  if (user == null)
-                    FilledButton(
-                      onPressed: widget.onOpenAuth,
-                      style: FilledButton.styleFrom(
-                          backgroundColor: YaaroColors.rose),
-                      child: const Text('Login or create account'),
-                    )
-                  else
-                    FilledButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => OnboardingWizard(
-                              mode: 'edit',
-                              onComplete: () {
-                                Navigator.pop(context);
-                                setState(() {});
-                              },
-                              onLogout: () {
-                                Navigator.pop(context);
-                                widget.onLogout();
-                              },
-                            ),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.edit, size: 18),
-                      style: FilledButton.styleFrom(
-                          backgroundColor: YaaroColors.rose),
-                      label: const Text('Edit Profile'),
-                    ),
-                  if (user != null) ...[
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: () => openMembershipScreen(context),
-                      icon: const Icon(Icons.workspace_premium, size: 18),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: YaaroColors.textFor(context),
-                        side: BorderSide(color: YaaroColors.lineFor(context)),
-                        minimumSize: const Size.fromHeight(48),
-                      ),
-                      label: const Text('Upgrade & payments'),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (user != null) _buildLinkedAccountsSection(context, user),
-            const SizedBox(height: 18),
-            const SectionTitle(title: 'App Settings', trailing: 'Options'),
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const SettingsScreen()),
-                );
-                setState(() {});
-              },
-              child: const SettingsRow(
-                icon: Icons.settings,
-                title: 'Preferences & Theme',
-                value: 'Configure',
-              ),
-            ),
+            const SizedBox(height: 24),
+            // Profile Hero Card
+            _buildProfileHero(context, user),
+            const SizedBox(height: 16),
+            // Quick Actions
+            if (user != null) _buildQuickActions(context),
+            if (user != null) ...[
+              const SizedBox(height: 20),
+              _buildLinkedAccountsSection(context, user),
+            ],
+            const SizedBox(height: 20),
+            _buildSettingsSection(context),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProfileHero(BuildContext context, User? user) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            YaaroColors.rose.withOpacity(0.15),
+            YaaroColors.surfaceAltFor(context),
+          ],
+        ),
+        border: Border.all(
+          color: YaaroColors.rose.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            // Profile Photo
+            Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: YaaroColors.rose,
+                      width: 3,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: YaaroColors.rose.withOpacity(0.3),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 52,
+                    backgroundColor: YaaroColors.surfaceAlt,
+                    backgroundImage:
+                        _photoUrl != null ? NetworkImage(_photoUrl!) : null,
+                    child: _photoUrl == null
+                        ? (_loadingPhoto
+                            ? const CircularProgressIndicator(
+                                strokeWidth: 2, color: YaaroColors.rose)
+                            : Text(
+                                user == null
+                                    ? 'Y0'
+                                    : user.displayName.characters.first
+                                        .toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ))
+                        : null,
+                  ),
+                ),
+                // Camera edit badge
+                if (user != null)
+                  Positioned(
+                    bottom: 2,
+                    right: 2,
+                    child: GestureDetector(
+                      onTap: () => _openEditProfile(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: YaaroColors.rose,
+                          shape: BoxShape.circle,
+                          border:
+                              Border.all(color: YaaroColors.surface, width: 2),
+                        ),
+                        child: const Icon(Icons.camera_alt,
+                            size: 16, color: Colors.white),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            // Name
+            Text(
+              user?.displayName ?? 'Build your YaaRo0 profile',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            // Email with subtle styling
+            Text(
+              user?.email ?? 'Sign in to get started',
+              style: TextStyle(
+                color: YaaroColors.mutedFor(context),
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            // Edit Profile Button
+            if (user == null)
+              FilledButton(
+                onPressed: widget.onOpenAuth,
+                style: FilledButton.styleFrom(
+                  backgroundColor: YaaroColors.rose,
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Login or create account',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+              )
+            else
+              FilledButton.icon(
+                onPressed: () => _openEditProfile(context),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                style: FilledButton.styleFrom(
+                  backgroundColor: YaaroColors.rose,
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                label: const Text('Edit Profile',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _QuickActionCard(
+            icon: Icons.workspace_premium,
+            label: 'Premium',
+            color: YaaroColors.saffron,
+            onTap: () => openMembershipScreen(context),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _QuickActionCard(
+            icon: Icons.verified_user,
+            label: 'Verify',
+            color: YaaroColors.teal,
+            onTap: () {
+              // Verification flow
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _QuickActionCard(
+            icon: Icons.share,
+            label: 'Share',
+            color: Colors.purpleAccent,
+            onTap: () {
+              // Share profile
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -3865,101 +4045,106 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isTiktokLinked = user.oauthProvider?.toLowerCase() == 'tiktok';
     final isFacebookLinked = user.oauthProvider?.toLowerCase() == 'facebook';
 
-    return Container(
-      margin: const EdgeInsets.only(top: 18),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: YaaroColors.surfaceAltFor(context),
-        border: Border.all(color: YaaroColors.lineFor(context)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Linked Social Accounts',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            'Connected Accounts',
             style: TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               color: YaaroColors.textFor(context),
             ),
           ),
-          const SizedBox(height: 12),
-          // TikTok linked status row
-          Row(
-            children: [
-              Icon(Icons.music_note,
-                  color: YaaroColors.textFor(context), size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'TikTok',
-                  style: TextStyle(
-                    color: YaaroColors.textFor(context),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              if (isTiktokLinked)
-                const Row(
-                  children: [
-                    Icon(Icons.check_circle, color: YaaroColors.teal, size: 16),
-                    SizedBox(width: 4),
-                    Text('Linked',
-                        style: TextStyle(
-                            color: YaaroColors.teal,
-                            fontWeight: FontWeight.bold)),
-                  ],
-                )
-              else
-                TextButton(
-                  onPressed: () =>
-                      _linkSocialAccount(context, 'tiktok', user.id),
-                  child: const Text('Link',
-                      style: TextStyle(
-                          color: YaaroColors.rose,
-                          fontWeight: FontWeight.bold)),
-                ),
-            ],
+        ),
+        _SocialAccountTile(
+          icon: Icons.music_note,
+          iconColor: Colors.white,
+          iconBgGradient: const [Color(0xFF000000), Color(0xFF25F4EE)],
+          name: 'TikTok',
+          isLinked: isTiktokLinked,
+          onLink: () => _linkSocialAccount(context, 'tiktok', user.id),
+        ),
+        const SizedBox(height: 10),
+        _SocialAccountTile(
+          icon: Icons.facebook,
+          iconColor: Colors.white,
+          iconBgGradient: const [Color(0xFF1877F2), Color(0xFF0C5DC7)],
+          name: 'Facebook',
+          isLinked: isFacebookLinked,
+          onLink: () => _linkSocialAccount(context, 'facebook', user.id),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSettingsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            'Settings',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: YaaroColors.textFor(context),
+            ),
           ),
-          const SizedBox(height: 8),
-          // Facebook linked status row
-          Row(
-            children: [
-              const Icon(Icons.facebook, color: Colors.blueAccent, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Facebook',
-                  style: TextStyle(
-                    color: YaaroColors.textFor(context),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              if (isFacebookLinked)
-                const Row(
-                  children: [
-                    Icon(Icons.check_circle, color: YaaroColors.teal, size: 16),
-                    SizedBox(width: 4),
-                    Text('Linked',
-                        style: TextStyle(
-                            color: YaaroColors.teal,
-                            fontWeight: FontWeight.bold)),
-                  ],
-                )
-              else
-                TextButton(
-                  onPressed: () =>
-                      _linkSocialAccount(context, 'facebook', user.id),
-                  child: const Text('Link',
-                      style: TextStyle(
-                          color: YaaroColors.rose,
-                          fontWeight: FontWeight.bold)),
-                ),
-            ],
-          ),
-        ],
+        ),
+        _SettingsTile(
+          icon: Icons.palette_outlined,
+          title: 'Preferences & Theme',
+          subtitle: 'Appearance, notifications',
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SettingsScreen()),
+            );
+            setState(() {});
+          },
+        ),
+        const SizedBox(height: 10),
+        _SettingsTile(
+          icon: Icons.shield_outlined,
+          title: 'Privacy & Safety',
+          subtitle: 'Blocking, data, visibility',
+          onTap: () {
+            // Privacy settings
+          },
+        ),
+        const SizedBox(height: 10),
+        _SettingsTile(
+          icon: Icons.help_outline,
+          title: 'Help & Support',
+          subtitle: 'FAQ, contact us',
+          onTap: () {
+            // Help screen
+          },
+        ),
+      ],
+    );
+  }
+
+  void _openEditProfile(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OnboardingWizard(
+          mode: 'edit',
+          onComplete: () {
+            Navigator.pop(context);
+            _loadProfilePhoto();
+            setState(() {});
+          },
+          onLogout: () {
+            Navigator.pop(context);
+            widget.onLogout();
+          },
+        ),
       ),
     );
   }
@@ -3989,6 +4174,231 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     }
+  }
+}
+
+class _QuickActionCard extends StatelessWidget {
+  const _QuickActionCard({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: color.withOpacity(0.1),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 26),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SocialAccountTile extends StatelessWidget {
+  const _SocialAccountTile({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBgGradient,
+    required this.name,
+    required this.isLinked,
+    required this.onLink,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final List<Color> iconBgGradient;
+  final String name;
+  final bool isLinked;
+  final VoidCallback onLink;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: YaaroColors.surfaceAltFor(context),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: YaaroColors.lineFor(context)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              gradient: LinearGradient(
+                colors: iconBgGradient,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    color: YaaroColors.textFor(context),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isLinked ? 'Connected' : 'Not connected',
+                  style: TextStyle(
+                    color: isLinked
+                        ? YaaroColors.teal
+                        : YaaroColors.mutedFor(context),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isLinked)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: YaaroColors.teal.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle, color: YaaroColors.teal, size: 14),
+                  SizedBox(width: 4),
+                  Text('Linked',
+                      style: TextStyle(
+                          color: YaaroColors.teal,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12)),
+                ],
+              ),
+            )
+          else
+            GestureDetector(
+              onTap: onLink,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: const LinearGradient(
+                    colors: [YaaroColors.rose, Color(0xFFFF7B8F)],
+                  ),
+                ),
+                child: const Text(
+                  'Connect',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: YaaroColors.surfaceAltFor(context),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: YaaroColors.lineFor(context)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: YaaroColors.rose.withOpacity(0.1),
+              ),
+              child: Icon(icon, color: YaaroColors.rose, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: YaaroColors.textFor(context),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: YaaroColors.mutedFor(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: YaaroColors.mutedFor(context)),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -4410,6 +4820,11 @@ class ChatListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageProvider = match.photoUrl == null || match.photoUrl!.isEmpty
+        ? const NetworkImage(
+            'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70')
+        : NetworkImage(match.photoUrl!);
+
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
@@ -4420,14 +4835,23 @@ class ChatListTile extends StatelessWidget {
           children: [
             Stack(
               children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: YaaroColors.surfaceAltFor(context),
-                  backgroundImage: match.photoUrl == null ||
-                          match.photoUrl!.isEmpty
-                      ? const NetworkImage(
-                          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70')
-                      : NetworkImage(match.photoUrl!),
+                SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: ClipOval(
+                    child: Image(
+                      image: imageProvider,
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: YaaroColors.surfaceAltFor(context),
+                        child: Icon(Icons.person,
+                            color: YaaroColors.mutedFor(context)),
+                      ),
+                    ),
+                  ),
                 ),
                 if (match.unreadCount > 0)
                   Positioned(

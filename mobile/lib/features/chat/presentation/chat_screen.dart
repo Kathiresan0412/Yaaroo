@@ -11,7 +11,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/api_client.dart';
 import '../../../core/services/chat_repository.dart';
 import '../../../main.dart'
-    show YaaroColors, YaaroScope, isBackendNumericId, socketBaseUrl;
+    show MatchItem, YaaroColors, YaaroScope, isBackendNumericId, socketBaseUrl;
 import 'webrtc_call_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -74,6 +74,9 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _notice;
   String _matchNameState = '';
   String? _matchPhotoState;
+  String? _lastActiveAt;
+  String?
+      _realMatchId; // actual match ID from backend (may differ from widget.matchId)
 
   io.Socket? _socket;
   String? _currentUserId;
@@ -202,9 +205,10 @@ class _ChatScreenState extends State<ChatScreen> {
       final messages = rawMessages.whereType<Map<String, dynamic>>().toList();
 
       if (messages.isNotEmpty) {
-        // Cache to local DB
+        // Cache to local DB using widget.matchId as the key so lookups work
         for (final msg in messages) {
-          await ChatRepository.instance.cacheMessage(msg);
+          await ChatRepository.instance
+              .cacheMessage(msg, conversationKey: widget.matchId);
         }
         // Update UI
         final incoming = messages
@@ -224,12 +228,33 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _fetchMatchDetails() async {
     try {
+      // First try the conversations endpoint (uses conversation IDs)
+      final conversations = await _apiClient.conversations();
+      final found = conversations.cast<MatchItem?>().firstWhere(
+            (i) => i!.id == widget.matchId,
+            orElse: () => null,
+          );
+      if (found != null) {
+        setState(() {
+          _matchNameState = found.name;
+          _matchPhotoState = found.photoUrl;
+          if (found.lastActiveAt != null) _lastActiveAt = found.lastActiveAt;
+        });
+        return;
+      }
+      // Fallback: try matches endpoint (uses match IDs)
       final list = await _apiClient.matches();
-      final m = list.firstWhere((i) => i.id == widget.matchId);
-      setState(() {
-        _matchNameState = m.name;
-        _matchPhotoState = m.photoUrl;
-      });
+      final m = list.cast<MatchItem?>().firstWhere(
+            (i) => i!.id == widget.matchId,
+            orElse: () => null,
+          );
+      if (m != null) {
+        setState(() {
+          _matchNameState = m.name;
+          _matchPhotoState = m.photoUrl;
+          if (m.lastActiveAt != null) _lastActiveAt = m.lastActiveAt;
+        });
+      }
     } catch (_) {}
   }
 
@@ -246,7 +271,8 @@ class _ChatScreenState extends State<ChatScreen> {
       final incoming =
           rawMessages.whereType<Map<String, dynamic>>().map((json) {
         // Cache each message to local storage
-        ChatRepository.instance.cacheMessage(json);
+        ChatRepository.instance
+            .cacheMessage(json, conversationKey: widget.matchId);
         return ChatMessage.fromJson(json, _currentUserId ?? '');
       }).toList();
       _mergeAndSortMessages(incoming);
@@ -373,6 +399,8 @@ class _ChatScreenState extends State<ChatScreen> {
             setState(() {
               _isOnline = ackData['isOnline'] == true;
               _otherUserId = ackData['otherUserId']?.toString();
+              _lastActiveAt = ackData['lastActiveAt']?.toString();
+              _realMatchId = ackData['matchId']?.toString();
             });
           } else {
             final msg = ackData['message']?.toString();
@@ -399,9 +427,15 @@ class _ChatScreenState extends State<ChatScreen> {
       if (data is Map) {
         final jsonData = Map<String, dynamic>.from(data);
         final msg = ChatMessage.fromJson(jsonData, _currentUserId ?? '');
-        if (msg.matchId == widget.matchId) {
-          // Cache to local storage
-          ChatRepository.instance.cacheMessage(jsonData);
+        // Accept messages for this conversation (compare by matchId OR conversationId)
+        final msgMatchId = jsonData['matchId']?.toString() ?? '';
+        final msgConvId = jsonData['conversationId']?.toString() ?? '';
+        if (msgMatchId == widget.matchId ||
+            msgConvId == widget.matchId ||
+            msg.matchId == widget.matchId) {
+          // Cache to local storage using the screen's key
+          ChatRepository.instance
+              .cacheMessage(jsonData, conversationKey: widget.matchId);
           _mergeAndSortMessages([msg]);
           _socket!.emit(
               'mark_read', {'matchId': widget.matchId, 'messageId': msg.id});
@@ -413,22 +447,26 @@ class _ChatScreenState extends State<ChatScreen> {
     _socket!.on('new_message', handleMsg);
     _socket!.on('receive_message', handleMsg);
     _socket!.on('message_delivered', (data) {
-      if (data is Map && data['matchId']?.toString() == widget.matchId) {
-        final mid = data['messageId']?.toString();
-        setState(() {
-          for (var i = 0; i < _messages.length; i++) {
-            if (_messages[i].id == mid && _messages[i].isMine) {
-              _messages[i] = _messages[i].copyWith(deliveryStatus: 'delivered');
+      if (data is Map) {
+        final evMatchId = data['matchId']?.toString();
+        if (evMatchId == widget.matchId || evMatchId == _realMatchId) {
+          final mid = data['messageId']?.toString();
+          setState(() {
+            for (var i = 0; i < _messages.length; i++) {
+              if (_messages[i].id == mid && _messages[i].isMine) {
+                _messages[i] =
+                    _messages[i].copyWith(deliveryStatus: 'delivered');
+              }
             }
-          }
-        });
+          });
+        }
       }
     });
     _socket!.on('message_read', (data) {
       if (data is Map) {
         final evMatchId = data['matchId']?.toString();
         final readAt = data['readAt']?.toString();
-        if (evMatchId == widget.matchId) {
+        if (evMatchId == widget.matchId || evMatchId == _realMatchId) {
           setState(() {
             for (var i = 0; i < _messages.length; i++) {
               if (_messages[i].isMine) {
@@ -451,15 +489,30 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     });
     _socket!.on('presence_update', (data) {
-      if (data is Map) setState(() => _isOnline = data['isOnline'] == true);
+      if (data is Map) {
+        final online = data['isOnline'] == true;
+        setState(() {
+          _isOnline = online;
+          if (!online) {
+            // They just went offline, set last active to now
+            _lastActiveAt = DateTime.now().toUtc().toIso8601String();
+          }
+        });
+      }
     });
     _socket!.on('typing_start', (data) {
-      if (data is Map && data['matchId']?.toString() == widget.matchId)
-        setState(() => _isOtherTyping = true);
+      if (data is Map) {
+        final evMatchId = data['matchId']?.toString();
+        if (evMatchId == widget.matchId || evMatchId == _realMatchId)
+          setState(() => _isOtherTyping = true);
+      }
     });
     _socket!.on('typing_stop', (data) {
-      if (data is Map && data['matchId']?.toString() == widget.matchId)
-        setState(() => _isOtherTyping = false);
+      if (data is Map) {
+        final evMatchId = data['matchId']?.toString();
+        if (evMatchId == widget.matchId || evMatchId == _realMatchId)
+          setState(() => _isOtherTyping = false);
+      }
     });
     _socket!.connect();
   }
@@ -1052,7 +1105,30 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  String _formatLastActive(String? isoDate) {
+    if (isoDate == null || isoDate.isEmpty) return 'Offline';
+    final date = DateTime.tryParse(isoDate);
+    if (date == null) return 'Offline';
+    final now = DateTime.now().toUtc();
+    final diff = now.difference(date.toUtc());
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return 'Active ${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return 'Active ${diff.inHours}h ago';
+    if (diff.inDays == 1) return 'Active yesterday';
+    if (diff.inDays < 7) return 'Active ${diff.inDays}d ago';
+    return 'Active ${DateFormat('MMM d').format(date.toLocal())}';
+  }
+
+  String _statusText() {
+    if (_isOtherTyping) return 'Typing…';
+    if (_isOnline) return 'Online now';
+    return _formatLastActive(_lastActiveAt);
+  }
+
   PreferredSizeWidget _buildAppBar() {
+    final statusText = _statusText();
+    final isActive = _isOtherTyping || _isOnline;
+
     return AppBar(
       backgroundColor: _surfaceColor(context),
       leading: IconButton(
@@ -1101,13 +1177,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       fontWeight: FontWeight.w900,
                       fontSize: 16)),
               Text(
-                _isOtherTyping
-                    ? 'Typing…'
-                    : _isOnline
-                        ? 'Online now'
-                        : 'Offline',
+                statusText,
                 style: TextStyle(
-                  color: _isOtherTyping || _isOnline
+                  color: isActive
                       ? YaaroColors.teal
                       : YaaroColors.mutedFor(context),
                   fontSize: 11,

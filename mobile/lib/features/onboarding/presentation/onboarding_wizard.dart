@@ -335,6 +335,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     final api = YaaroScope.of(context);
     try {
       final payload = await api.getProfileMe();
+      debugPrint('[EditProfile] Loaded payload keys: ${payload.keys.toList()}');
       final userMap = payload['user'] as Map<String, dynamic>? ?? {};
       final profile = payload['profile'] as Map<String, dynamic>? ?? {};
       final prefs = payload['preferences'] as Map<String, dynamic>? ?? {};
@@ -342,13 +343,15 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       final photosList = payload['photos'] as List? ?? [];
 
       setState(() {
-        _photos = List<Map<String, dynamic>>.from(photosList);
+        _photos = photosList.whereType<Map<String, dynamic>>().toList();
         _oauthProvider = userMap['oauthProvider']?.toString() ??
             userMap['oauth_provider']?.toString();
         _userId = userMap['id']?.toString() ?? '';
         final registeredProfile = userMap['registeredProfile'] is Map
             ? Map<String, dynamic>.from(userMap['registeredProfile'] as Map)
             : null;
+        debugPrint('[EditProfile] registeredProfile: $registeredProfile');
+        debugPrint('[EditProfile] profile keys: ${profile.keys.toList()}');
         _coreProfileMissing = registeredProfile == null;
         _gender = registeredProfile?['gender']?.toString();
         _dateOfBirth = DateTime.tryParse(
@@ -408,11 +411,12 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[EditProfile] Failed to load profile: $e');
       setState(() {
         _loading = false;
       });
-      _showToast('Failed to load profile. Please try again.');
+      _showToast('Failed to load profile: ${e.toString()}');
     }
   }
 

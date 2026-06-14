@@ -42,8 +42,10 @@ class ChatRepository {
     ApiClient apiClient,
     String matchId, {
     String? cursor,
+    String? conversationKey,
   }) async {
     final database = await db;
+    final cacheKey = conversationKey ?? matchId;
 
     try {
       final payload = await apiClient.getMessages(matchId, cursor: cursor);
@@ -51,12 +53,15 @@ class ChatRepository {
       final messages = rawMessages.whereType<Map<String, dynamic>>().toList();
 
       if (messages.isNotEmpty) {
-        final companions = messages.map(_jsonToCompanion).toList();
+        final companions = messages.map((json) {
+          final overridden = {...json, 'matchId': cacheKey};
+          return _jsonToCompanion(overridden);
+        }).toList();
         await database.upsertMessages(companions);
 
         // Update sync state
         final newestId = messages.first['id']?.toString();
-        await database.updateSyncState(matchId, newestId);
+        await database.updateSyncState(cacheKey, newestId);
 
         // Prefetch media in background
         _prefetchMedia(messages);
@@ -75,9 +80,15 @@ class ChatRepository {
   // ---------------------------------------------------------------------------
 
   /// Persist a single message received via WebSocket.
-  Future<void> cacheMessage(Map<String, dynamic> messageJson) async {
+  /// [conversationKey] overrides the matchId used as the cache key so that
+  /// queries by conversation ID find the correct messages.
+  Future<void> cacheMessage(Map<String, dynamic> messageJson,
+      {String? conversationKey}) async {
     final database = await db;
-    await database.upsertMessages([_jsonToCompanion(messageJson)]);
+    final json = conversationKey != null
+        ? {...messageJson, 'matchId': conversationKey}
+        : messageJson;
+    await database.upsertMessages([_jsonToCompanion(json)]);
 
     // Cache media if present
     final mediaUrl = messageJson['mediaUrl']?.toString();
@@ -87,9 +98,13 @@ class ChatRepository {
   }
 
   /// Persist a pending (optimistic) message before server confirms.
-  Future<void> cachePendingMessage(Map<String, dynamic> messageJson) async {
+  Future<void> cachePendingMessage(Map<String, dynamic> messageJson,
+      {String? conversationKey}) async {
     final database = await db;
-    await database.upsertMessages([_jsonToCompanion(messageJson)]);
+    final json = conversationKey != null
+        ? {...messageJson, 'matchId': conversationKey}
+        : messageJson;
+    await database.upsertMessages([_jsonToCompanion(json)]);
   }
 
   /// Replace a pending message with the server-confirmed version.
