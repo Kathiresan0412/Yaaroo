@@ -351,7 +351,7 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
                       border: Border.all(color: Colors.white, width: 3),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.blue.withOpacity(0.4),
+                          color: Colors.blue.withValues(alpha: 0.4),
                           blurRadius: 8,
                           spreadRadius: 2,
                         ),
@@ -395,7 +395,7 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
+                            color: Colors.black.withValues(alpha: 0.15),
                             blurRadius: 6,
                           ),
                         ],
@@ -416,7 +416,7 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
                         borderRadius: BorderRadius.circular(22),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
+                            color: Colors.black.withValues(alpha: 0.15),
                             blurRadius: 8,
                           ),
                         ],
@@ -464,7 +464,7 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
+                        color: Colors.black.withValues(alpha: 0.15),
                         blurRadius: 10,
                       ),
                     ],
@@ -638,7 +638,7 @@ class _PersonMarker extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 6,
           ),
         ],
@@ -659,7 +659,7 @@ class _PersonMarker extends StatelessWidget {
 
   Widget _buildInitial() {
     return Container(
-      color: YaaroColors.rose.withOpacity(0.2),
+      color: YaaroColors.rose.withValues(alpha: 0.2),
       child: Center(
         child: Text(
           person.displayName.isNotEmpty
@@ -696,14 +696,15 @@ class _FilterChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color:
-            isActive ? const Color(0xFF1B2140) : Colors.white.withOpacity(0.9),
+        color: isActive
+            ? const Color(0xFF1B2140)
+            : Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isActive ? Colors.transparent : Colors.black12,
         ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 4),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4),
         ],
       ),
       child: Row(
@@ -752,7 +753,7 @@ class _PersonDetailCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -865,7 +866,7 @@ class _PersonDetailCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: YaaroColors.rose.withOpacity(0.1),
+                    color: YaaroColors.rose.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
@@ -903,8 +904,8 @@ class _PersonDetailCard extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   color: isDark
-                      ? Colors.white.withOpacity(0.08)
-                      : Colors.black.withOpacity(0.05),
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: IconButton(
@@ -926,7 +927,7 @@ class _PersonDetailCard extends StatelessWidget {
     return Container(
       width: 60,
       height: 60,
-      color: YaaroColors.rose.withOpacity(0.2),
+      color: YaaroColors.rose.withValues(alpha: 0.2),
       child: Center(
         child: Text(
           person.displayName.isNotEmpty
@@ -965,11 +966,12 @@ class _PeopleListPreview extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isDark
-              ? YaaroColors.surface.withOpacity(0.92)
-              : Colors.white.withOpacity(0.92),
+              ? YaaroColors.surface.withValues(alpha: 0.92)
+              : Colors.white.withValues(alpha: 0.92),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8),
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08), blurRadius: 8),
           ],
         ),
         child: Row(
@@ -1004,12 +1006,13 @@ class _PeopleListPreview extends StatelessWidget {
               width: 72,
               decoration: BoxDecoration(
                 color: isDark
-                    ? YaaroColors.surface.withOpacity(0.92)
-                    : Colors.white.withOpacity(0.92),
+                    ? YaaroColors.surface.withValues(alpha: 0.92)
+                    : Colors.white.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withOpacity(0.08), blurRadius: 6),
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 6),
                 ],
               ),
               child: Column(
@@ -1035,7 +1038,7 @@ class _PeopleListPreview extends StatelessWidget {
                               width: 40,
                               height: 40,
                               errorBuilder: (_, __, ___) => Container(
-                                color: YaaroColors.rose.withOpacity(0.2),
+                                color: YaaroColors.rose.withValues(alpha: 0.2),
                                 child: Center(
                                   child: Text(
                                     person.displayName.isNotEmpty
@@ -1050,7 +1053,7 @@ class _PeopleListPreview extends StatelessWidget {
                               ),
                             )
                           : Container(
-                              color: YaaroColors.rose.withOpacity(0.2),
+                              color: YaaroColors.rose.withValues(alpha: 0.2),
                               child: Center(
                                 child: Text(
                                   person.displayName.isNotEmpty
@@ -1115,7 +1118,7 @@ class _MapButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 6,
             ),
           ],

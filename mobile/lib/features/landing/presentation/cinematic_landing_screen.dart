@@ -269,7 +269,7 @@ class _CinematicLandingScreenState extends State<CinematicLandingScreen>
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 3,
-                        color: Colors.white.withOpacity(0.4),
+                        color: Colors.white.withValues(alpha: 0.4),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -281,7 +281,7 @@ class _CinematicLandingScreenState extends State<CinematicLandingScreen>
                           offset: Offset(0, _pulseController.value * 6),
                           child: Icon(
                             Icons.keyboard_arrow_down,
-                            color: Colors.white.withOpacity(0.35),
+                            color: Colors.white.withValues(alpha: 0.35),
                             size: 28,
                           ),
                         );
@@ -335,12 +335,12 @@ class _CinematicLandingScreenState extends State<CinematicLandingScreen>
                     children: [
                       Transform.translate(
                         offset: Offset(maleX, 0),
-                        child: _Silhouette(isMale: true),
+                        child: const _Silhouette(isMale: true),
                       ),
                       const SizedBox(width: 60),
                       Transform.translate(
                         offset: Offset(femaleX, 0),
-                        child: _Silhouette(isMale: false),
+                        child: const _Silhouette(isMale: false),
                       ),
                     ],
                   ),
@@ -434,7 +434,7 @@ class _CinematicLandingScreenState extends State<CinematicLandingScreen>
       width: 3,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(3),
-        color: Colors.white.withOpacity(0.08),
+        color: Colors.white.withValues(alpha: 0.08),
       ),
       child: Align(
         alignment: Alignment.topCenter,
@@ -553,12 +553,12 @@ class _SilhouettePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.12)
+      ..color = Colors.white.withValues(alpha: 0.12)
       ..style = PaintingStyle.fill;
 
     final glowPaint = Paint()
       ..color = (isMale ? const Color(0xFF37E6D4) : const Color(0xFFFF4D7A))
-          .withOpacity(0.15)
+          .withValues(alpha: 0.15)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
 
     final cx = size.width / 2;
@@ -579,8 +579,8 @@ class _SilhouettePainter extends CustomPainter {
     canvas.drawRRect(bodyRect, paint);
 
     // Legs
-    final legWidth = 12.0;
-    final legHeight = 44.0;
+    const legWidth = 12.0;
+    const legHeight = 44.0;
     final legTop = size.height * 0.62;
 
     canvas.drawRRect(
@@ -673,9 +673,9 @@ class _CafeScenePainter extends CustomPainter {
 
   void _drawPerson(Canvas canvas, Offset center, bool isMale) {
     final skinColor = isMale
-        ? const Color(0xFF8B6914).withOpacity(0.7)
-        : const Color(0xFF9B7030).withOpacity(0.7);
-    final hairColor = const Color(0xFF1A0A00).withOpacity(0.8);
+        ? const Color(0xFF8B6914).withValues(alpha: 0.7)
+        : const Color(0xFF9B7030).withValues(alpha: 0.7);
+    final hairColor = const Color(0xFF1A0A00).withValues(alpha: 0.8);
 
     final paint = Paint()..style = PaintingStyle.fill;
 
@@ -703,8 +703,8 @@ class _CafeScenePainter extends CustomPainter {
 
     // Body/shoulders
     paint.color = isMale
-        ? const Color(0xFF2A1A4A).withOpacity(0.8) // Dark shirt
-        : const Color(0xFF4A1030).withOpacity(0.8); // Warm top
+        ? const Color(0xFF2A1A4A).withValues(alpha: 0.8) // Dark shirt
+        : const Color(0xFF4A1030).withValues(alpha: 0.8); // Warm top
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromCenter(
@@ -753,8 +753,8 @@ class _ChatBubble extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.06),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            color: Colors.white.withValues(alpha: 0.06),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(16),
               topRight: const Radius.circular(16),
@@ -780,7 +780,7 @@ class _ChatBubble extends StatelessWidget {
                         height: 7,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                         ),
                       ),
                     ),
@@ -822,7 +822,7 @@ class _TeaCup extends StatelessWidget {
                 borderRadius: BorderRadius.circular(50),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFF7D9A8).withOpacity(0.15),
+                    color: const Color(0xFFF7D9A8).withValues(alpha: 0.15),
                     blurRadius: 40,
                     spreadRadius: 10,
                   ),
@@ -864,7 +864,7 @@ class _TeaCup extends StatelessWidget {
                             height: 18,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(3),
-                              color: Colors.white.withOpacity(0.25),
+                              color: Colors.white.withValues(alpha: 0.25),
                             ),
                           ),
                         ),
@@ -920,7 +920,7 @@ class _TeaCupPainter extends CustomPainter {
       Offset(cx - 30, 14),
       Offset(cx + 30, 14),
       Paint()
-        ..color = Colors.white.withOpacity(0.6)
+        ..color = Colors.white.withValues(alpha: 0.6)
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.round,
     );
@@ -942,7 +942,7 @@ class _TeaCupPainter extends CustomPainter {
     // Tea liquid visible at top
     canvas.drawOval(
       Rect.fromCenter(center: Offset(cx, 18), width: 50, height: 10),
-      Paint()..color = const Color(0xFF8B4513).withOpacity(0.4),
+      Paint()..color = const Color(0xFF8B4513).withValues(alpha: 0.4),
     );
   }
 
@@ -969,16 +969,16 @@ class _CTACard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            color: const Color(0xFF0A0514).withOpacity(0.7),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            color: const Color(0xFF0A0514).withValues(alpha: 0.7),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.4),
+                color: Colors.black.withValues(alpha: 0.4),
                 blurRadius: 60,
                 offset: const Offset(0, 20),
               ),
               BoxShadow(
-                color: const Color(0xFFFF4D7A).withOpacity(0.05),
+                color: const Color(0xFFFF4D7A).withValues(alpha: 0.05),
                 blurRadius: 40,
               ),
             ],
@@ -1004,7 +1004,7 @@ class _CTACard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.5,
-                  color: Colors.white.withOpacity(0.55),
+                  color: Colors.white.withValues(alpha: 0.55),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1024,12 +1024,12 @@ class _CTACard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFF4D7A).withOpacity(0.35),
+                        color: const Color(0xFFFF4D7A).withValues(alpha: 0.35),
                         blurRadius: 24,
                         offset: const Offset(0, 8),
                       ),
                       BoxShadow(
-                        color: const Color(0xFFFF4D7A).withOpacity(0.15),
+                        color: const Color(0xFFFF4D7A).withValues(alpha: 0.15),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

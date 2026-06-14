@@ -110,7 +110,7 @@ class _AuthSheetState extends State<AuthSheet> {
       initialDate: eighteenYearsAgo,
       firstDate: DateTime(now.year - 100),
       lastDate: eighteenYearsAgo,
-      barrierColor: Colors.black.withOpacity(0.28),
+      barrierColor: Colors.black.withValues(alpha: 0.28),
       builder: (context, child) {
         return Stack(
           children: [
@@ -195,8 +195,8 @@ class _AuthSheetState extends State<AuthSheet> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-            border:
-                Border.all(color: Colors.white.withOpacity(0.12), width: 1.2),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: 0.12), width: 1.2),
           ),
           child: PremiumAuthBackground(
             child: Container(
@@ -229,8 +229,8 @@ class _AuthSheetState extends State<AuthSheet> {
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: _isSuccess
-                                  ? YaaroColors.teal.withOpacity(0.12)
-                                  : YaaroColors.rose.withOpacity(0.12),
+                                  ? YaaroColors.teal.withValues(alpha: 0.12)
+                                  : YaaroColors.rose.withValues(alpha: 0.12),
                               border: Border.all(
                                 color: _isSuccess
                                     ? YaaroColors.teal
@@ -336,9 +336,10 @@ class _AuthSheetState extends State<AuthSheet> {
       child: Container(
         height: 56,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
+          color: Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
+          border: Border.all(
+              color: Colors.white.withValues(alpha: 0.15), width: 1.2),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -588,15 +589,15 @@ class _AuthSheetState extends State<AuthSheet> {
           fontWeight: FontWeight.bold,
         ),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.08),
+        fillColor: Colors.white.withValues(alpha: 0.08),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide:
-              BorderSide(color: Colors.white.withOpacity(0.2), width: 1.2),
+          borderSide: BorderSide(
+              color: Colors.white.withValues(alpha: 0.2), width: 1.2),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -672,8 +673,8 @@ class _AuthSheetState extends State<AuthSheet> {
     const textColor = Colors.white;
     const labelColor = Colors.white60;
     const placeholderColor = Colors.white54;
-    final fillColor = Colors.white.withOpacity(0.045);
-    final borderColor = Colors.white.withOpacity(0.12);
+    final fillColor = Colors.white.withValues(alpha: 0.045);
+    final borderColor = Colors.white.withValues(alpha: 0.12);
     const arrowColor = Colors.white60;
 
     final innerWidget = Container(
@@ -698,7 +699,7 @@ class _AuthSheetState extends State<AuthSheet> {
                 if (hasValue) ...[
                   Text(
                     label,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: labelColor,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -719,7 +720,7 @@ class _AuthSheetState extends State<AuthSheet> {
               ],
             ),
           ),
-          Icon(Icons.keyboard_arrow_down, color: arrowColor, size: 20),
+          const Icon(Icons.keyboard_arrow_down, color: arrowColor, size: 20),
         ],
       ),
     );
@@ -740,7 +741,7 @@ class _AuthSheetState extends State<AuthSheet> {
     final selected = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.35),
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       builder: (context) {
         const genders = ['female', 'male', 'non_binary', 'other'];
 
@@ -750,7 +751,7 @@ class _AuthSheetState extends State<AuthSheet> {
             margin: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: const Color(0xFF16062A),
-              border: Border.all(color: Colors.white.withOpacity(0.12)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
               borderRadius: BorderRadius.circular(22),
             ),
             child: Column(
@@ -818,8 +819,8 @@ class _AuthSheetState extends State<AuthSheet> {
 
   Widget _buildPasswordValidationGuide() {
     const textColor = Colors.white;
-    final fillColor = Colors.white.withOpacity(0.03);
-    final borderColor = Colors.white.withOpacity(0.1);
+    final fillColor = Colors.white.withValues(alpha: 0.03);
+    final borderColor = Colors.white.withValues(alpha: 0.1);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -831,7 +832,7 @@ class _AuthSheetState extends State<AuthSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Password Requirements:',
             style: TextStyle(
               fontSize: 13,
@@ -858,7 +859,7 @@ class _AuthSheetState extends State<AuthSheet> {
 
   Widget _buildValidatorRow(String prefix, String text, bool valid) {
     const activeColor = Color(0xFF31D0B2); // Teal
-    final inactiveColor = Colors.white.withOpacity(0.6);
+    final inactiveColor = Colors.white.withValues(alpha: 0.6);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -883,8 +884,8 @@ class _AuthSheetState extends State<AuthSheet> {
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: valid
-                  ? activeColor.withOpacity(0.9)
-                  : inactiveColor.withOpacity(0.8),
+                  ? activeColor.withValues(alpha: 0.9)
+                  : inactiveColor.withValues(alpha: 0.8),
               decoration: valid ? TextDecoration.lineThrough : null,
             ),
           ),
@@ -931,7 +932,7 @@ class _AuthSheetState extends State<AuthSheet> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF2D79).withOpacity(0.4),
+            color: const Color(0xFFFF2D79).withValues(alpha: 0.4),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -1429,7 +1430,8 @@ class PremiumAuthBackground extends StatelessWidget {
               right: 48,
               child: CustomPaint(
                 size: const Size(20, 20),
-                painter: SparklePainter(color: Colors.white.withOpacity(0.9)),
+                painter:
+                    SparklePainter(color: Colors.white.withValues(alpha: 0.9)),
               ),
             ),
             Positioned(
@@ -1475,7 +1477,7 @@ class WireframeGlobePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color.withOpacity(0.18)
+      ..color = color.withValues(alpha: 0.18)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8;
 
@@ -1561,14 +1563,14 @@ class NeonHeartPainter extends CustomPainter {
 
     if (fill) {
       final fillPaint = Paint()
-        ..color = color.withOpacity(0.06)
+        ..color = color.withValues(alpha: 0.06)
         ..style = PaintingStyle.fill;
       canvas.drawPath(path, fillPaint);
     }
 
     // Soft outer neon glow shadow
     final glowPaint = Paint()
-      ..color = color.withOpacity(0.3)
+      ..color = color.withValues(alpha: 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth * 3.5
       ..imageFilter = ImageFilter.blur(sigmaX: 3.5, sigmaY: 3.5);
@@ -1599,7 +1601,7 @@ class SparklePainter extends CustomPainter {
 
     // Circular base glow
     final glowPaint = Paint()
-      ..color = color.withOpacity(0.25)
+      ..color = color.withValues(alpha: 0.25)
       ..style = PaintingStyle.fill
       ..imageFilter = ImageFilter.blur(sigmaX: 4, sigmaY: 4);
     canvas.drawCircle(
@@ -1638,7 +1640,7 @@ class VineBorderPainter extends CustomPainter {
 
     // 1. Neon glowing base border
     final glowPaint = Paint()
-      ..color = glowColor.withOpacity(0.35)
+      ..color = glowColor.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4.0
       ..imageFilter = ImageFilter.blur(sigmaX: 3.5, sigmaY: 3.5);

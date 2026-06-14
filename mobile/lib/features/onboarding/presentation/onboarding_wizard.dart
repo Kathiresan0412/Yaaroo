@@ -1170,7 +1170,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: Container(
-            color: Colors.black.withOpacity(0.34),
+            color: Colors.black.withValues(alpha: 0.34),
             child: Center(
               child: TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0.94, end: 1),
@@ -1186,12 +1186,12 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                   width: 82,
                   height: 82,
                   decoration: BoxDecoration(
-                    color: YaaroColors.surface.withOpacity(0.92),
+                    color: YaaroColors.surface.withValues(alpha: 0.92),
                     border: Border.all(color: YaaroColors.line),
                     borderRadius: BorderRadius.circular(18),
                     boxShadow: [
                       BoxShadow(
-                        color: YaaroColors.rose.withOpacity(0.22),
+                        color: YaaroColors.rose.withValues(alpha: 0.22),
                         blurRadius: 28,
                         spreadRadius: 1,
                       ),
@@ -1263,7 +1263,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
             ),
             borderRadius: BorderRadius.circular(12),
             color: _photosHasError
-                ? Colors.red.withOpacity(0.06)
+                ? Colors.red.withValues(alpha: 0.06)
                 : Colors.transparent,
           ),
           child: GridView.builder(
@@ -1361,8 +1361,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: YaaroColors.isDarkFor(context)
-                          ? Colors.white.withOpacity(0.04)
-                          : Colors.black.withOpacity(0.04),
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : Colors.black.withValues(alpha: 0.04),
                       border: Border.all(color: YaaroColors.lineFor(context)),
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -1427,8 +1427,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
             labelText: 'About You (Bio)',
             filled: true,
             fillColor: _bioHasError
-                ? Colors.red.withOpacity(0.08)
-                : Colors.white.withOpacity(0.06),
+                ? Colors.red.withValues(alpha: 0.08)
+                : Colors.white.withValues(alpha: 0.06),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -1442,7 +1442,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
               borderSide: BorderSide(
                 color: _bioHasError
                     ? YaaroColors.rose
-                    : YaaroColors.rose.withOpacity(0.8),
+                    : YaaroColors.rose.withValues(alpha: 0.8),
                 width: 2.0,
               ),
             ),
@@ -1518,8 +1518,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: _coreProfileHasError
-              ? Colors.red.withOpacity(0.08)
-              : Colors.white.withOpacity(0.04),
+              ? Colors.red.withValues(alpha: 0.08)
+              : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: _coreProfileHasError ? YaaroColors.rose : Colors.white12,
@@ -1542,8 +1542,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   color: YaaroColors.isDarkFor(context)
-                      ? Colors.white.withOpacity(0.06)
-                      : Colors.black.withOpacity(0.04),
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : Colors.black.withValues(alpha: 0.04),
                   border: Border.all(color: YaaroColors.lineFor(context)),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -2044,8 +2044,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: YaaroColors.isDarkFor(context)
-              ? Colors.white.withOpacity(0.06)
-              : Colors.black.withOpacity(0.04),
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.04),
           border: Border.all(color: YaaroColors.lineFor(context)),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -2091,7 +2091,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       context: context,
       barrierDismissible: true,
       barrierLabel: label,
-      barrierColor: Colors.black.withOpacity(0.35),
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       transitionDuration: const Duration(milliseconds: 180),
       pageBuilder: (context, animation, secondaryAnimation) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -2204,7 +2204,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
         return ChoiceChip(
           label: Text(item),
           selected: isSelected,
-          selectedColor: YaaroColors.rose.withOpacity(0.24),
+          selectedColor: YaaroColors.rose.withValues(alpha: 0.24),
           onSelected: (_) {
             final next = List<String>.from(selectedList);
             if (isSelected) {

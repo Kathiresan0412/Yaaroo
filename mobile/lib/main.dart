@@ -12,7 +12,6 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:app_links/app_links.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:appinio_swiper/appinio_swiper.dart';
-
 import 'firebase_options.dart';
 import 'core/api_client.dart';
 import 'core/secure_storage.dart';
@@ -309,8 +308,8 @@ class YaaroColors {
       isDarkFor(context) ? const Color(0x2EFFFFFF) : const Color(0x1F000000);
 
   static Color panelFor(BuildContext context) => isDarkFor(context)
-      ? surface.withOpacity(0.88)
-      : Colors.white.withOpacity(0.92);
+      ? surface.withValues(alpha: 0.88)
+      : Colors.white.withValues(alpha: 0.92);
 
   static Color surfaceAltFor(BuildContext context) =>
       isDarkFor(context) ? surfaceAlt : const Color(0xFFF3F4F6);
@@ -916,9 +915,9 @@ class _AppShellState extends State<AppShell> {
             selectedIndex: _tab,
             height: 70,
             backgroundColor: isDark
-                ? YaaroColors.surface.withOpacity(0.94)
-                : Colors.white.withOpacity(0.94),
-            indicatorColor: YaaroColors.rose.withOpacity(0.22),
+                ? YaaroColors.surface.withValues(alpha: 0.94)
+                : Colors.white.withValues(alpha: 0.94),
+            indicatorColor: YaaroColors.rose.withValues(alpha: 0.22),
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             onDestinationSelected: (index) => setState(() => _tab = index),
             destinations: const [
@@ -1215,7 +1214,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     width: 76,
                     height: 76,
                     decoration: BoxDecoration(
-                      color: YaaroColors.rose.withOpacity(0.18),
+                      color: YaaroColors.rose.withValues(alpha: 0.18),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.favorite,
@@ -1473,11 +1472,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   ),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
-                    const Icon(Icons.map, color: Colors.white, size: 28),
-                    const SizedBox(width: 12),
-                    const Expanded(
+                    Icon(Icons.map, color: Colors.white, size: 28),
+                    SizedBox(width: 12),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1500,7 +1499,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ],
                       ),
                     ),
-                    const Icon(Icons.arrow_forward_ios,
+                    Icon(Icons.arrow_forward_ios,
                         color: Colors.white70, size: 16),
                   ],
                 ),
@@ -1605,7 +1604,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     (goal) => ChoiceChip(
                       label: Text(goal),
                       selected: goal == _activeGoal,
-                      selectedColor: YaaroColors.rose.withOpacity(0.26),
+                      selectedColor: YaaroColors.rose.withValues(alpha: 0.26),
                       onSelected: (_) => _loadByGoal(goal),
                     ),
                   )
@@ -1653,7 +1652,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         .map((answer) => ChoiceChip(
                               label: Text(answer),
                               selected: answer == _vibeQuestion?.answer,
-                              selectedColor: YaaroColors.teal.withOpacity(0.24),
+                              selectedColor:
+                                  YaaroColors.teal.withValues(alpha: 0.24),
                               onSelected: (_) => _answerVibe(answer),
                             ))
                         .toList(),
@@ -2331,9 +2331,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                           begin: Alignment.topCenter,
                                           end: Alignment.bottomCenter,
                                           colors: [
-                                            Colors.black.withOpacity(0.05),
-                                            Colors.black.withOpacity(0.05),
-                                            Colors.black.withOpacity(0.65),
+                                            Colors.black
+                                                .withValues(alpha: 0.05),
+                                            Colors.black
+                                                .withValues(alpha: 0.05),
+                                            Colors.black
+                                                .withValues(alpha: 0.65),
                                           ],
                                         ),
                                       ),
@@ -2359,7 +2362,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                               color: idx == photoIndex
                                                   ? YaaroColors.rose
                                                   : Colors.white
-                                                      .withOpacity(0.4),
+                                                      .withValues(alpha: 0.4),
                                             ),
                                           ),
                                         ),
@@ -2421,7 +2424,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                                 color: YaaroColors.teal,
                                                 width: 2.5),
                                             color: YaaroColors.teal
-                                                .withOpacity(0.08),
+                                                .withValues(alpha: 0.08),
                                           ),
                                           child: Center(
                                             child: Text(
@@ -2443,10 +2446,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                             horizontal: 10, vertical: 5),
                                         decoration: BoxDecoration(
                                           color: YaaroColors.teal
-                                              .withOpacity(0.12),
+                                              .withValues(alpha: 0.12),
                                           border: Border.all(
                                               color: YaaroColors.teal
-                                                  .withOpacity(0.24)),
+                                                  .withValues(alpha: 0.24)),
                                           borderRadius:
                                               BorderRadius.circular(20),
                                         ),
@@ -2511,7 +2514,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 16),
-                              color: YaaroColors.surface.withOpacity(0.96),
+                              color:
+                                  YaaroColors.surface.withValues(alpha: 0.96),
                               child: Row(
                                 children: [
                                   _profileActionIcon(
@@ -2672,8 +2676,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                   decoration: BoxDecoration(
                     color: YaaroColors.isDarkFor(context)
-                        ? Colors.white.withOpacity(0.035)
-                        : Colors.black.withOpacity(0.035),
+                        ? Colors.white.withValues(alpha: 0.035)
+                        : Colors.black.withValues(alpha: 0.035),
                     border: Border.all(color: YaaroColors.lineFor(context)),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -2802,8 +2806,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   hintText: 'Describe the issue...',
                   filled: true,
                   fillColor: YaaroColors.isDarkFor(context)
-                      ? Colors.white.withOpacity(0.06)
-                      : Colors.black.withOpacity(0.04),
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : Colors.black.withValues(alpha: 0.04),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8)),
                 ),
@@ -2869,8 +2873,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                         margin: const EdgeInsets.symmetric(vertical: 15),
                         decoration: BoxDecoration(
                           color: YaaroColors.isDarkFor(context)
-                              ? Colors.white.withOpacity(0.04)
-                              : Colors.black.withOpacity(0.04),
+                              ? Colors.white.withValues(alpha: 0.04)
+                              : Colors.black.withValues(alpha: 0.04),
                           borderRadius: BorderRadius.circular(8),
                           border:
                               Border.all(color: YaaroColors.lineFor(context)),
@@ -2878,7 +2882,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                         child: Center(
                           child: Icon(Icons.person,
                               color: YaaroColors.mutedFor(context)
-                                  .withOpacity(0.3),
+                                  .withValues(alpha: 0.3),
                               size: 36),
                         ),
                       )),
@@ -2887,7 +2891,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                 child: Container(
-                  color: Colors.black.withOpacity(0.45),
+                  color: Colors.black.withValues(alpha: 0.45),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -3714,10 +3718,11 @@ class _MembershipScreenState extends State<MembershipScreen>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: YaaroColors.teal.withOpacity(0.16),
+                              color: YaaroColors.teal.withValues(alpha: 0.16),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                  color: YaaroColors.teal.withOpacity(0.34)),
+                                  color:
+                                      YaaroColors.teal.withValues(alpha: 0.34)),
                             ),
                             child: const Text(
                               'Active',
@@ -3757,8 +3762,8 @@ class _MembershipScreenState extends State<MembershipScreen>
                 final busy = _busyTier == plan.tier;
                 final isDark = Theme.of(context).brightness == Brightness.dark;
                 final cardColor = isDark
-                    ? YaaroColors.surface.withOpacity(0.94)
-                    : Colors.white.withOpacity(0.94);
+                    ? YaaroColors.surface.withValues(alpha: 0.94)
+                    : Colors.white.withValues(alpha: 0.94);
                 final cardBorderColor = plan.highlighted
                     ? YaaroColors.rose
                     : YaaroColors.lineFor(context);
@@ -3827,8 +3832,8 @@ class _MembershipScreenState extends State<MembershipScreen>
                                 : YaaroColors.teal,
                             foregroundColor: Colors.white,
                             disabledBackgroundColor: isDark
-                                ? Colors.white.withOpacity(0.10)
-                                : Colors.black.withOpacity(0.06),
+                                ? Colors.white.withValues(alpha: 0.10)
+                                : Colors.black.withValues(alpha: 0.06),
                             disabledForegroundColor:
                                 YaaroColors.mutedFor(context),
                             minimumSize: const Size.fromHeight(48),
@@ -3965,12 +3970,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            YaaroColors.rose.withOpacity(0.15),
+            YaaroColors.rose.withValues(alpha: 0.15),
             YaaroColors.surfaceAltFor(context),
           ],
         ),
         border: Border.all(
-          color: YaaroColors.rose.withOpacity(0.3),
+          color: YaaroColors.rose.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -3990,7 +3995,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: YaaroColors.rose.withOpacity(0.3),
+                        color: YaaroColors.rose.withValues(alpha: 0.3),
                         blurRadius: 20,
                         spreadRadius: 2,
                       ),
@@ -4290,8 +4295,8 @@ class _QuickActionCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          color: color.withOpacity(0.1),
-          border: Border.all(color: color.withOpacity(0.3)),
+          color: color.withValues(alpha: 0.1),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           children: [
@@ -4383,7 +4388,7 @@ class _SocialAccountTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: YaaroColors.teal.withOpacity(0.15),
+                color: YaaroColors.teal.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Row(
@@ -4458,7 +4463,7 @@ class _SettingsTile extends StatelessWidget {
               height: 40,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
-                color: YaaroColors.rose.withOpacity(0.1),
+                color: YaaroColors.rose.withValues(alpha: 0.1),
               ),
               child: Icon(icon, color: YaaroColors.rose, size: 20),
             ),
@@ -4510,7 +4515,7 @@ class ProfileCard extends StatelessWidget {
           border: Border.all(color: YaaroColors.line),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.42),
+              color: Colors.black.withValues(alpha: 0.42),
               blurRadius: 38,
               offset: const Offset(0, 24),
             ),
@@ -4532,9 +4537,9 @@ class ProfileCard extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.08),
-                    Colors.black.withOpacity(0.08),
-                    Colors.black.withOpacity(0.84),
+                    Colors.black.withValues(alpha: 0.08),
+                    Colors.black.withValues(alpha: 0.08),
+                    Colors.black.withValues(alpha: 0.84),
                   ],
                 ),
               ),
@@ -4572,7 +4577,7 @@ class ProfileCard extends StatelessWidget {
                       color: Colors.white,
                       shadows: [
                         Shadow(
-                          color: Colors.black.withOpacity(0.7),
+                          color: Colors.black.withValues(alpha: 0.7),
                           blurRadius: 6,
                         ),
                       ],
@@ -4581,10 +4586,10 @@ class ProfileCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(profile.location,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                         shadows: [
                           Shadow(
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black.withValues(alpha: 0.6),
                             blurRadius: 4,
                           ),
                         ],
@@ -4597,7 +4602,7 @@ class ProfileCard extends StatelessWidget {
                         color: Colors.white,
                         shadows: [
                           Shadow(
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black.withValues(alpha: 0.6),
                             blurRadius: 4,
                           ),
                         ],
@@ -5178,16 +5183,17 @@ class AppTextField extends StatelessWidget {
           fontSize: 14,
         ),
         floatingLabelStyle: TextStyle(
-          color:
-              hasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.9),
+          color: hasError
+              ? YaaroColors.rose
+              : YaaroColors.rose.withValues(alpha: 0.9),
           fontWeight: FontWeight.bold,
         ),
         filled: true,
         fillColor: hasError
-            ? Colors.red.withOpacity(0.08)
+            ? Colors.red.withValues(alpha: 0.08)
             : (isDark
-                ? Colors.white.withOpacity(0.045)
-                : Colors.black.withOpacity(0.035)),
+                ? Colors.white.withValues(alpha: 0.045)
+                : Colors.black.withValues(alpha: 0.035)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
@@ -5204,8 +5210,9 @@ class AppTextField extends StatelessWidget {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
-            color:
-                hasError ? YaaroColors.rose : YaaroColors.rose.withOpacity(0.9),
+            color: hasError
+                ? YaaroColors.rose
+                : YaaroColors.rose.withValues(alpha: 0.9),
             width: 2.0,
           ),
         ),
@@ -5234,7 +5241,7 @@ class StatusPill extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.4),
+              color: Colors.black.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(99),
             ),
             child: Text(
@@ -5255,9 +5262,10 @@ class StatusPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: effectiveColor.withOpacity(
-            effectiveColor == Colors.white || color == null ? 0.11 : 0.18),
-        border: Border.all(color: effectiveColor.withOpacity(0.18)),
+        color: effectiveColor.withValues(
+            alpha:
+                effectiveColor == Colors.white || color == null ? 0.11 : 0.18),
+        border: Border.all(color: effectiveColor.withValues(alpha: 0.18)),
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
@@ -5288,7 +5296,7 @@ class RoundAction extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: onPressed == null
-          ? YaaroColors.panelFor(context).withOpacity(0.45)
+          ? YaaroColors.panelFor(context).withValues(alpha: 0.45)
           : (isDark ? YaaroColors.surface : Colors.white),
       shape: const CircleBorder(),
       child: InkWell(
@@ -5320,7 +5328,7 @@ class TagChip extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.35),
+              color: Colors.black.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(99),
             ),
             child: Text(label,
@@ -5338,8 +5346,8 @@ class TagChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withOpacity(0.12)
-            : Colors.black.withOpacity(0.06),
+            ? Colors.white.withValues(alpha: 0.12)
+            : Colors.black.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(label,
@@ -5465,21 +5473,21 @@ BoxDecoration panelDecoration([BuildContext? context]) {
   return BoxDecoration(
     color: context == null
         ? (isDark
-            ? YaaroColors.surface.withOpacity(0.88)
-            : Colors.white.withOpacity(0.92))
+            ? YaaroColors.surface.withValues(alpha: 0.88)
+            : Colors.white.withValues(alpha: 0.92))
         : YaaroColors.panelFor(context),
     border: Border.all(
         color: context == null
             ? (isDark
                 ? const Color(0x2EFFFFFF)
-                : Colors.black.withOpacity(0.08))
+                : Colors.black.withValues(alpha: 0.08))
             : YaaroColors.lineFor(context)),
     borderRadius: BorderRadius.circular(8),
     boxShadow: isDark
         ? null
         : [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -5703,17 +5711,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                             panelDecoration(context).copyWith(
                                           color: read
                                               ? YaaroColors.panelFor(context)
-                                                  .withOpacity(
-                                                      isDark ? 0.55 : 0.9)
+                                                  .withValues(
+                                                      alpha:
+                                                          isDark ? 0.55 : 0.9)
                                               : YaaroColors.surfaceAltFor(
                                                       context)
-                                                  .withOpacity(
-                                                      isDark ? 0.95 : 1),
+                                                  .withValues(
+                                                      alpha: isDark ? 0.95 : 1),
                                           border: Border.all(
                                             color: read
                                                 ? YaaroColors.lineFor(context)
                                                 : YaaroColors.rose
-                                                    .withOpacity(0.4),
+                                                    .withValues(alpha: 0.4),
                                           ),
                                         ),
                                         child: Row(
@@ -5723,8 +5732,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                             Container(
                                               padding: const EdgeInsets.all(8),
                                               decoration: BoxDecoration(
-                                                color:
-                                                    iconColor.withOpacity(0.12),
+                                                color: iconColor.withValues(
+                                                    alpha: 0.12),
                                                 shape: BoxShape.circle,
                                               ),
                                               child: Icon(
@@ -5791,7 +5800,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                           ? YaaroColors
                                                                   .mutedFor(
                                                                       context)
-                                                              .withOpacity(0.6)
+                                                              .withValues(
+                                                                  alpha: 0.6)
                                                           : YaaroColors
                                                               .mutedFor(
                                                                   context),
@@ -6226,7 +6236,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.5),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (_) => _PasswordSheet(
         hasPassword: _hasPassword,
         api: YaaroScope.of(context),
@@ -6262,7 +6272,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
           decoration: BoxDecoration(
             color: isActive
-                ? YaaroColors.rose.withOpacity(0.08)
+                ? YaaroColors.rose.withValues(alpha: 0.08)
                 : YaaroColors.surfaceAltFor(context),
             border: Border.all(
               color: isActive ? YaaroColors.rose : YaaroColors.lineFor(context),
@@ -6321,10 +6331,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         value: value,
         onChanged: onChanged,
-        activeColor: Colors.white,
+        activeThumbColor: Colors.white,
         activeTrackColor: YaaroColors.rose,
         inactiveThumbColor: Colors.grey.shade400,
-        inactiveTrackColor: Colors.grey.shade700.withOpacity(0.3),
+        inactiveTrackColor: Colors.grey.shade700.withValues(alpha: 0.3),
         contentPadding: EdgeInsets.zero,
       ),
     );
@@ -6468,7 +6478,8 @@ class _PasswordSheetState extends State<_PasswordSheet> {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-          border: Border.all(color: Colors.white.withOpacity(0.12), width: 1.2),
+          border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12), width: 1.2),
         ),
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
@@ -6542,8 +6553,8 @@ class _PasswordSheetState extends State<_PasswordSheet> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: _isSuccess
-                            ? YaaroColors.teal.withOpacity(0.12)
-                            : YaaroColors.rose.withOpacity(0.12),
+                            ? YaaroColors.teal.withValues(alpha: 0.12)
+                            : YaaroColors.rose.withValues(alpha: 0.12),
                         border: Border.all(
                           color:
                               _isSuccess ? YaaroColors.teal : YaaroColors.rose,
@@ -6606,7 +6617,8 @@ class _PasswordSheetState extends State<_PasswordSheet> {
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFFF2D79).withOpacity(0.35),
+                          color:
+                              const Color(0xFFFF2D79).withValues(alpha: 0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 5),
                         ),
@@ -6672,15 +6684,15 @@ class _PasswordSheetState extends State<_PasswordSheet> {
         floatingLabelStyle: const TextStyle(
             color: YaaroColors.rose, fontWeight: FontWeight.bold),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.045),
+        fillColor: Colors.white.withValues(alpha: 0.045),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide:
-              BorderSide(color: Colors.white.withOpacity(0.12), width: 1.2),
+          borderSide: BorderSide(
+              color: Colors.white.withValues(alpha: 0.12), width: 1.2),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -6762,9 +6774,9 @@ class _PasswordSheetState extends State<_PasswordSheet> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -6978,7 +6990,7 @@ class _ExploreCategoryDetailScreenState
                   return ChoiceChip(
                     label: Text(goal),
                     selected: isSelected,
-                    selectedColor: YaaroColors.rose.withOpacity(0.26),
+                    selectedColor: YaaroColors.rose.withValues(alpha: 0.26),
                     onSelected: (selected) {
                       setState(() {
                         _activeGoal = selected ? goal : '';
@@ -7043,7 +7055,7 @@ class _ExploreCategoryDetailScreenState
                                   label: Text(answer),
                                   selected: answer == _vibeQuestion!.answer,
                                   selectedColor:
-                                      YaaroColors.teal.withOpacity(0.24),
+                                      YaaroColors.teal.withValues(alpha: 0.24),
                                   onSelected: (_) => _answerVibe(answer),
                                 ))
                             .toList(),

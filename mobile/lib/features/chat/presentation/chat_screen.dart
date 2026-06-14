@@ -41,11 +41,11 @@ Color _bubbleTextColor(BuildContext context, {required bool isMine}) {
 Color _deletedBubbleBorder(BuildContext context) =>
     YaaroColors.isDarkFor(context) ? Colors.white12 : Colors.black12;
 Color _deletedBubbleBg(BuildContext context) => YaaroColors.isDarkFor(context)
-    ? Colors.white.withOpacity(0.04)
-    : Colors.black.withOpacity(0.04);
+    ? Colors.white.withValues(alpha: 0.04)
+    : Colors.black.withValues(alpha: 0.04);
 Color _reactionBadgeBg(BuildContext context) => YaaroColors.isDarkFor(context)
     ? Colors.black26
-    : Colors.black.withOpacity(0.06);
+    : Colors.black.withValues(alpha: 0.06);
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
@@ -290,7 +290,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _mergeAndSortMessages(List<ChatMessage> incoming) {
     final map = <String, ChatMessage>{};
-    for (final m in _messages) map[m.id] = m;
+    for (final m in _messages) {
+      map[m.id] = m;
+    }
     for (final m in incoming) {
       if (m.isMine) {
         String? pendingId;
@@ -416,12 +418,14 @@ class _ChatScreenState extends State<ChatScreen> {
       if (_socketEverConnected && mounted) setState(() => _isOnline = false);
     });
     _socket!.onConnectError((_) {
-      if (_socketEverConnected && mounted)
+      if (_socketEverConnected && mounted) {
         setState(() => _notice = 'Chat connection lost – reconnecting…');
+      }
     });
     _socket!.onError((_) {
-      if (_socketEverConnected && mounted)
+      if (_socketEverConnected && mounted) {
         setState(() => _notice = 'Chat connection lost – reconnecting…');
+      }
     });
     void handleMsg(dynamic data) {
       if (data is Map) {
@@ -503,15 +507,17 @@ class _ChatScreenState extends State<ChatScreen> {
     _socket!.on('typing_start', (data) {
       if (data is Map) {
         final evMatchId = data['matchId']?.toString();
-        if (evMatchId == widget.matchId || evMatchId == _realMatchId)
+        if (evMatchId == widget.matchId || evMatchId == _realMatchId) {
           setState(() => _isOtherTyping = true);
+        }
       }
     });
     _socket!.on('typing_stop', (data) {
       if (data is Map) {
         final evMatchId = data['matchId']?.toString();
-        if (evMatchId == widget.matchId || evMatchId == _realMatchId)
+        if (evMatchId == widget.matchId || evMatchId == _realMatchId) {
           setState(() => _isOtherTyping = false);
+        }
       }
     });
     _socket!.connect();
@@ -675,9 +681,10 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() => _notice = e.toString());
       if (tempId != null) {
         final idx = _messages.indexWhere((m) => m.id == tempId);
-        if (idx != -1)
+        if (idx != -1) {
           _replaceMessage(
               tempId, _messages[idx].copyWith(deliveryStatus: 'failed'));
+        }
       }
     }
   }
@@ -985,7 +992,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final selectedMsg = _selectedMessageId != null
         ? _messages.firstWhere((m) => m.id == _selectedMessageId,
-            orElse: () => ChatMessage(
+            orElse: () => const ChatMessage(
                 id: '',
                 matchId: '',
                 senderId: '',
@@ -998,7 +1005,7 @@ class _ChatScreenState extends State<ChatScreen> {
         : null;
     final lastMineRead = _messages.firstWhere(
       (m) => m.isMine && m.isRead,
-      orElse: () => ChatMessage(
+      orElse: () => const ChatMessage(
           id: '',
           matchId: '',
           senderId: '',
@@ -1065,7 +1072,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             child: BackdropFilter(
                               filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
                               child: Container(
-                                color: Colors.black.withOpacity(0.25),
+                                color: Colors.black.withValues(alpha: 0.25),
                                 child: const Center(
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
@@ -1201,7 +1208,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      color: YaaroColors.saffron.withOpacity(0.18),
+      color: YaaroColors.saffron.withValues(alpha: 0.18),
       child: Row(
         children: [
           Expanded(
@@ -1253,7 +1260,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         width: 56,
                         height: 56,
                         decoration: BoxDecoration(
-                          color: item.color.withOpacity(0.15),
+                          color: item.color.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(item.icon, color: item.color, size: 28),
@@ -1341,7 +1348,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: YaaroColors.rose.withOpacity(0.15),
+                    color: YaaroColors.rose.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.mic_rounded, color: YaaroColors.rose),
