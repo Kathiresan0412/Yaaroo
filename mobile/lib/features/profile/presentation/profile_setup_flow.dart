@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../auth/providers/auth_providers.dart';
 import '../data/storage_service.dart';
+import '../providers/profile_providers.dart';
 
 /// Preset interest options available for user selection (22 items).
 const List<String> kPresetInterests = [
@@ -180,10 +181,7 @@ class _ProfileSetupFlowState extends ConsumerState<ProfileSetupFlow> {
   }
 
   bool _validateStep2() {
-    if (_photoUrls.isEmpty) {
-      setState(() => _step2Error = 'Please add at least 1 photo.');
-      return false;
-    }
+    // Photos are optional — user can skip this step
     if (_photoUrls.length > 6) {
       setState(() => _step2Error = 'Maximum 6 photos allowed.');
       return false;
@@ -350,8 +348,15 @@ class _ProfileSetupFlowState extends ConsumerState<ProfileSetupFlow> {
 
       await _clearPersistedData();
 
+      // Invalidate the profile provider so the auth gate re-evaluates
+      ref.invalidate(userProfileProvider(user.uid));
+
       // The auth gate will automatically route to HomeScreen once the
       // profile provider detects the complete profile.
+      // Reset saving state in case routing takes a moment.
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     } catch (e) {
       setState(() {
         _step5Error = 'Failed to save profile: ${e.toString()}';
@@ -609,7 +614,7 @@ class _ProfileSetupFlowState extends ConsumerState<ProfileSetupFlow> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Add at least 1 photo (max 6).',
+          'Add up to 6 photos (optional).',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.grey.shade600,
               ),

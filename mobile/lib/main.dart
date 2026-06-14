@@ -4,8 +4,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'core/firebase_init.dart';
+import 'core/services/api_service.dart';
 import 'features/auth/presentation/auth_gate.dart';
 
 Future<void> main() async {
@@ -27,6 +27,9 @@ Future<void> main() async {
     );
     return;
   }
+
+  // Load stored backend API tokens
+  await ApiService.instance.loadTokens();
 
   runApp(
     const ProviderScope(

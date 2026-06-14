@@ -4,8 +4,9 @@ service cloud.firestore {
     // User documents
     match /users/{uid} {
       allow read: if request.auth != null;
-      allow write: if request.auth.uid == uid
-                   && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'createdAt']);
+      allow create: if request.auth.uid == uid;
+      allow update: if request.auth.uid == uid
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'createdAt']);
     }
 
     // Like/dislike documents

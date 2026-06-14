@@ -1,1 +1,11 @@
-Target file "2" not found.
+Found 2 connected devices:
+  sdk gphone64 arm64 (mobile) • emulator-5554 • android-arm64 • Android 14 (API 34) (emulator)
+  macOS (desktop)             • macos         • darwin-arm64  • macOS 26.5.1 25F80 darwin-arm64
+
+Checking for wireless devices...
+
+No wireless devices were found.
+
+Run "flutter emulators" to list and start any available device emulators.
+
+If you expected another device to be detected, please run "flutter doctor" to diagnose potential issues. You may also try increasing the time to wait for connected devices with the "--device-timeout" flag. Visit https://flutter.dev/setup/ for troubleshooting tips.

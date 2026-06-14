@@ -81,7 +81,7 @@ bool isProfileComplete(UserProfile profile) {
   if (profile.name.trim().isEmpty) return false;
   if (profile.age <= 0) return false;
   if (profile.gender.trim().isEmpty) return false;
-  if (profile.photos.isEmpty) return false;
+  // Photos are optional — no longer required for profile completion
   if (profile.interests.isEmpty) return false;
   return true;
 }

@@ -61,6 +61,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await authService.signInWithGoogle();
       // Auth state listener handles navigation
     } on AuthException catch (e) {
+      if (!mounted) return;
       if (e.code == 'sign-in-cancelled') {
         // User cancelled — no error shown
         setState(() => _isLoading = false);
@@ -68,6 +69,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       _setError(e.message);
     } catch (e) {
+      if (!mounted) return;
       _setError('Sign-in failed. Please try again.');
     }
   }
@@ -88,14 +90,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.sendOtp(phone);
+      if (!mounted) return;
       setState(() {
         _showOtpInput = true;
         _verificationId = authService.lastVerificationId;
         _isLoading = false;
       });
     } on AuthException catch (e) {
+      if (!mounted) return;
       _setError(e.message);
     } catch (e) {
+      if (!mounted) return;
       _setError('Failed to send OTP. Please try again.');
     }
   }
@@ -120,8 +125,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await authService.verifyOtp(_verificationId!, otp);
       // Auth state listener handles navigation
     } on AuthException catch (e) {
+      if (!mounted) return;
       _setError(e.message);
     } catch (e) {
+      if (!mounted) return;
       _setError('Verification failed. Please try again.');
     }
   }
@@ -150,8 +157,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       // Auth state listener handles navigation
     } on AuthException catch (e) {
+      if (!mounted) return;
       _setError(e.message);
     } catch (e) {
+      if (!mounted) return;
       _setError('Authentication failed. Please try again.');
     }
   }
@@ -169,18 +178,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.sendPasswordResetEmail(email);
+      if (!mounted) return;
       setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'If an account exists with this email, a reset link has been sent.'),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'If an account exists with this email, a reset link has been sent.'),
+        ),
+      );
     } on AuthException catch (e) {
+      if (!mounted) return;
       _setError(e.message);
     } catch (e) {
+      if (!mounted) return;
       _setError('Failed to send reset email.');
     }
   }

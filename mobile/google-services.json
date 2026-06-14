@@ -12,7 +12,20 @@
           "package_name": "com.yaaro0.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "859294608296-9mfjj5deplgvsss9o8v6bd57uhmg8rec.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.yaaro0.app",
+            "certificate_hash": "90ec1fa3e4acd254aa34b4645e7f952c789eb7d7"
+          }
+        },
+        {
+          "client_id": "859294608296-q8hk4lpurs4oo7bunnqqqmguua5fh59n.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyByl92rvbFYFcVCNWGIRhbKRJ3ZeWDGMnQ"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "859294608296-q8hk4lpurs4oo7bunnqqqmguua5fh59n.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

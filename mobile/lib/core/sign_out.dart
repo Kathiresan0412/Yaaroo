@@ -8,6 +8,7 @@ import '../features/favorites/providers/favorites_providers.dart';
 import '../features/matches/providers/match_providers.dart';
 import '../features/notifications/providers/notification_providers.dart';
 import '../features/swipe/presentation/swipe_screen.dart';
+import 'services/api_service.dart';
 
 /// Centralized sign-out function that:
 /// 1. Calls [FirebaseAuth.instance.signOut()] to clear the Firebase session
@@ -27,10 +28,13 @@ import '../features/swipe/presentation/swipe_screen.dart';
 /// await signOutAndResetProviders(ref);
 /// ```
 Future<void> signOutAndResetProviders(dynamic refOrContainer) async {
-  // 1. Sign out from Firebase Auth
+  // 1. Clear backend API tokens
+  await ApiService.instance.clearTokens();
+
+  // 2. Sign out from Firebase Auth
   await FirebaseAuth.instance.signOut();
 
-  // 2. Invalidate all user-specific providers to reset them to initial state
+  // 3. Invalidate all user-specific providers to reset them to initial state
   if (refOrContainer is WidgetRef) {
     _invalidateAll(refOrContainer);
   } else if (refOrContainer is Ref) {

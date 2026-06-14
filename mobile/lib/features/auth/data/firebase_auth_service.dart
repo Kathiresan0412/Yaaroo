@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../../core/services/api_service.dart';
+
 /// Exception thrown when authentication operations fail.
 class AuthException implements Exception {
   const AuthException(this.message, {this.code});
@@ -61,7 +63,11 @@ class FirebaseAuthServiceImpl implements FirebaseAuthService {
     GoogleSignIn? googleSignIn,
   })  : _auth = firebaseAuth ?? FirebaseAuth.instance,
         _firestore = firestore ?? FirebaseFirestore.instance,
-        _googleSignIn = googleSignIn ?? GoogleSignIn();
+        _googleSignIn = googleSignIn ??
+            GoogleSignIn(
+              serverClientId:
+                  '859294608296-q8hk4lpurs4oo7bunnqqqmguua5fh59n.apps.googleusercontent.com',
+            );
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
@@ -217,6 +223,9 @@ class FirebaseAuthServiceImpl implements FirebaseAuthService {
       // Check if this is a new user and create User_Document if needed
       await _ensureUserDocument(userCredential);
 
+      // Sync with backend
+      await _syncWithBackend();
+
       // Reset attempts on successful verification
       _verificationAttempts = 0;
 
@@ -271,6 +280,9 @@ class FirebaseAuthServiceImpl implements FirebaseAuthService {
       // Ensure User_Document exists for this Google-authenticated user
       await _ensureGoogleUserDocument(userCredential);
 
+      // Sync with backend
+      await _syncWithBackend();
+
       return userCredential;
     } on AuthException {
       rethrow;
@@ -286,6 +298,7 @@ class FirebaseAuthServiceImpl implements FirebaseAuthService {
         code: e.code,
       );
     } catch (e) {
+      if (e is AuthException) rethrow;
       // Handle network errors and other unexpected failures
       if (e.toString().contains('network') ||
           e.toString().contains('SocketException') ||
@@ -350,6 +363,9 @@ class FirebaseAuthServiceImpl implements FirebaseAuthService {
       // Create User_Document for new email-authenticated user
       await _ensureUserDocumentForEmail(userCredential);
 
+      // Sync with backend
+      await _syncWithBackend();
+
       return userCredential;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'email-already-in-use') {
@@ -375,6 +391,10 @@ class FirebaseAuthServiceImpl implements FirebaseAuthService {
         email: email,
         password: password,
       );
+
+      // Sync with backend
+      await _syncWithBackend();
+
       return userCredential;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'wrong-password' ||
@@ -441,8 +461,38 @@ class FirebaseAuthServiceImpl implements FirebaseAuthService {
   @override
   User? get currentUser => _auth.currentUser;
 
+  /// Syncs the current Firebase user with the backend by sending the Firebase
+  /// ID token. The backend verifies it, finds or creates the user in PostgreSQL,
+  /// and returns a backend JWT for subsequent API calls.
+  ///
+  /// This is called after every successful Firebase sign-in/register.
+  /// Failures here are non-fatal — the user is still authenticated via Firebase,
+  /// but backend features (matching, messaging, etc.) won't work until synced.
+  Future<void> _syncWithBackend() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final idToken = await user.getIdToken();
+      if (idToken == null || idToken.isEmpty) return;
+
+      final result =
+          await ApiService.instance.authenticateWithFirebaseToken(idToken);
+
+      if (result['success'] != true) {
+        // Log but don't throw — Firebase auth succeeded, backend sync can retry
+        print('[Auth] Backend sync failed: ${result['message']}');
+      }
+    } catch (e) {
+      // Non-fatal: backend sync can be retried on next app launch
+      print('[Auth] Backend sync error: $e');
+    }
+  }
+
   @override
   Future<void> signOut() async {
+    // Clear backend tokens
+    await ApiService.instance.clearTokens();
     await _googleSignIn.signOut();
     await _auth.signOut();
     resetVerificationAttempts();
