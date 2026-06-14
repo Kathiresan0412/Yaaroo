@@ -1,0 +1,4 @@
+  Using a naked argument for directory is deprecated and will stop working in a future Flutter release.
+
+  Use --directory instead.
+Expected to find project root in 2.

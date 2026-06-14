@@ -477,6 +477,33 @@ class ApiClient {
     return _profilesFromPayload(payload);
   }
 
+  /// Fetch nearby users with location coordinates for the map.
+  Future<List<Map<String, dynamic>>> nearbyForMap({
+    required double lat,
+    required double lng,
+  }) async {
+    final response = await _request(
+      'GET',
+      '/api/discover/nearby?lat=$lat&lng=$lng',
+    );
+    final payload = await _decode(response);
+    if (payload['users'] is List) {
+      return (payload['users'] as List).cast<Map<String, dynamic>>();
+    }
+    if (payload['profiles'] is List) {
+      return (payload['profiles'] as List).cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  /// Register FCM device token for push notifications.
+  Future<void> registerDeviceToken(String fcmToken, String platform) async {
+    await _request('POST', '/api/notifications/register-device', body: {
+      'fcmToken': fcmToken,
+      'platform': platform,
+    });
+  }
+
   Future<List<DiscoveryProfile>> exploreByGoal(String goal) async {
     final response = await _request(
         'GET', '/api/explore/by-goal/${Uri.encodeComponent(goal)}');

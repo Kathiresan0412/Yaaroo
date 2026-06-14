@@ -420,7 +420,7 @@ class _CinematicLandingScreenState extends State<CinematicLandingScreen>
               child: Transform.translate(
                 offset: Offset(0, ctaSlide),
                 child: _CTACard(
-                  onStart: widget.onCreateAccount,
+                  onStart: widget.onLogin,
                 ),
               ),
             ),

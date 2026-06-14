@@ -6,18 +6,22 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:app_links/app_links.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'firebase_options.dart';
 import 'core/api_client.dart';
 import 'core/secure_storage.dart';
 import 'core/services/chat_repository.dart';
+import 'core/services/push_notification_service.dart';
 import 'features/auth/presentation/auth_sheet.dart';
 import 'features/landing/presentation/cinematic_landing_screen.dart';
 import 'features/onboarding/presentation/onboarding_wizard.dart';
 import 'features/chat/presentation/chat_screen.dart';
+import 'features/map/presentation/people_map_screen.dart';
 
 const _dartDefineApiBaseUrl = String.fromEnvironment(
   'YAARO0_API_URL',
@@ -80,8 +84,31 @@ final _paymentDeepLink = ValueNotifier<String?>(null);
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env', isOptional: true);
+
+  // Initialize Firebase (guard against duplicate initialization on hot restart)
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
+  }
+
+  // Initialize push notifications
+  await PushNotificationService.instance.init();
+
   final api = ApiClient(apiBaseUrl);
   await api.init();
+
+  // Send FCM token to backend when available
+  PushNotificationService.instance.onTokenRefresh = (token) {
+    api.registerDeviceToken(token, Platform.isAndroid ? 'android' : 'ios');
+  };
+
+  // Send initial token if already available
+  final initialToken = PushNotificationService.instance.fcmToken;
+  if (initialToken != null) {
+    api.registerDeviceToken(
+        initialToken, Platform.isAndroid ? 'android' : 'ios');
+  }
+
   runApp(YaaroMobileApp(api: api));
 }
 
@@ -1381,6 +1408,59 @@ class _ExploreScreenState extends State<ExploreScreen> {
               'Browse shared interests, intent, nearby profiles, daily Vibes, and quick Hot Takes.',
               style:
                   TextStyle(color: YaaroColors.mutedFor(context), height: 1.35),
+            ),
+            const SizedBox(height: 14),
+            // Map shortcut card
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PeopleMapScreen(),
+                  ),
+                );
+              },
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF4F6D), Color(0xFFFF8A65)],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.map, color: Colors.white, size: 28),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'People Nearby',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'See who\'s around you on the map',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios,
+                        color: Colors.white70, size: 16),
+                  ],
+                ),
+              ),
             ),
             if (_message.isNotEmpty) ...[
               const SizedBox(height: 14),
