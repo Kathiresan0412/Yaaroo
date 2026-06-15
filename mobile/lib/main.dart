@@ -1318,6 +1318,138 @@ class ExploreScreen extends StatefulWidget {
   State<ExploreScreen> createState() => _ExploreScreenState();
 }
 
+class _SkeletonShimmer extends StatefulWidget {
+  const _SkeletonShimmer({
+    required this.width,
+    required this.height,
+    this.borderRadius = 8,
+  });
+
+  final double width;
+  final double height;
+  final double borderRadius;
+
+  @override
+  State<_SkeletonShimmer> createState() => _SkeletonShimmerState();
+}
+
+class _SkeletonShimmerState extends State<_SkeletonShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.05),
+                Colors.white.withValues(alpha: 0.12),
+                Colors.white.withValues(alpha: 0.05),
+              ],
+              stops: [
+                (_controller.value - 0.3).clamp(0.0, 1.0),
+                _controller.value,
+                (_controller.value + 0.3).clamp(0.0, 1.0),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CategoriesSkeletonGrid extends StatelessWidget {
+  const _CategoriesSkeletonGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 6,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 1.45,
+      ),
+      itemBuilder: (context, index) {
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: panelDecoration(context).copyWith(
+            border: Border.all(color: Colors.transparent),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SkeletonShimmer(width: 28, height: 28, borderRadius: 6),
+              const Spacer(),
+              _SkeletonShimmer(width: 80, height: 14, borderRadius: 4),
+              const SizedBox(height: 6),
+              _SkeletonShimmer(width: 50, height: 10, borderRadius: 4),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ProfileSkeletonTile extends StatelessWidget {
+  const _ProfileSkeletonTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: panelDecoration(context),
+      child: Row(
+        children: [
+          _SkeletonShimmer(width: 56, height: 56, borderRadius: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SkeletonShimmer(width: 120, height: 14, borderRadius: 4),
+                const SizedBox(height: 8),
+                _SkeletonShimmer(width: 80, height: 11, borderRadius: 4),
+              ],
+            ),
+          ),
+          _SkeletonShimmer(width: 32, height: 32, borderRadius: 16),
+        ],
+      ),
+    );
+  }
+}
+
 class _ExploreScreenState extends State<ExploreScreen> {
   List<ExploreCategory> _categories = const [];
   List<DiscoveryProfile> _profiles = const [];
@@ -1505,7 +1637,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ),
               ),
             ),
-            if (_message.isNotEmpty) ...[
+            if (_message.isNotEmpty && !_categoriesLoading) ...[
               const SizedBox(height: 14),
               StatusPill(text: _message),
             ],
@@ -1519,11 +1651,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         : _activeInterestLabel),
             const SizedBox(height: 10),
             if (_categoriesLoading)
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: panelDecoration(context),
-                child: const Center(child: CircularProgressIndicator()),
-              )
+              const _CategoriesSkeletonGrid()
             else if (_categories.isEmpty)
               Container(
                 padding: const EdgeInsets.all(16),
@@ -1611,17 +1739,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   .toList(),
             ),
             const SizedBox(height: 14),
-            ..._profiles.map(
-              (profile) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: CompactProfileTile(
-                  profile: profile,
-                  onPass: () => _decide(profile, SwipeAction.pass),
-                  onLike: () => _decide(profile, SwipeAction.like),
+            if ((_profilesLoading || _loading) && _profiles.isEmpty)
+              ...List.generate(
+                3,
+                (_) => const _ProfileSkeletonTile(),
+              )
+            else
+              ..._profiles.map(
+                (profile) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: CompactProfileTile(
+                    profile: profile,
+                    onPass: () => _decide(profile, SwipeAction.pass),
+                    onLike: () => _decide(profile, SwipeAction.like),
+                  ),
                 ),
               ),
-            ),
-            if (!_profilesLoading && _profiles.isEmpty)
+            if (!_profilesLoading && !_loading && _profiles.isEmpty)
               EmptyState(
                 title: 'No profiles in this lane yet',
                 message: 'Try a different interest or relationship goal.',

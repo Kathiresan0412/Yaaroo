@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.yaaro0.app"
     compileSdk = 36
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "30.0.14904198"
 
     compileOptions {
         coreLibraryDesugaringEnabled = true

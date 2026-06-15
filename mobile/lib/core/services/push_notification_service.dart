@@ -43,27 +43,38 @@ class PushNotificationService {
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     // Request permission (iOS + Android 13+)
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
+    try {
+      final settings = await _messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      );
 
-    debugPrint('[FCM] Permission status: ${settings.authorizationStatus}');
+      debugPrint('[FCM] Permission status: ${settings.authorizationStatus}');
 
-    if (settings.authorizationStatus == AuthorizationStatus.denied) {
-      return;
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        return;
+      }
+    } catch (e) {
+      debugPrint('[FCM] Permission request failed: $e');
+      // Continue — local notifications can still work without FCM permission on
+      // devices missing Google Play Services.
     }
 
     // Setup local notifications for foreground display
     await _setupLocalNotifications();
 
-    // Get initial token
-    _fcmToken = await _messaging.getToken();
-    debugPrint('[FCM] Token: $_fcmToken');
-    if (_fcmToken != null) {
-      onTokenRefresh?.call(_fcmToken!);
+    // Get initial token — this can fail on emulators/devices without
+    // Google Play Services (MISSING_INSTANCEID_SERVICE).
+    try {
+      _fcmToken = await _messaging.getToken();
+      debugPrint('[FCM] Token: $_fcmToken');
+      if (_fcmToken != null) {
+        onTokenRefresh?.call(_fcmToken!);
+      }
+    } catch (e) {
+      debugPrint('[FCM] Token retrieval failed (missing Play Services?): $e');
     }
 
     // Listen for token refresh
@@ -79,9 +90,13 @@ class PushNotificationService {
     FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
     // Handle notification tap when app was terminated
-    final initialMessage = await _messaging.getInitialMessage();
-    if (initialMessage != null) {
-      _handleNotificationTap(initialMessage);
+    try {
+      final initialMessage = await _messaging.getInitialMessage();
+      if (initialMessage != null) {
+        _handleNotificationTap(initialMessage);
+      }
+    } catch (e) {
+      debugPrint('[FCM] getInitialMessage failed: $e');
     }
   }
 
