@@ -1404,13 +1404,13 @@ class _CategoriesSkeletonGrid extends StatelessWidget {
           decoration: panelDecoration(context).copyWith(
             border: Border.all(color: Colors.transparent),
           ),
-          child: Column(
+          child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _SkeletonShimmer(width: 28, height: 28, borderRadius: 6),
-              const Spacer(),
+              Spacer(),
               _SkeletonShimmer(width: 80, height: 14, borderRadius: 4),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               _SkeletonShimmer(width: 50, height: 10, borderRadius: 4),
             ],
           ),
@@ -1429,16 +1429,16 @@ class _ProfileSkeletonTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: panelDecoration(context),
-      child: Row(
+      child: const Row(
         children: [
           _SkeletonShimmer(width: 56, height: 56, borderRadius: 28),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _SkeletonShimmer(width: 120, height: 14, borderRadius: 4),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 _SkeletonShimmer(width: 80, height: 11, borderRadius: 4),
               ],
             ),
@@ -1566,7 +1566,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
           children: [
             HeaderBar(
-              title: 'Explore',
+              title: '',
               actionLabel: YaaroScope.of(context).user == null ? 'Login' : '',
               onAction: widget.onOpenAuth,
             ),
@@ -3237,7 +3237,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: HeaderBar(
-                title: 'Matches',
+                title: '',
                 actionLabel: YaaroScope.of(context).user == null ? 'Login' : '',
                 onAction: widget.onOpenAuth,
               ),
@@ -3471,7 +3471,7 @@ class _ChatListScreenState extends State<ChatListScreen>
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
             children: [
               HeaderBar(
-                title: 'Chat',
+                title: '',
                 actionLabel: YaaroScope.of(context).user == null ? 'Login' : '',
                 onAction: widget.onOpenAuth,
               ),
@@ -4070,26 +4070,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return AppGradient(
       child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
+        child: Column(
           children: [
             HeaderBar(
-              title: 'Profile',
+              title: '',
               actionLabel: user == null ? 'Login' : 'Logout',
               onAction: user == null ? widget.onOpenAuth : widget.onLogout,
             ),
-            const SizedBox(height: 24),
-            // Profile Hero Card
-            _buildProfileHero(context, user),
-            const SizedBox(height: 16),
-            // Quick Actions
-            if (user != null) _buildQuickActions(context),
-            if (user != null) ...[
-              const SizedBox(height: 20),
-              _buildLinkedAccountsSection(context, user),
-            ],
-            const SizedBox(height: 20),
-            _buildSettingsSection(context),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
+                physics: const ClampingScrollPhysics(),
+                cacheExtent: 500,
+                children: [
+                  // Profile Hero Card
+                  _buildProfileHero(context, user),
+                  const SizedBox(height: 16),
+                  // Quick Actions
+                  if (user != null) _buildQuickActions(context),
+                  if (user != null) ...[
+                    const SizedBox(height: 20),
+                    _buildLinkedAccountsSection(context, user),
+                  ],
+                  const SizedBox(height: 20),
+                  _buildSettingsSection(context),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -5163,53 +5170,66 @@ class HeaderBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = YaaroScope.of(context).user;
 
-    return Row(
-      children: [
-        Image.asset(
-          'assets/brand/logo.png',
-          height: 28,
-          fit: BoxFit.contain,
-        ),
-        if (title != 'YaaRo0') ...[
-          const SizedBox(width: 10),
-          Text(title,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-        ],
-        const Spacer(),
-        if (user != null) ...[
-          IconButton(
-            tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined, size: 24),
-            color: YaaroColors.mutedFor(context),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SettingsScreen(),
-                ),
-              );
-            },
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Image.asset(
+            'assets/brand/logo.png',
+            height: 28,
+            fit: BoxFit.contain,
           ),
-          const SizedBox(width: 4),
-          IconButton(
-            tooltip: 'Notifications',
-            icon: const Icon(Icons.notifications_outlined, size: 24),
-            color: YaaroColors.mutedFor(context),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationsScreen(),
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 4),
+          if (title != 'YaaRo0') ...[
+            const SizedBox(width: 8),
+            Text(title,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+          ],
+          const Spacer(),
+          if (user != null) ...[
+            IconButton(
+              tooltip: 'Settings',
+              icon: const Icon(Icons.settings_outlined, size: 22),
+              color: YaaroColors.mutedFor(context),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              tooltip: 'Notifications',
+              icon: const Icon(Icons.notifications_outlined, size: 22),
+              color: YaaroColors.mutedFor(context),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const NotificationsScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
+          if (actionLabel.isNotEmpty)
+            TextButton(
+              onPressed: onAction,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(actionLabel),
+            ),
         ],
-        if (actionLabel.isNotEmpty)
-          TextButton(onPressed: onAction, child: Text(actionLabel)),
-      ],
+      ),
     );
   }
 }

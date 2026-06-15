@@ -128,6 +128,10 @@ class ApiClient {
       // Debug: log which request failed and the response body
       print('❌ API Error [${response.statusCode}] ${response.request?.url}');
       print('❌ Body: ${body.length > 500 ? body.substring(0, 500) : body}');
+      final hint = parsed['errorHint']?.toString() ?? '';
+      if (hint.isNotEmpty) {
+        print('❌ Hint: $hint');
+      }
       throw ApiException(
         parsed['message']?.toString() ?? 'Request failed.',
         errors: parsed['errors'] is Map
