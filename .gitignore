@@ -69,6 +69,7 @@ mobile/ios/Runner/GeneratedPluginRegistrant.*
 *.keystore
 *.jks
 local.properties
+key.properties
 
 # iOS / macOS
 *.xcuserstate

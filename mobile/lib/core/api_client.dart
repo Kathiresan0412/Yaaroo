@@ -125,6 +125,9 @@ class ApiClient {
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      // Debug: log which request failed and the response body
+      print('❌ API Error [${response.statusCode}] ${response.request?.url}');
+      print('❌ Body: ${body.length > 500 ? body.substring(0, 500) : body}');
       throw ApiException(
         parsed['message']?.toString() ?? 'Request failed.',
         errors: parsed['errors'] is Map
@@ -182,7 +185,7 @@ class ApiClient {
             body: body, headers: headers, isRetry: true);
       } else {
         logout();
-        throw ApiException('Your session has expired. Please log in again.');
+        // throw ApiException('Your session has expired. Please log in again.');
       }
     }
 
