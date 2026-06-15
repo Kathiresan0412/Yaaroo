@@ -108,11 +108,19 @@ class PushNotificationService {
       importance: Importance.high,
     );
 
-    // Create the channel on Android
-    await _localNotifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(androidChannel);
+    const androidCallChannel = AndroidNotificationChannel(
+      'yaaro_calls',
+      'YaaRo0 Calls',
+      description: 'Incoming call notifications.',
+      importance: Importance.max,
+    );
+
+    // Create the channels on Android
+    final androidPlugin =
+        _localNotifications.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.createNotificationChannel(androidChannel);
+    await androidPlugin?.createNotificationChannel(androidCallChannel);
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -141,6 +149,46 @@ class PushNotificationService {
 
   void _handleForegroundMessage(RemoteMessage message) {
     final notification = message.notification;
+    final data = message.data;
+
+    // Handle incoming call data messages — show the incoming call UI directly
+    if (data['type'] == 'incoming_call') {
+      final callerName = data['callerName']?.toString() ?? 'Someone';
+      final isVideo = data['isVideo'] == 'true';
+
+      // The socket event will typically arrive first and show the incoming call UI.
+      // Here we show a high-priority notification as a fallback (background/killed state).
+      _localNotifications.show(
+        message.hashCode,
+        notification?.title ??
+            (isVideo ? 'Incoming Video Call 📹' : 'Incoming Voice Call 📞'),
+        notification?.body ?? '$callerName is calling you',
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'yaaro_calls',
+            'YaaRo0 Calls',
+            channelDescription: 'Incoming call notifications.',
+            importance: Importance.max,
+            priority: Priority.max,
+            icon: '@mipmap/ic_launcher',
+            category: AndroidNotificationCategory.call,
+            fullScreenIntent: true,
+            ongoing: true,
+            autoCancel: true,
+            timeoutAfter: 45000,
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+            interruptionLevel: InterruptionLevel.timeSensitive,
+          ),
+        ),
+        payload: jsonEncode(data),
+      );
+      return;
+    }
+
     if (notification == null) return;
 
     // Show a local notification so the user sees it in foreground

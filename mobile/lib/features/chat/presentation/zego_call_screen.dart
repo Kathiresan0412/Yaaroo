@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:zego_uikit_prebuilt_call/zego_uikit_prebuilt_call.dart';
 import '../../../main.dart' show YaaroColors, YaaroScope;
+import '../../../core/services/call_service.dart';
 
 /// ZEGOCLOUD Call Screen — supports both video and voice calls.
 ///
@@ -115,6 +116,14 @@ void startZegoCall(
 
   // Use matchId as callId so both users join the same room
   final callId = 'yaaro_call_$matchId';
+
+  // Send call invitation to the other user via socket + push notification
+  CallService.instance.sendCallInvite(
+    matchId: matchId,
+    isVideo: isVideo,
+    callerName: currentUser.displayName,
+    callerPhoto: null, // Could pass user photo URL if available
+  );
 
   Navigator.push(
     context,

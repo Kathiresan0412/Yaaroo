@@ -18,6 +18,7 @@ import 'core/secure_storage.dart';
 import 'core/data_prefetcher.dart';
 import 'core/services/chat_repository.dart';
 import 'core/services/push_notification_service.dart';
+import 'core/services/call_service.dart';
 import 'features/auth/presentation/auth_sheet.dart';
 import 'features/landing/presentation/cinematic_landing_screen.dart';
 import 'features/onboarding/presentation/onboarding_wizard.dart';
@@ -149,12 +150,14 @@ class YaaroMobileApp extends StatefulWidget {
 class _YaaroMobileAppState extends State<YaaroMobileApp>
     with WidgetsBindingObserver {
   ThemeMode _themeMode = ThemeMode.dark;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadThemeMode();
+    CallService.instance.setNavigatorKey(_navigatorKey);
   }
 
   @override
@@ -225,6 +228,7 @@ class _YaaroMobileAppState extends State<YaaroMobileApp>
         child: Builder(
           builder: (context) {
             return MaterialApp(
+              navigatorKey: _navigatorKey,
               title: 'YaaRo0',
               debugShowCheckedModeBanner: false,
               themeMode: _themeMode,
@@ -698,6 +702,7 @@ class _AppShellState extends State<AppShell> {
   bool _showLanding = true;
   late AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
+  io.Socket? _globalSocket;
 
   @override
   void initState() {
@@ -711,6 +716,7 @@ class _AppShellState extends State<AppShell> {
         });
         // Prefetch all tab data in parallel on app start (user already logged in)
         DataPrefetcher.instance.prefetchAll(api);
+        _connectGlobalSocket(api);
       }
     });
   }
@@ -718,7 +724,42 @@ class _AppShellState extends State<AppShell> {
   @override
   void dispose() {
     _linkSubscription?.cancel();
+    _disconnectGlobalSocket();
     super.dispose();
+  }
+
+  void _connectGlobalSocket(ApiClient api) {
+    final token = api.accessToken;
+    final user = api.user;
+    if (token == null || user == null) return;
+
+    // Set up the CallService with current user info
+    CallService.instance.setCurrentUser(user.id, user.displayName);
+
+    _globalSocket = io.io(
+      socketBaseUrl,
+      io.OptionBuilder()
+          .setTransports(['websocket', 'polling'])
+          .setAuth({'token': token})
+          .disableAutoConnect()
+          .build(),
+    );
+
+    _globalSocket!.connect();
+
+    // Attach the CallService to this socket so it can receive incoming calls
+    CallService.instance.attachSocket(_globalSocket!);
+  }
+
+  void _disconnectGlobalSocket() {
+    CallService.instance.detach();
+    if (_globalSocket != null) {
+      try {
+        _globalSocket!.clearListeners();
+        _globalSocket!.disconnect();
+      } catch (_) {}
+      _globalSocket = null;
+    }
   }
 
   void _initDeepLinks() {
@@ -815,7 +856,9 @@ class _AppShellState extends State<AppShell> {
           _showLanding = false;
         });
         // Prefetch all tab data after OAuth login
-        DataPrefetcher.instance.prefetchAll(YaaroScope.of(context));
+        final api = YaaroScope.of(context);
+        DataPrefetcher.instance.prefetchAll(api);
+        _connectGlobalSocket(api);
       }
     } catch (_) {
       // OAuth parse error silenced for production
@@ -841,7 +884,9 @@ class _AppShellState extends State<AppShell> {
       if (YaaroScope.of(context).user != null) {
         _showLanding = false;
         // Prefetch all tab data after deep link auth
-        DataPrefetcher.instance.prefetchAll(YaaroScope.of(context));
+        final api = YaaroScope.of(context);
+        DataPrefetcher.instance.prefetchAll(api);
+        _connectGlobalSocket(api);
       }
     });
   }
@@ -871,6 +916,7 @@ class _AppShellState extends State<AppShell> {
           await api.logout();
           await ChatRepository.instance.clearAll();
           DataPrefetcher.instance.clear();
+          _disconnectGlobalSocket();
           setState(() {
             _showLanding = true;
             _tab = 0;
@@ -896,6 +942,7 @@ class _AppShellState extends State<AppShell> {
           await api.logout();
           await ChatRepository.instance.clearAll();
           DataPrefetcher.instance.clear();
+          _disconnectGlobalSocket();
           setState(() {
             _showLanding = true;
             _tab = 0;
@@ -945,10 +992,12 @@ class _AppShellState extends State<AppShell> {
       builder: (context) => AuthSheet(initialSignup: createAccount),
     );
     setState(() {
-      if (YaaroScope.of(context).user != null) {
+      final api = YaaroScope.of(context);
+      if (api.user != null) {
         _showLanding = false;
         // Prefetch all tab data after login
-        DataPrefetcher.instance.prefetchAll(YaaroScope.of(context));
+        DataPrefetcher.instance.prefetchAll(api);
+        _connectGlobalSocket(api);
       }
     });
   }
