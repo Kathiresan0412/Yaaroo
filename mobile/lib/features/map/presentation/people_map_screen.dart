@@ -103,10 +103,8 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        setState(() {
-          _error = 'Location services are disabled. Enable them in settings.';
-          _loading = false;
-        });
+        // Fall back to profile location instead of showing error
+        await _fallbackToProfileLocation();
         return;
       }
 
@@ -114,19 +112,12 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          setState(() {
-            _error = 'Location permission denied.';
-            _loading = false;
-          });
+          await _fallbackToProfileLocation();
           return;
         }
       }
       if (permission == LocationPermission.deniedForever) {
-        setState(() {
-          _error =
-              'Location permission permanently denied. Enable it in settings.';
-          _loading = false;
-        });
+        await _fallbackToProfileLocation();
         return;
       }
 
@@ -140,9 +131,53 @@ class _PeopleMapScreenState extends State<PeopleMapScreen> {
         _loading = false;
       });
       await _loadNearbyPeople();
+
+      // If no people found near GPS location, try profile location
+      if (_people.isEmpty) {
+        await _fallbackToProfileLocation(keepCenter: false);
+      }
     } catch (e) {
+      await _fallbackToProfileLocation();
+    }
+  }
+
+  /// Use the user's stored profile location when GPS doesn't find nearby people.
+  Future<void> _fallbackToProfileLocation({bool keepCenter = false}) async {
+    try {
+      final api = YaaroScope.of(context);
+      final profile = await api.getProfileMe();
+      final location = profile['location'] as Map<String, dynamic>?;
+      if (location != null) {
+        final lat = double.tryParse(location['latitude']?.toString() ?? '');
+        final lng = double.tryParse(location['longitude']?.toString() ?? '');
+        if (lat != null && lng != null) {
+          if (!keepCenter || _center.latitude == 0) {
+            setState(() {
+              _center = LatLng(lat, lng);
+              _loading = false;
+            });
+          }
+          // Load people near the profile location
+          final results = await api.nearbyForMap(lat: lat, lng: lng);
+          if (mounted && results.isNotEmpty) {
+            setState(() {
+              _people =
+                  results.map((json) => MapPerson.fromJson(json)).toList();
+              // Center on the profile location if we found people there
+              _center = LatLng(lat, lng);
+              _loading = false;
+            });
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[Map] Profile location fallback failed: $e');
+    }
+
+    if (mounted && _loading) {
       setState(() {
-        _error = 'Could not get your location.';
+        _error = 'Could not determine your location.';
         _loading = false;
       });
     }

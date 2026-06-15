@@ -488,10 +488,11 @@ class ApiClient {
   Future<List<Map<String, dynamic>>> nearbyForMap({
     required double lat,
     required double lng,
+    int radiusKm = 200,
   }) async {
     final response = await _request(
       'GET',
-      '/api/discover/nearby?lat=$lat&lng=$lng',
+      '/api/discover/nearby?lat=$lat&lng=$lng&radius=$radiusKm',
     );
     final payload = await _decode(response);
     if (payload['users'] is List) {

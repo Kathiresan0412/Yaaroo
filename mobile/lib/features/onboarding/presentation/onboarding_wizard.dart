@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 
@@ -8,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart' show ApiException;
+import '../../../core/services/geocoding_service.dart';
 import '../../../main.dart'
     show YaaroScope, YaaroColors, AppTextField, webBaseUrl;
 import 'package:url_launcher/url_launcher.dart';
@@ -51,6 +53,12 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   double? _latitude;
   double? _longitude;
   String? _oauthProvider;
+
+  // City search / geocoding state
+  Timer? _citySearchDebounce;
+  List<GeocodingResult> _citySuggestions = [];
+  bool _showCitySuggestions = false;
+  bool _geocoding = false;
   String? _userId;
   DateTime? _dateOfBirth;
   String? _gender;
@@ -310,11 +318,21 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
   @override
   void initState() {
     super.initState();
+    _cityFocus.addListener(_onCityFocusChanged);
     Future.delayed(Duration.zero, _loadProfileData);
+  }
+
+  void _onCityFocusChanged() {
+    if (!_cityFocus.hasFocus) {
+      // When user leaves the city field without picking a suggestion, try to geocode
+      _geocodeManualCity();
+    }
   }
 
   @override
   void dispose() {
+    _citySearchDebounce?.cancel();
+    _cityFocus.removeListener(_onCityFocusChanged);
     _displayNameFocus.dispose();
     _coreProfileFocus.dispose();
     _bioFocus.dispose();
@@ -443,37 +461,123 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
 
   Future<Map<String, String>> _cityFromCoordinates(
       double latitude, double longitude) async {
-    final uri = Uri.https(
-      'api.bigdatacloud.net',
-      '/data/reverse-geocode-client',
-      {
-        'latitude': latitude.toString(),
-        'longitude': longitude.toString(),
-        'localityLanguage': 'en',
-      },
+    // Try BigDataCloud first (fast, usually works for major cities)
+    try {
+      final uri = Uri.https(
+        'api.bigdatacloud.net',
+        '/data/reverse-geocode-client',
+        {
+          'latitude': latitude.toString(),
+          'longitude': longitude.toString(),
+          'localityLanguage': 'en',
+        },
+      );
+      final response = await http.get(uri);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final payload = jsonDecode(response.body);
+        if (payload is Map<String, dynamic>) {
+          final city = payload['city']?.toString().trim().isNotEmpty == true
+              ? payload['city'].toString().trim()
+              : payload['locality']?.toString().trim().isNotEmpty == true
+                  ? payload['locality'].toString().trim()
+                  : payload['principalSubdivision']?.toString().trim() ?? '';
+          final country = payload['countryName']?.toString().trim() ?? '';
+          if (city.isNotEmpty && country.isNotEmpty) {
+            return {'city': city, 'country': country};
+          }
+        }
+      }
+    } catch (_) {
+      // Fall through to Nominatim
+    }
+
+    // Fallback: use our GeocodingService (Nominatim) for better coverage
+    final result = await GeocodingService.instance.reverseGeocode(
+      latitude: latitude,
+      longitude: longitude,
     );
-    final response = await http.get(uri);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException('Unable to find your city from device location.');
+    if (result != null && result.city.isNotEmpty && result.country.isNotEmpty) {
+      return {'city': result.city, 'country': result.country};
     }
 
-    final payload = jsonDecode(response.body);
-    if (payload is! Map<String, dynamic>) {
-      throw ApiException('Unable to find your city from device location.');
+    throw ApiException('Unable to find your city from device location.');
+  }
+
+  // ─── City Search & Geocoding ───────────────────────────────────────────────
+
+  void _onCitySearchChanged(String query) {
+    _citySearchDebounce?.cancel();
+    if (query.trim().length < 2) {
+      setState(() {
+        _citySuggestions = [];
+        _showCitySuggestions = false;
+      });
+      return;
     }
 
-    final city = payload['city']?.toString().trim().isNotEmpty == true
-        ? payload['city'].toString().trim()
-        : payload['locality']?.toString().trim().isNotEmpty == true
-            ? payload['locality'].toString().trim()
-            : payload['principalSubdivision']?.toString().trim() ?? '';
-    final country = payload['countryName']?.toString().trim() ?? '';
+    _citySearchDebounce = Timer(const Duration(milliseconds: 400), () {
+      _searchCities(query.trim());
+    });
+  }
 
-    if (city.isEmpty || country.isEmpty) {
-      throw ApiException('Unable to find your city from device location.');
+  Future<void> _searchCities(String query) async {
+    // Include country for better results if one is already selected
+    final searchQuery = _country.text.trim().isNotEmpty
+        ? '$query, ${_country.text.trim()}'
+        : query;
+
+    final results = await GeocodingService.instance.searchPlaces(searchQuery);
+    if (!mounted) return;
+    setState(() {
+      _citySuggestions = results;
+      _showCitySuggestions = results.isNotEmpty;
+    });
+  }
+
+  void _selectCitySuggestion(GeocodingResult result) {
+    setState(() {
+      _city.text = result.city;
+      _country.text = result.country;
+      _latitude = result.latitude;
+      _longitude = result.longitude;
+      _citySuggestions = [];
+      _showCitySuggestions = false;
+      _cityHasError = false;
+    });
+    _showToast('Location set: ${result.city}, ${result.country}',
+        isError: false);
+  }
+
+  /// Geocode the manually entered city/country when the user moves away from
+  /// the text field without picking a suggestion.
+  Future<void> _geocodeManualCity() async {
+    final city = _city.text.trim();
+    final country = _country.text.trim();
+    if (city.isEmpty || _latitude != null) return;
+
+    setState(() => _geocoding = true);
+    final result = await GeocodingService.instance.geocode(
+      city: city,
+      country: country.isEmpty ? '' : country,
+    );
+    if (!mounted) return;
+
+    if (result != null) {
+      setState(() {
+        _latitude = result.latitude;
+        _longitude = result.longitude;
+        // Update country if it was resolved from the city search
+        if (country.isEmpty && result.country.isNotEmpty) {
+          _country.text = result.country;
+        }
+        _geocoding = false;
+      });
+    } else {
+      setState(() => _geocoding = false);
+      _showToast(
+        'Could not find "$city" on the map. Try a nearby larger city or use your device location.',
+      );
     }
-
-    return {'city': city, 'country': country};
   }
 
   Future<void> _useDeviceLocation() async {
@@ -923,6 +1027,17 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           }
 
           if (_city.text.trim().isNotEmpty && _country.text.trim().isNotEmpty) {
+            // Auto-geocode if the user typed a city but coordinates are missing
+            if (_latitude == null || _longitude == null) {
+              final result = await GeocodingService.instance.geocode(
+                city: _city.text.trim(),
+                country: _country.text.trim(),
+              );
+              if (result != null) {
+                _latitude = result.latitude;
+                _longitude = result.longitude;
+              }
+            }
             await api.updateLocation(
                 _latitude, _longitude, _city.text.trim(), _country.text.trim());
           }
@@ -1968,9 +2083,75 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const SizedBox(height: 6),
         const Text(
-            'Select your current city and country to see matches near you.',
+            'Search for your city — we\'ll find the coordinates so you show up on the map.',
             style: TextStyle(color: YaaroColors.muted, fontSize: 13)),
         const SizedBox(height: 18),
+        // City search with autocomplete suggestions
+        AppTextField(
+          controller: _city,
+          label: 'City',
+          focusNode: _cityFocus,
+          hasError: _cityHasError,
+          onChanged: (val) {
+            if (_cityHasError && val.trim().isNotEmpty) {
+              setState(() => _cityHasError = false);
+            }
+            // Reset coordinates when the user types a new city
+            _latitude = null;
+            _longitude = null;
+            _onCitySearchChanged(val);
+          },
+        ),
+        // City autocomplete suggestions
+        if (_showCitySuggestions && _citySuggestions.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            constraints: const BoxConstraints(maxHeight: 200),
+            decoration: BoxDecoration(
+              color: YaaroColors.isDarkFor(context)
+                  ? const Color(0xFF1E1E1E)
+                  : Colors.white,
+              border: Border.all(color: YaaroColors.lineFor(context)),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: _citySuggestions.length,
+              separatorBuilder: (_, __) =>
+                  Divider(height: 1, color: YaaroColors.lineFor(context)),
+              itemBuilder: (context, index) {
+                final suggestion = _citySuggestions[index];
+                return ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.location_on_outlined,
+                      size: 20, color: YaaroColors.teal),
+                  title: Text(
+                    '${suggestion.city}, ${suggestion.country}',
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: Text(
+                    suggestion.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 11, color: YaaroColors.mutedFor(context)),
+                  ),
+                  onTap: () => _selectCitySuggestion(suggestion),
+                );
+              },
+            ),
+          ),
+        const SizedBox(height: 12),
+        // Country field (auto-filled from city selection, but editable)
         _buildDropdown(
             'Country',
             _country.text.trim().isEmpty
@@ -1985,17 +2166,70 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           });
         }),
         const SizedBox(height: 12),
-        AppTextField(
-          controller: _city,
-          label: 'City',
-          focusNode: _cityFocus,
-          hasError: _cityHasError,
-          onChanged: (val) {
-            if (_cityHasError && val.trim().isNotEmpty) {
-              setState(() => _cityHasError = false);
-            }
-          },
-        ),
+        // Coordinates status indicator
+        if (_latitude != null && _longitude != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: YaaroColors.teal.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle,
+                    color: YaaroColors.teal, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Map location set for "${_city.text.trim()}"',
+                    style:
+                        const TextStyle(color: YaaroColors.teal, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (_geocoding)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.orange),
+                ),
+                SizedBox(width: 8),
+                Text('Finding location on map...',
+                    style: TextStyle(color: Colors.orange, fontSize: 12)),
+              ],
+            ),
+          )
+        else if (_city.text.trim().isNotEmpty && _latitude == null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange, size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Pick a city from the suggestions above, or use your device location.',
+                    style: TextStyle(color: Colors.orange, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(height: 18),
         OutlinedButton.icon(
           onPressed: _locating ? null : _useDeviceLocation,
