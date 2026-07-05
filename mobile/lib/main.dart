@@ -19,6 +19,8 @@ import 'core/data_prefetcher.dart';
 import 'core/services/chat_repository.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/services/call_service.dart';
+import 'core/services/socket_service.dart';
+import 'core/utils/image_utils.dart';
 import 'features/auth/presentation/auth_sheet.dart';
 import 'features/landing/presentation/cinematic_landing_screen.dart';
 import 'features/onboarding/presentation/onboarding_wizard.dart';
@@ -111,6 +113,18 @@ Future<void> main() async {
         initialToken, Platform.isAndroid ? 'android' : 'ios');
   }
 
+  // Handle incoming call FCM data messages — show the incoming call UI
+  PushNotificationService.instance.onIncomingCall = (data) {
+    CallService.instance.handleFcmIncomingCall(data);
+  };
+
+  // Handle notification taps — navigate to the incoming call screen if it's a call
+  PushNotificationService.instance.onNotificationTap = (data) {
+    if (data['type'] == 'incoming_call') {
+      CallService.instance.handleFcmIncomingCall(data);
+    }
+  };
+
   runApp(YaaroMobileApp(api: api));
 }
 
@@ -158,6 +172,7 @@ class _YaaroMobileAppState extends State<YaaroMobileApp>
     WidgetsBinding.instance.addObserver(this);
     _loadThemeMode();
     CallService.instance.setNavigatorKey(_navigatorKey);
+    CallService.instance.initCallKitListeners();
   }
 
   @override
@@ -747,12 +762,17 @@ class _AppShellState extends State<AppShell> {
 
     _globalSocket!.connect();
 
+    // Share the single socket with SocketService so other screens (e.g.
+    // MatchesScreen) can subscribe to events without opening a second connection.
+    SocketService.instance.attach(_globalSocket!);
+
     // Attach the CallService to this socket so it can receive incoming calls
     CallService.instance.attachSocket(_globalSocket!);
   }
 
   void _disconnectGlobalSocket() {
     CallService.instance.detach();
+    SocketService.instance.detach();
     if (_globalSocket != null) {
       try {
         _globalSocket!.clearListeners();
@@ -2077,8 +2097,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
   bool _likesBlurred = true;
   String _query = '';
   bool _loading = true;
-  io.Socket? _socket;
+  StreamSubscription<dynamic>? _messageSubscription;
   bool _didLoad = false;
+  // Profile cache — avoids re-fetching GET /api/users/:id/profile on every modal open
+  final Map<String, Map<String, dynamic>> _profileCache = {};
 
   @override
   void didChangeDependencies() {
@@ -2125,11 +2147,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   @override
   void dispose() {
-    if (_socket != null) {
-      try {
-        _socket!.disconnect();
-      } catch (_) {}
-    }
+    _messageSubscription?.cancel();
     super.dispose();
   }
 
@@ -2221,66 +2239,53 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   void _setupSocket() {
     final api = YaaroScope.of(context);
-    final token = api.accessToken;
-    if (token == null) return;
+    // Subscribe to new_message events on the single global socket managed by
+    // AppShell / SocketService. No second connection is opened.
+    _messageSubscription = SocketService.instance.on('new_message', (data) {
+      if (data is! Map<String, dynamic>) return;
+      final matchId = data['matchId']?.toString();
+      final senderId = data['senderId']?.toString();
+      final type = data['type']?.toString();
+      final content = data['content']?.toString();
+      final createdAt = data['createdAt']?.toString();
 
-    _socket = io.io(
-      socketBaseUrl,
-      io.OptionBuilder()
-          .setTransports(['polling', 'websocket'])
-          .setAuth({'token': token})
-          .disableAutoConnect()
-          .build(),
-    );
+      if (senderId == api.user?.id) return;
 
-    _socket!.on('new_message', (data) {
-      if (data is Map<String, dynamic>) {
-        final matchId = data['matchId']?.toString();
-        final senderId = data['senderId']?.toString();
-        final type = data['type']?.toString();
-        final content = data['content']?.toString();
-        final createdAt = data['createdAt']?.toString();
-
-        if (senderId == api.user?.id) return;
-
-        if (mounted) {
-          setState(() {
-            _matches = _matches.map((match) {
-              if (match.id == matchId) {
-                String preview = 'Message';
-                if (type == 'photo' || type == 'image') {
-                  preview = 'Photo';
-                } else if (type == 'gif') {
-                  preview = 'GIF';
-                } else if (type == 'voice') {
-                  preview = 'Voice message';
-                } else if (content != null) {
-                  preview = content;
-                }
-
-                return MatchItem(
-                  id: match.id,
-                  userId: match.userId,
-                  name: match.name,
-                  age: match.age,
-                  photoUrl: match.photoUrl,
-                  preview: preview,
-                  unreadCount: match.unreadCount + 1,
-                  compatibilityScore: match.compatibilityScore,
-                  isVerified: match.isVerified,
-                  isNew: match.isNew,
-                  matchedAt: match.matchedAt,
-                  sentAt: createdAt,
-                );
+      if (mounted) {
+        setState(() {
+          _matches = _matches.map((match) {
+            if (match.id == matchId) {
+              String preview = 'Message';
+              if (type == 'photo' || type == 'image') {
+                preview = 'Photo';
+              } else if (type == 'gif') {
+                preview = 'GIF';
+              } else if (type == 'voice') {
+                preview = 'Voice message';
+              } else if (content != null) {
+                preview = content;
               }
-              return match;
-            }).toList();
-          });
-        }
+
+              return MatchItem(
+                id: match.id,
+                userId: match.userId,
+                name: match.name,
+                age: match.age,
+                photoUrl: match.photoUrl,
+                preview: preview,
+                unreadCount: match.unreadCount + 1,
+                compatibilityScore: match.compatibilityScore,
+                isVerified: match.isVerified,
+                isNew: match.isNew,
+                matchedAt: match.matchedAt,
+                sentAt: createdAt,
+              );
+            }
+            return match;
+          }).toList();
+        });
       }
     });
-
-    _socket!.connect();
   }
 
   List<MatchItem> get _filteredMatches {
@@ -2389,8 +2394,19 @@ class _MatchesScreenState extends State<MatchesScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            // Serve from cache if available; otherwise fetch and cache the result
+            Future<Map<String, dynamic>> profileFuture;
+            if (_profileCache.containsKey(userId)) {
+              profileFuture = Future.value(_profileCache[userId]);
+            } else {
+              profileFuture =
+                  YaaroScope.of(context).getUserProfile(userId).then((data) {
+                _profileCache[userId] = data;
+                return data;
+              });
+            }
             return FutureBuilder<Map<String, dynamic>>(
-              future: YaaroScope.of(context).getUserProfile(userId),
+              future: profileFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Container(
@@ -2502,7 +2518,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                               final url =
                                                   photo['url']?.toString() ??
                                                       '';
-                                              return Image.network(url,
+                                              return cachedImage(url,
                                                   fit: BoxFit.cover);
                                             },
                                           ),
@@ -3156,7 +3172,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     child: SizedBox(
                       height: 72,
                       child: like.photoUrl != null
-                          ? Image.network(like.photoUrl!, fit: BoxFit.cover)
+                          ? cachedImage(like.photoUrl,
+                              fit: BoxFit.cover, thumbWidth: 150)
                           : Container(
                               color: YaaroColors.surfaceAltFor(context),
                               child: Icon(Icons.person,
@@ -3364,7 +3381,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   String _query = '';
   bool _loading = true;
   bool _didLoad = false;
-  io.Socket? _socket;
+  final List<StreamSubscription<dynamic>> _socketSubs = [];
   Timer? _refreshDebounce;
 
   @override
@@ -3396,7 +3413,9 @@ class _ChatListScreenState extends State<ChatListScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _refreshDebounce?.cancel();
-    _disconnectSocket();
+    for (final sub in _socketSubs) {
+      sub.cancel();
+    }
     super.dispose();
   }
 
@@ -3409,35 +3428,14 @@ class _ChatListScreenState extends State<ChatListScreen>
   }
 
   void _setupSocket() {
-    final api = YaaroScope.of(context);
-    final token = api.accessToken;
-    if (token == null) return;
-
-    _socket = io.io(
-      socketBaseUrl,
-      io.OptionBuilder()
-          .setTransports(['websocket', 'polling'])
-          .setAuth({'token': token})
-          .disableAutoConnect()
-          .build(),
-    );
-
-    // Refresh conversation list whenever a new message arrives (debounced)
-    _socket!.on('new_message', (_) => _debouncedLoad());
-    _socket!.on('receive_message', (_) => _debouncedLoad());
-    _socket!.on('message_read', (_) => _debouncedLoad());
-
-    _socket!.connect();
-  }
-
-  void _disconnectSocket() {
-    if (_socket != null) {
-      try {
-        _socket!.clearListeners();
-        _socket!.disconnect();
-      } catch (_) {}
-      _socket = null;
-    }
+    // Subscribe to the single global socket via SocketService instead of
+    // opening a dedicated connection. No extra TCP handshake needed.
+    _socketSubs
+        .add(SocketService.instance.on('new_message', (_) => _debouncedLoad()));
+    _socketSubs.add(
+        SocketService.instance.on('receive_message', (_) => _debouncedLoad()));
+    _socketSubs.add(
+        SocketService.instance.on('message_read', (_) => _debouncedLoad()));
   }
 
   /// Debounced reload — waits 500ms after the last event before refreshing,
@@ -4714,13 +4712,12 @@ class ProfileCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (profile.photoUrl != null && profile.photoUrl!.isNotEmpty)
-              Image.network(profile.photoUrl!, fit: BoxFit.cover)
-            else
-              Image.network(
-                'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70',
-                fit: BoxFit.cover,
-              ),
+            cachedImage(
+              profile.photoUrl?.isNotEmpty == true
+                  ? profile.photoUrl
+                  : 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70',
+              fit: BoxFit.cover,
+            ),
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -4839,12 +4836,13 @@ class CompactProfileTile extends StatelessWidget {
             child: SizedBox(
               width: 82,
               height: 96,
-              child: profile.photoUrl == null || profile.photoUrl!.isEmpty
-                  ? Image.network(
-                      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70',
-                      fit: BoxFit.cover,
-                    )
-                  : Image.network(profile.photoUrl!, fit: BoxFit.cover),
+              child: cachedImage(
+                profile.photoUrl?.isNotEmpty == true
+                    ? profile.photoUrl
+                    : 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70',
+                fit: BoxFit.cover,
+                thumbWidth: 200,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -4920,10 +4918,12 @@ class LikeTile extends StatelessWidget {
               child: SizedBox(
                 height: 72,
                 child: like.photoUrl != null && like.photoUrl!.isNotEmpty
-                    ? Image.network(like.photoUrl!, fit: BoxFit.cover)
-                    : Image.network(
+                    ? cachedImage(like.photoUrl,
+                        fit: BoxFit.cover, thumbWidth: 150)
+                    : cachedImage(
                         'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=70',
                         fit: BoxFit.cover,
+                        thumbWidth: 150,
                       ),
               ),
             ),
@@ -6412,8 +6412,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (!authenticated) return;
         // Credentials are saved automatically on next email/password login.
         // If they already exist from a previous login, just re-enable.
-        final existing =
-            await SecureStorage.instance.readBiometricCredentials();
+        final existing = await SecureStorage.instance.readBiometricToken();
         if (existing == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(

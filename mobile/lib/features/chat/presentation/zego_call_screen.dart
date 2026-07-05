@@ -3,12 +3,13 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:zego_uikit_prebuilt_call/zego_uikit_prebuilt_call.dart';
 import '../../../main.dart' show YaaroColors, YaaroScope;
 import '../../../core/services/call_service.dart';
+import 'outgoing_call_screen.dart';
 
 /// ZEGOCLOUD Call Screen — supports both video and voice calls.
 ///
 /// Credentials are loaded from .env:
-///   ZEGO_APP_ID=2125203085
-///   ZEGO_APP_SIGN=81555dd053b5b6d0946803c1e4c7154e675b350d0c6ad9cd3d9394ff2856e605
+///   ZEGO_APP_ID=451719323
+///   ZEGO_APP_SIGN=72d393c55831252f43353f764f7cadbc3f6db3a85bb8102a217c52dfd79bfb62
 class ZegoCallScreen extends StatelessWidget {
   const ZegoCallScreen({
     required this.callId,
@@ -96,7 +97,9 @@ class ZegoCallScreen extends StatelessWidget {
   }
 }
 
-/// Helper function to start a Zego call from the chat screen.
+/// Helper function to start a call from the chat screen.
+/// Shows OutgoingCallScreen (ringing...) and transitions to ZegoCallScreen
+/// when the callee accepts.
 void startZegoCall(
   BuildContext context, {
   required String matchId,
@@ -114,27 +117,61 @@ void startZegoCall(
     return;
   }
 
-  // Use matchId as callId so both users join the same room
   final callId = 'yaaro_call_$matchId';
 
-  // Send call invitation to the other user via socket + push notification
+  // Send call invitation to the other user via socket + FCM
   CallService.instance.sendCallInvite(
     matchId: matchId,
     isVideo: isVideo,
     callerName: currentUser.displayName,
-    callerPhoto: null, // Could pass user photo URL if available
+    callerPhoto: null,
   );
+
+  // Show outgoing call screen (ringing)
+  final outgoingKey = GlobalKey<OutgoingCallScreenState>();
+
+  // Listen for call_accepted from the callee
+  CallService.instance.onCallAccepted = () {
+    outgoingKey.currentState?.onCallAccepted();
+  };
+
+  CallService.instance.onCallRejected = () {
+    outgoingKey.currentState?.onCallRejected();
+  };
 
   Navigator.push(
     context,
     MaterialPageRoute(
-      builder: (_) => ZegoCallScreen(
-        callId: callId,
-        userId: currentUser.id,
-        userName: currentUser.displayName,
+      fullscreenDialog: true,
+      builder: (navContext) => OutgoingCallScreen(
+        key: outgoingKey,
+        calleeName: otherUserName,
+        calleePhoto: otherUserPhotoUrl,
         isVideo: isVideo,
-        otherUserName: otherUserName,
-        otherUserPhotoUrl: otherUserPhotoUrl,
+        onCancel: () {
+          // Tell the other user we cancelled
+          CallService.instance.sendCallEnd(matchId, callId);
+          CallService.instance.onCallAccepted = null;
+          CallService.instance.onCallRejected = null;
+        },
+        onConnected: () {
+          CallService.instance.onCallAccepted = null;
+          CallService.instance.onCallRejected = null;
+
+          // Replace outgoing screen with the actual Zego call screen
+          Navigator.of(navContext).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => ZegoCallScreen(
+                callId: callId,
+                userId: currentUser.id,
+                userName: currentUser.displayName,
+                isVideo: isVideo,
+                otherUserName: otherUserName,
+                otherUserPhotoUrl: otherUserPhotoUrl,
+              ),
+            ),
+          );
+        },
       ),
     ),
   );

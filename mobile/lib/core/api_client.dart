@@ -873,6 +873,14 @@ class ApiClient {
     await _decode(response);
   }
 
+  /// Marks all unread messages in a conversation as read in one call.
+  /// Replaces the previous pattern of calling markMessageRead per message.
+  Future<void> markAllMessagesRead(String matchId) async {
+    final response =
+        await _request('POST', '/api/messages/$matchId/read-all', body: {});
+    await _decode(response);
+  }
+
   Future<void> reportMessage(String messageId) async {
     final response =
         await _request('POST', '/api/messages/$messageId/report', body: {

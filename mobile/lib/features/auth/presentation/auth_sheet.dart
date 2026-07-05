@@ -1091,10 +1091,9 @@ class _AuthSheetState extends State<AuthSheet> {
       _isSuccess = false;
     });
     try {
-      // Check saved credentials first — if none, guide the user
-      final credentials =
-          await SecureStorage.instance.readBiometricCredentials();
-      if (credentials == null) {
+      // Check saved biometric token first — if none, guide the user
+      final biometric = await SecureStorage.instance.readBiometricToken();
+      if (biometric == null) {
         setState(() {
           _loading = false;
           _message =
@@ -1116,8 +1115,21 @@ class _AuthSheetState extends State<AuthSheet> {
         });
         return;
       }
+      // Exchange the stored refresh token for a new session — no password used.
       final api = YaaroScope.of(context);
-      await api.login(credentials['email']!, credentials['password']!);
+      api.refreshToken = biometric['token'];
+      final refreshed = await api.refreshSession();
+      if (!refreshed) {
+        // Token expired or revoked — clear stored token and ask for full login
+        await SecureStorage.instance.clearBiometricCredentials();
+        await SecureStorage.instance.setBiometricEnabled(false);
+        setState(() {
+          _loading = false;
+          _message =
+              'Biometric session expired. Please log in with your password.';
+        });
+        return;
+      }
       if (mounted) Navigator.pop(context);
     } on ApiException catch (e) {
       setState(() => _message = e.message);
@@ -1143,13 +1155,18 @@ class _AuthSheetState extends State<AuthSheet> {
           throw ApiException('Please fill in all fields.');
         }
         await api.login(_email.text.trim(), _password.text);
-        // Offer to save credentials for biometric login
+        // After successful login, save the refresh token as the biometric token.
+        // This avoids storing the raw password — the refresh token can be revoked
+        // server-side without requiring the user to change their password.
         if (_biometricAvailable && !_biometricEnabled) {
-          await SecureStorage.instance.saveBiometricCredentials(
-            _email.text.trim(),
-            _password.text,
-          );
-          await SecureStorage.instance.setBiometricEnabled(true);
+          final refreshToken = api.refreshToken;
+          if (refreshToken != null) {
+            await SecureStorage.instance.saveBiometricToken(
+              _email.text.trim(),
+              refreshToken,
+            );
+            await SecureStorage.instance.setBiometricEnabled(true);
+          }
         }
         if (mounted) {
           Navigator.pop(context);

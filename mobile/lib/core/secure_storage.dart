@@ -14,7 +14,9 @@ class SecureStorage {
   static const _refreshTokenKey = 'refreshToken';
   static const _biometricEnabledKey = 'biometric_enabled';
   static const _biometricEmailKey = 'biometric_email';
-  static const _biometricPasswordKey = 'biometric_password';
+  // Store a dedicated biometric token (issued by the server) instead of the
+  // raw password, so compromising the keychain does not expose credentials.
+  static const _biometricTokenKey = 'biometric_token';
 
   Future<void> writeAccessToken(String token) async {
     await _storage.write(key: _accessTokenKey, value: token);
@@ -100,22 +102,25 @@ class SecureStorage {
     return await _storage.read(key: _biometricEnabledKey) == 'true';
   }
 
-  Future<void> saveBiometricCredentials(String email, String password) async {
+  /// Save a server-issued biometric token and the email it belongs to.
+  /// The token is exchanged with the server on biometric login instead of
+  /// the raw password — so stealing the keychain does not expose credentials.
+  Future<void> saveBiometricToken(String email, String token) async {
     await _storage.write(key: _biometricEmailKey, value: email);
-    await _storage.write(key: _biometricPasswordKey, value: password);
+    await _storage.write(key: _biometricTokenKey, value: token);
   }
 
-  Future<Map<String, String>?> readBiometricCredentials() async {
+  Future<Map<String, String>?> readBiometricToken() async {
     final email = await _storage.read(key: _biometricEmailKey);
-    final password = await _storage.read(key: _biometricPasswordKey);
-    if (email == null || password == null) return null;
-    return {'email': email, 'password': password};
+    final token = await _storage.read(key: _biometricTokenKey);
+    if (email == null || token == null) return null;
+    return {'email': email, 'token': token};
   }
 
   Future<void> clearBiometricCredentials() async {
     await _storage.delete(key: _biometricEnabledKey);
     await _storage.delete(key: _biometricEmailKey);
-    await _storage.delete(key: _biometricPasswordKey);
+    await _storage.delete(key: _biometricTokenKey);
   }
 
   Future<void> write(String key, String value) async {

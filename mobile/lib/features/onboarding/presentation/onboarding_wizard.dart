@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart' show ApiException;
 import '../../../core/services/geocoding_service.dart';
+import '../../../core/utils/image_utils.dart';
 import '../../../main.dart'
     show YaaroScope, YaaroColors, AppTextField, webBaseUrl;
 import 'package:url_launcher/url_launcher.dart';
@@ -1402,7 +1403,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(photoUrl, fit: BoxFit.cover),
+                      child: cachedImage(photoUrl, fit: BoxFit.cover),
                     ),
                     if (isPrimary)
                       Positioned(

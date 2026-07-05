@@ -1,13 +1,15 @@
 import 'dart:convert';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_callkit_incoming/entities/entities.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
+import 'package:uuid/uuid.dart';
 import '../../firebase_options.dart';
 
-/// Top-level handler for background messages (must be a top-level function).
+/// Top-level handler for background/killed state FCM messages.
+/// This runs in a separate isolate — no access to app state.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (Firebase.apps.isEmpty) {
@@ -15,6 +17,75 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         options: DefaultFirebaseOptions.currentPlatform);
   }
   debugPrint('[FCM] Background message: ${message.messageId}');
+
+  final data = message.data;
+  if (data['type'] == 'incoming_call') {
+    // Show native incoming call screen even when app is killed
+    await _showNativeIncomingCall(data);
+  }
+}
+
+/// Shows the native Android/iOS incoming call UI using flutter_callkit_incoming.
+/// Works even when the app is completely dead.
+Future<void> _showNativeIncomingCall(Map<String, dynamic> data) async {
+  final callId = data['callId']?.toString() ?? const Uuid().v4();
+  final callerName = data['callerName']?.toString() ?? 'Someone';
+  final callerPhoto = data['callerPhoto']?.toString() ?? '';
+  final isVideo = data['isVideo'] == 'true' || data['isVideo'] == true;
+  final matchId = data['matchId']?.toString() ?? '';
+
+  final params = CallKitParams(
+    id: callId,
+    nameCaller: callerName,
+    appName: 'YaaRo0',
+    avatar: callerPhoto.isNotEmpty ? callerPhoto : null,
+    handle: 'YaaRo0 ${isVideo ? "Video" : "Voice"} Call',
+    type: isVideo ? 1 : 0, // 0 = voice, 1 = video
+    textAccept: 'Accept',
+    textDecline: 'Decline',
+    missedCallNotification: const NotificationParams(
+      showNotification: true,
+      isShowCallback: true,
+      subtitle: 'Missed call',
+      callbackText: 'Call back',
+    ),
+    duration: 45000, // Ring for 45 seconds
+    extra: <String, dynamic>{
+      'callId': callId,
+      'matchId': matchId,
+      'callerName': callerName,
+      'callerPhoto': callerPhoto,
+      'isVideo': isVideo.toString(),
+    },
+    headers: <String, dynamic>{},
+    android: const AndroidParams(
+      isCustomNotification: false,
+      isShowLogo: true,
+      ringtonePath: 'system_ringtone_default',
+      backgroundColor: '#0B141A',
+      actionColor: '#00A884',
+      textColor: '#FFFFFF',
+      isShowFullLockedScreen: true,
+    ),
+    ios: const IOSParams(
+      iconName: 'AppIcon',
+      handleType: 'generic',
+      supportsVideo: true,
+      maximumCallGroups: 1,
+      maximumCallsPerCallGroup: 1,
+      audioSessionMode: 'default',
+      audioSessionActive: true,
+      audioSessionPreferredSampleRate: 44100.0,
+      audioSessionPreferredIOBufferDuration: 0.005,
+      supportsDTMF: false,
+      supportsHolding: false,
+      supportsGrouping: false,
+      supportsUngrouping: false,
+      ringtonePath: 'system_ringtone_default',
+    ),
+  );
+
+  await FlutterCallkitIncoming.showCallkitIncoming(params);
 }
 
 /// Manages Firebase Cloud Messaging setup, permissions, token retrieval,
@@ -31,11 +102,13 @@ class PushNotificationService {
   String? get fcmToken => _fcmToken;
 
   /// Callback invoked with the FCM token whenever it's refreshed.
-  /// Hook this up to send the token to your backend.
   void Function(String token)? onTokenRefresh;
 
   /// Callback invoked when user taps a notification.
   void Function(Map<String, dynamic> data)? onNotificationTap;
+
+  /// Callback invoked when an incoming call arrives in foreground.
+  void Function(Map<String, dynamic> data)? onIncomingCall;
 
   /// Initialize Firebase + FCM. Call once in main() after Firebase.initializeApp.
   Future<void> init() async {
@@ -58,15 +131,12 @@ class PushNotificationService {
       }
     } catch (e) {
       debugPrint('[FCM] Permission request failed: $e');
-      // Continue — local notifications can still work without FCM permission on
-      // devices missing Google Play Services.
     }
 
     // Setup local notifications for foreground display
     await _setupLocalNotifications();
 
-    // Get initial token — this can fail on emulators/devices without
-    // Google Play Services (MISSING_INSTANCEID_SERVICE).
+    // Get initial token
     try {
       _fcmToken = await _messaging.getToken();
       debugPrint('[FCM] Token: $_fcmToken');
@@ -108,19 +178,10 @@ class PushNotificationService {
       importance: Importance.high,
     );
 
-    const androidCallChannel = AndroidNotificationChannel(
-      'yaaro_calls',
-      'YaaRo0 Calls',
-      description: 'Incoming call notifications.',
-      importance: Importance.max,
-    );
-
-    // Create the channels on Android
     final androidPlugin =
         _localNotifications.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.createNotificationChannel(androidChannel);
-    await androidPlugin?.createNotificationChannel(androidCallChannel);
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -151,47 +212,19 @@ class PushNotificationService {
     final notification = message.notification;
     final data = message.data;
 
-    // Handle incoming call data messages — show the incoming call UI directly
+    // Handle incoming call — show native call UI even in foreground
     if (data['type'] == 'incoming_call') {
-      final callerName = data['callerName']?.toString() ?? 'Someone';
-      final isVideo = data['isVideo'] == 'true';
-
-      // The socket event will typically arrive first and show the incoming call UI.
-      // Here we show a high-priority notification as a fallback (background/killed state).
-      _localNotifications.show(
-        message.hashCode,
-        notification?.title ??
-            (isVideo ? 'Incoming Video Call 📹' : 'Incoming Voice Call 📞'),
-        notification?.body ?? '$callerName is calling you',
-        NotificationDetails(
-          android: AndroidNotificationDetails(
-            'yaaro_calls',
-            'YaaRo0 Calls',
-            channelDescription: 'Incoming call notifications.',
-            importance: Importance.max,
-            priority: Priority.max,
-            icon: '@mipmap/ic_launcher',
-            category: AndroidNotificationCategory.call,
-            fullScreenIntent: true,
-            ongoing: true,
-            autoCancel: true,
-            timeoutAfter: 45000,
-          ),
-          iOS: const DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-            interruptionLevel: InterruptionLevel.timeSensitive,
-          ),
-        ),
-        payload: jsonEncode(data),
-      );
+      debugPrint('[FCM] Incoming call received in foreground');
+      // Show native incoming call screen
+      _showNativeIncomingCall(data);
+      // Also notify the CallService callback
+      onIncomingCall?.call(data);
       return;
     }
 
     if (notification == null) return;
 
-    // Show a local notification so the user sees it in foreground
+    // Show a local notification for non-call messages
     _localNotifications.show(
       message.hashCode,
       notification.title ?? 'YaaRo0',
@@ -216,7 +249,7 @@ class PushNotificationService {
     onNotificationTap?.call(message.data);
   }
 
-  /// Subscribe to a topic (e.g. 'matches', 'messages').
+  /// Subscribe to a topic.
   Future<void> subscribeToTopic(String topic) async {
     await _messaging.subscribeToTopic(topic);
   }

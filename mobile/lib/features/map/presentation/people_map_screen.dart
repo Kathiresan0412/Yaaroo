@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/utils/image_utils.dart';
 import '../../../main.dart';
 
 // ---------------------------------------------------------------------------
@@ -680,12 +681,12 @@ class _PersonMarker extends StatelessWidget {
       ),
       child: ClipOval(
         child: person.photoUrl != null && person.photoUrl!.isNotEmpty
-            ? Image.network(
-                person.photoUrl!,
+            ? cachedImage(
+                person.photoUrl,
                 fit: BoxFit.cover,
                 width: 46,
                 height: 46,
-                errorBuilder: (_, __, ___) => _buildInitial(),
+                thumbWidth: 100,
               )
             : _buildInitial(),
       ),
@@ -809,12 +810,12 @@ class _PersonDetailCard extends StatelessWidget {
                 ),
                 child: ClipOval(
                   child: person.photoUrl != null
-                      ? Image.network(
-                          person.photoUrl!,
+                      ? cachedImage(
+                          person.photoUrl,
                           fit: BoxFit.cover,
                           width: 60,
                           height: 60,
-                          errorBuilder: (_, __, ___) => _buildInitialAvatar(),
+                          thumbWidth: 120,
                         )
                       : _buildInitialAvatar(),
                 ),
@@ -1067,25 +1068,12 @@ class _PeopleListPreview extends StatelessWidget {
                     ),
                     child: ClipOval(
                       child: person.photoUrl != null
-                          ? Image.network(
-                              person.photoUrl!,
+                          ? cachedImage(
+                              person.photoUrl,
                               fit: BoxFit.cover,
                               width: 40,
                               height: 40,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: YaaroColors.rose.withValues(alpha: 0.2),
-                                child: Center(
-                                  child: Text(
-                                    person.displayName.isNotEmpty
-                                        ? person.displayName[0].toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: YaaroColors.rose,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                              thumbWidth: 80,
                             )
                           : Container(
                               color: YaaroColors.rose.withValues(alpha: 0.2),

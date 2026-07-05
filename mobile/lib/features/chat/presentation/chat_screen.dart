@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/api_client.dart';
 import '../../../core/services/chat_repository.dart';
+import '../../../core/utils/image_utils.dart';
 import '../../../main.dart'
     show MatchItem, YaaroColors, YaaroScope, isBackendNumericId, socketBaseUrl;
 import 'zego_call_screen.dart';
@@ -227,35 +228,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _fetchMatchDetails() async {
-    try {
-      // First try the conversations endpoint (uses conversation IDs)
-      final conversations = await _apiClient.conversations();
-      final found = conversations.cast<MatchItem?>().firstWhere(
-            (i) => i!.id == widget.matchId,
-            orElse: () => null,
-          );
-      if (found != null) {
-        setState(() {
-          _matchNameState = found.name;
-          _matchPhotoState = found.photoUrl;
-          if (found.lastActiveAt != null) _lastActiveAt = found.lastActiveAt;
-        });
-        return;
-      }
-      // Fallback: try matches endpoint (uses match IDs)
-      final list = await _apiClient.matches();
-      final m = list.cast<MatchItem?>().firstWhere(
-            (i) => i!.id == widget.matchId,
-            orElse: () => null,
-          );
-      if (m != null) {
-        setState(() {
-          _matchNameState = m.name;
-          _matchPhotoState = m.photoUrl;
-          if (m.lastActiveAt != null) _lastActiveAt = m.lastActiveAt;
-        });
-      }
-    } catch (_) {}
+    // widget.matchName and widget.matchPhotoUrl are already set from the
+    // MatchItem passed at the call site — no network call needed in most cases.
+    // Only fetch from server if the socket join ack gives us fresher lastActiveAt.
+    // The socket onConnect handler already updates _lastActiveAt via join_match ack,
+    // so we don't need to call conversations() or matches() here at all.
+    // This removes 2 full-list API calls per chat room open.
   }
 
   Future<void> _loadMessages(String? cursor) async {
@@ -360,14 +338,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _markUnreadAsRead() {
-    for (final m in _messages) {
-      if (!m.isMine && !m.isRead) {
-        _apiClient.markMessageRead(m.id).catchError((_) {});
-        if (_socket != null && _socket!.connected) {
-          _socket!.emit(
-              'mark_read', {'matchId': widget.matchId, 'messageId': m.id});
-        }
-      }
+    // Single batch call instead of one HTTP request per unread message.
+    // The /read-all endpoint marks the whole conversation read in one DB write.
+    _apiClient.markAllMessagesRead(widget.matchId).catchError((_) {});
+    if (_socket != null && _socket!.connected) {
+      _socket!.emit('mark_read', {'matchId': widget.matchId});
     }
   }
 
@@ -1504,16 +1479,15 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildImageBubbleContent(ChatMessage message) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
-      child: Image.network(
-        message.mediaUrl ?? '',
+      child: cachedImage(
+        message.mediaUrl,
         fit: BoxFit.cover,
-        loadingBuilder: (_, child, progress) => progress == null
-            ? child
-            : const SizedBox(
-                height: 150,
-                child: Center(
-                    child: CircularProgressIndicator(color: Colors.white30))),
-        errorBuilder: (_, __, ___) => Container(
+        placeholder: const SizedBox(
+          height: 150,
+          child:
+              Center(child: CircularProgressIndicator(color: Colors.white30)),
+        ),
+        errorWidget: Container(
             height: 150,
             color: Colors.white10,
             child: const Center(
